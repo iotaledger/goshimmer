@@ -5,27 +5,28 @@ import (
 	"sync/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/weight"
+	"github.com/iotaledger/hive.go/constraints"
 	"github.com/iotaledger/hive.go/ds/shrinkingmap"
 	"github.com/iotaledger/hive.go/runtime/syncutils"
 	"github.com/iotaledger/hive.go/stringify"
 )
 
 // SortedSet is a set of Conflicts that is sorted by their weight.
-type SortedSet[ConflictID, ResourceID IDType] struct {
+type SortedSet[ConflictID, ResourceID IDType, VotePower constraints.Comparable[VotePower]] struct {
 	// owner is the Conflict that owns this SortedSet.
-	owner *Conflict[ConflictID, ResourceID]
+	owner *Conflict[ConflictID, ResourceID, VotePower]
 
 	// members is a map of ConflictIDs to their corresponding sortedSetMember.
-	members *shrinkingmap.ShrinkingMap[ConflictID, *sortedSetMember[ConflictID, ResourceID]]
+	members *shrinkingmap.ShrinkingMap[ConflictID, *sortedSetMember[ConflictID, ResourceID, VotePower]]
 
 	// heaviestMember is the heaviest member of the SortedSet.
-	heaviestMember *sortedSetMember[ConflictID, ResourceID]
+	heaviestMember *sortedSetMember[ConflictID, ResourceID, VotePower]
 
 	// heaviestPreferredMember is the heaviest preferred member of the SortedSet.
-	heaviestPreferredMember *sortedSetMember[ConflictID, ResourceID]
+	heaviestPreferredMember *sortedSetMember[ConflictID, ResourceID, VotePower]
 
 	// pendingWeightUpdates is a collection of Conflicts that have a pending weight update.
-	pendingWeightUpdates *shrinkingmap.ShrinkingMap[ConflictID, *sortedSetMember[ConflictID, ResourceID]]
+	pendingWeightUpdates *shrinkingmap.ShrinkingMap[ConflictID, *sortedSetMember[ConflictID, ResourceID, VotePower]]
 
 	// pendingWeightUpdatesSignal is a signal that is used to notify the fixMemberPositionWorker about pending weight
 	// updates.
@@ -35,7 +36,7 @@ type SortedSet[ConflictID, ResourceID IDType] struct {
 	pendingWeightUpdatesMutex sync.RWMutex
 
 	// pendingPreferredInsteadUpdates is a collection of Conflicts that have a pending preferred instead update.
-	pendingPreferredInsteadUpdates *shrinkingmap.ShrinkingMap[ConflictID, *sortedSetMember[ConflictID, ResourceID]]
+	pendingPreferredInsteadUpdates *shrinkingmap.ShrinkingMap[ConflictID, *sortedSetMember[ConflictID, ResourceID, VotePower]]
 
 	// pendingPreferredInsteadSignal is a signal that is used to notify the fixPreferredInsteadWorker about pending
 	// preferred instead updates.
@@ -55,18 +56,18 @@ type SortedSet[ConflictID, ResourceID IDType] struct {
 }
 
 // NewSortedSet creates a new SortedSet that is owned by the given Conflict.
-func NewSortedSet[ConflictID, ResourceID IDType](owner *Conflict[ConflictID, ResourceID], pendingUpdatesCounter *syncutils.Counter) *SortedSet[ConflictID, ResourceID] {
-	s := &SortedSet[ConflictID, ResourceID]{
+func NewSortedSet[ConflictID, ResourceID IDType, VotePower constraints.Comparable[VotePower]](owner *Conflict[ConflictID, ResourceID, VotePower], pendingUpdatesCounter *syncutils.Counter) *SortedSet[ConflictID, ResourceID, VotePower] {
+	s := &SortedSet[ConflictID, ResourceID, VotePower]{
 		owner:                          owner,
-		members:                        shrinkingmap.New[ConflictID, *sortedSetMember[ConflictID, ResourceID]](),
-		pendingWeightUpdates:           shrinkingmap.New[ConflictID, *sortedSetMember[ConflictID, ResourceID]](),
+		members:                        shrinkingmap.New[ConflictID, *sortedSetMember[ConflictID, ResourceID, VotePower]](),
+		pendingWeightUpdates:           shrinkingmap.New[ConflictID, *sortedSetMember[ConflictID, ResourceID, VotePower]](),
 		pendingUpdatesCounter:          pendingUpdatesCounter,
-		pendingPreferredInsteadUpdates: shrinkingmap.New[ConflictID, *sortedSetMember[ConflictID, ResourceID]](),
+		pendingPreferredInsteadUpdates: shrinkingmap.New[ConflictID, *sortedSetMember[ConflictID, ResourceID, VotePower]](),
 	}
 	s.pendingWeightUpdatesSignal = sync.NewCond(&s.pendingWeightUpdatesMutex)
 	s.pendingPreferredInsteadSignal = sync.NewCond(&s.pendingPreferredInsteadMutex)
 
-	newMember := newSortedSetMember[ConflictID, ResourceID](s, owner)
+	newMember := newSortedSetMember[ConflictID, ResourceID, VotePower](s, owner)
 	s.members.Set(owner.ID, newMember)
 
 	s.heaviestMember = newMember
@@ -80,12 +81,12 @@ func NewSortedSet[ConflictID, ResourceID IDType](owner *Conflict[ConflictID, Res
 }
 
 // Add adds the given Conflict to the SortedSet.
-func (s *SortedSet[ConflictID, ResourceID]) Add(conflict *Conflict[ConflictID, ResourceID]) bool {
+func (s *SortedSet[ConflictID, ResourceID, VotePower]) Add(conflict *Conflict[ConflictID, ResourceID, VotePower]) bool {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	newMember, isNew := s.members.GetOrCreate(conflict.ID, func() *sortedSetMember[ConflictID, ResourceID] {
-		return newSortedSetMember[ConflictID, ResourceID](s, conflict)
+	newMember, isNew := s.members.GetOrCreate(conflict.ID, func() *sortedSetMember[ConflictID, ResourceID, VotePower] {
+		return newSortedSetMember[ConflictID, ResourceID, VotePower](s, conflict)
 	})
 	if !isNew {
 		return false
@@ -131,7 +132,7 @@ func (s *SortedSet[ConflictID, ResourceID]) Add(conflict *Conflict[ConflictID, R
 }
 
 // ForEach iterates over all Conflicts of the SortedSet and calls the given callback for each of them.
-func (s *SortedSet[ConflictID, ResourceID]) ForEach(callback func(*Conflict[ConflictID, ResourceID]) error) error {
+func (s *SortedSet[ConflictID, ResourceID, VotePower]) ForEach(callback func(*Conflict[ConflictID, ResourceID, VotePower]) error) error {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
@@ -145,14 +146,14 @@ func (s *SortedSet[ConflictID, ResourceID]) ForEach(callback func(*Conflict[Conf
 }
 
 // String returns a human-readable representation of the SortedSet.
-func (s *SortedSet[ConflictID, ResourceID]) String() string {
+func (s *SortedSet[ConflictID, ResourceID, VotePower]) String() string {
 	structBuilder := stringify.NewStructBuilder("SortedSet",
 		stringify.NewStructField("owner", s.owner.ID),
 		stringify.NewStructField("heaviestMember", s.heaviestMember.ID),
 		stringify.NewStructField("heaviestPreferredMember", s.heaviestPreferredMember.ID),
 	)
 
-	_ = s.ForEach(func(conflict *Conflict[ConflictID, ResourceID]) error {
+	_ = s.ForEach(func(conflict *Conflict[ConflictID, ResourceID, VotePower]) error {
 		structBuilder.AddField(stringify.NewStructField(conflict.ID.String(), conflict))
 		return nil
 	})
@@ -161,7 +162,7 @@ func (s *SortedSet[ConflictID, ResourceID]) String() string {
 }
 
 // notifyPendingWeightUpdate notifies the SortedSet about a pending weight update of the given member.
-func (s *SortedSet[ConflictID, ResourceID]) notifyPendingWeightUpdate(member *sortedSetMember[ConflictID, ResourceID]) {
+func (s *SortedSet[ConflictID, ResourceID, VotePower]) notifyPendingWeightUpdate(member *sortedSetMember[ConflictID, ResourceID, VotePower]) {
 	s.pendingWeightUpdatesMutex.Lock()
 	defer s.pendingWeightUpdatesMutex.Unlock()
 
@@ -173,7 +174,7 @@ func (s *SortedSet[ConflictID, ResourceID]) notifyPendingWeightUpdate(member *so
 }
 
 // fixMemberPositionWorker is a worker that fixes the position of sortedSetMembers that need to be updated.
-func (s *SortedSet[ConflictID, ResourceID]) fixMemberPositionWorker() {
+func (s *SortedSet[ConflictID, ResourceID, VotePower]) fixMemberPositionWorker() {
 	for member := s.nextPendingWeightUpdate(); member != nil; member = s.nextPendingWeightUpdate() {
 		s.applyWeightUpdate(member)
 
@@ -182,7 +183,7 @@ func (s *SortedSet[ConflictID, ResourceID]) fixMemberPositionWorker() {
 }
 
 // nextPendingWeightUpdate returns the next member that needs to be updated (or nil if the shutdown flag is set).
-func (s *SortedSet[ConflictID, ResourceID]) nextPendingWeightUpdate() *sortedSetMember[ConflictID, ResourceID] {
+func (s *SortedSet[ConflictID, ResourceID, VotePower]) nextPendingWeightUpdate() *sortedSetMember[ConflictID, ResourceID, VotePower] {
 	s.pendingWeightUpdatesMutex.Lock()
 	defer s.pendingWeightUpdatesMutex.Unlock()
 
@@ -200,7 +201,7 @@ func (s *SortedSet[ConflictID, ResourceID]) nextPendingWeightUpdate() *sortedSet
 }
 
 // applyWeightUpdate applies the weight update of the given member.
-func (s *SortedSet[ConflictID, ResourceID]) applyWeightUpdate(member *sortedSetMember[ConflictID, ResourceID]) {
+func (s *SortedSet[ConflictID, ResourceID, VotePower]) applyWeightUpdate(member *sortedSetMember[ConflictID, ResourceID, VotePower]) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -210,7 +211,7 @@ func (s *SortedSet[ConflictID, ResourceID]) applyWeightUpdate(member *sortedSetM
 }
 
 // fixMemberPosition fixes the position of the given member in the SortedSet.
-func (s *SortedSet[ConflictID, ResourceID]) fixMemberPosition(member *sortedSetMember[ConflictID, ResourceID]) {
+func (s *SortedSet[ConflictID, ResourceID, VotePower]) fixMemberPosition(member *sortedSetMember[ConflictID, ResourceID, VotePower]) {
 	preferredConflict := member.PreferredInstead()
 	memberIsPreferred := member.IsPreferred()
 
@@ -236,7 +237,7 @@ func (s *SortedSet[ConflictID, ResourceID]) fixMemberPosition(member *sortedSetM
 }
 
 // notifyPreferredInsteadUpdate notifies the SortedSet about a member that changed its preferred instead flag.
-func (s *SortedSet[ConflictID, ResourceID]) notifyPendingPreferredInsteadUpdate(member *sortedSetMember[ConflictID, ResourceID]) {
+func (s *SortedSet[ConflictID, ResourceID, VotePower]) notifyPendingPreferredInsteadUpdate(member *sortedSetMember[ConflictID, ResourceID, VotePower]) {
 	s.pendingPreferredInsteadMutex.Lock()
 	defer s.pendingPreferredInsteadMutex.Unlock()
 
@@ -248,7 +249,7 @@ func (s *SortedSet[ConflictID, ResourceID]) notifyPendingPreferredInsteadUpdate(
 }
 
 // fixMemberPositionWorker is a worker that fixes the position of sortedSetMembers that need to be updated.
-func (s *SortedSet[ConflictID, ResourceID]) fixHeaviestPreferredMemberWorker() {
+func (s *SortedSet[ConflictID, ResourceID, VotePower]) fixHeaviestPreferredMemberWorker() {
 	for member := s.nextPendingPreferredMemberUpdate(); member != nil; member = s.nextPendingPreferredMemberUpdate() {
 		s.applyPreferredInsteadUpdate(member)
 
@@ -257,7 +258,7 @@ func (s *SortedSet[ConflictID, ResourceID]) fixHeaviestPreferredMemberWorker() {
 }
 
 // nextPendingWeightUpdate returns the next member that needs to be updated (or nil if the shutdown flag is set).
-func (s *SortedSet[ConflictID, ResourceID]) nextPendingPreferredMemberUpdate() *sortedSetMember[ConflictID, ResourceID] {
+func (s *SortedSet[ConflictID, ResourceID, VotePower]) nextPendingPreferredMemberUpdate() *sortedSetMember[ConflictID, ResourceID, VotePower] {
 	s.pendingPreferredInsteadMutex.Lock()
 	defer s.pendingPreferredInsteadMutex.Unlock()
 
@@ -275,7 +276,7 @@ func (s *SortedSet[ConflictID, ResourceID]) nextPendingPreferredMemberUpdate() *
 }
 
 // applyPreferredInsteadUpdate applies the preferred instead update of the given member.
-func (s *SortedSet[ConflictID, ResourceID]) applyPreferredInsteadUpdate(member *sortedSetMember[ConflictID, ResourceID]) {
+func (s *SortedSet[ConflictID, ResourceID, VotePower]) applyPreferredInsteadUpdate(member *sortedSetMember[ConflictID, ResourceID, VotePower]) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -285,7 +286,7 @@ func (s *SortedSet[ConflictID, ResourceID]) applyPreferredInsteadUpdate(member *
 }
 
 // fixHeaviestPreferredMember fixes the heaviest preferred member of the SortedSet after updating the given member.
-func (s *SortedSet[ConflictID, ResourceID]) fixHeaviestPreferredMember(member *sortedSetMember[ConflictID, ResourceID]) {
+func (s *SortedSet[ConflictID, ResourceID, VotePower]) fixHeaviestPreferredMember(member *sortedSetMember[ConflictID, ResourceID, VotePower]) {
 	if member.IsPreferred() {
 		if member.Compare(s.heaviestPreferredMember) == weight.Heavier {
 			s.heaviestPreferredMember = member
@@ -308,7 +309,7 @@ func (s *SortedSet[ConflictID, ResourceID]) fixHeaviestPreferredMember(member *s
 }
 
 // swapNeighbors swaps the given members in the SortedSet.
-func (s *SortedSet[ConflictID, ResourceID]) swapNeighbors(heavierMember, lighterMember *sortedSetMember[ConflictID, ResourceID]) {
+func (s *SortedSet[ConflictID, ResourceID, VotePower]) swapNeighbors(heavierMember, lighterMember *sortedSetMember[ConflictID, ResourceID, VotePower]) {
 	if heavierMember.lighterMember != nil {
 		heavierMember.lighterMember.heavierMember = lighterMember
 	}

@@ -14,11 +14,11 @@ type Weight struct {
 	// OnUpdate is an event that is triggered when the weight value is updated.
 	OnUpdate *event.Event1[Value]
 
+	// Validators is the set of validators that are contributing to the validators weight.
+	Validators *sybilprotection.WeightedSet
+
 	// value is the current weight Value.
 	value Value
-
-	// validators is the set of validators that are contributing to the validators weight.
-	validators *sybilprotection.WeightedSet
 
 	// validatorsHook is the hook that is triggered when the validators weight is updated.
 	validatorsHook *event.Hook[func(int64)]
@@ -28,10 +28,20 @@ type Weight struct {
 }
 
 // New creates a new Weight instance.
-func New() *Weight {
-	return &Weight{
-		OnUpdate: event.New1[Value](),
+func New(weights *sybilprotection.Weights) *Weight {
+	w := &Weight{
+		Validators: weights.NewWeightedSet(),
+		OnUpdate:   event.New1[Value](),
 	}
+
+	w.validatorsHook = w.Validators.OnTotalWeightUpdated.Hook(func(totalWeight int64) {
+		w.mutex.Lock()
+		defer w.mutex.Unlock()
+
+		w.updateValidatorsWeight(totalWeight)
+	})
+
+	return w
 }
 
 // CumulativeWeight returns the cumulative weight of the Weight.
@@ -77,45 +87,6 @@ func (w *Weight) RemoveCumulativeWeight(delta int64) *Weight {
 		w.value = w.value.RemoveCumulativeWeight(delta)
 		w.OnUpdate.Trigger(w.value)
 	}
-
-	return w
-}
-
-// Validators returns the set of validators that are contributing to the validators weight.
-func (w *Weight) Validators() *sybilprotection.WeightedSet {
-	w.mutex.RLock()
-	defer w.mutex.RUnlock()
-
-	return w.validators
-}
-
-// SetValidators sets the validators that are contributing to the weight and returns the Weight (for chaining).
-func (w *Weight) SetValidators(validators *sybilprotection.WeightedSet) *Weight {
-	w.mutex.Lock()
-	defer w.mutex.Unlock()
-
-	if w.validators == validators {
-		return w
-	}
-
-	if w.validatorsHook != nil {
-		w.validatorsHook.Unhook()
-	}
-
-	w.validators = validators
-	if validators == nil {
-		w.updateValidatorsWeight(0)
-
-		return w
-	}
-
-	w.validatorsHook = w.validators.OnTotalWeightUpdated.Hook(func(totalWeight int64) {
-		w.mutex.Lock()
-		defer w.mutex.Unlock()
-
-		w.updateValidatorsWeight(totalWeight)
-	})
-	w.updateValidatorsWeight(validators.TotalWeight())
 
 	return w
 }
@@ -166,7 +137,7 @@ func (w *Weight) String() string {
 
 	return stringify.Struct("Weight",
 		stringify.NewStructField("Value", w.value),
-		stringify.NewStructField("Validators", w.validators),
+		stringify.NewStructField("Validators", w.Validators),
 	)
 }
 

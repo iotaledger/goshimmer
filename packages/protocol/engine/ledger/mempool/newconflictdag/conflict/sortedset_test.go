@@ -10,27 +10,31 @@ import (
 	"golang.org/x/crypto/blake2b"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/vote"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/weight"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
+	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
-type SortedConflictSet = *SortedSet[utxo.OutputID, utxo.OutputID]
+type SortedConflictSet = *SortedSet[utxo.OutputID, utxo.OutputID, vote.MockedPower]
 
-var NewSortedConflictSet = NewSortedSet[utxo.OutputID, utxo.OutputID]
+var NewSortedConflictSet = NewSortedSet[utxo.OutputID, utxo.OutputID, vote.MockedPower]
 
 func TestSortedConflict(t *testing.T) {
+	weights := sybilprotection.NewWeights(mapdb.NewMapDB())
 	pendingTasks := syncutils.NewCounter()
 
-	conflict1 := newConflict("conflict1", weight.New().AddCumulativeWeight(12), pendingTasks)
+	conflict1 := newConflict("conflict1", weight.New(weights).AddCumulativeWeight(12), pendingTasks)
 	conflict1.SetAcceptanceState(acceptance.Rejected)
-	conflict2 := newConflict("conflict2", weight.New().AddCumulativeWeight(10), pendingTasks)
-	conflict3 := newConflict("conflict3", weight.New().AddCumulativeWeight(1), pendingTasks)
+	conflict2 := newConflict("conflict2", weight.New(weights).AddCumulativeWeight(10), pendingTasks)
+	conflict3 := newConflict("conflict3", weight.New(weights).AddCumulativeWeight(1), pendingTasks)
 	conflict3.SetAcceptanceState(acceptance.Accepted)
-	conflict4 := newConflict("conflict4", weight.New().AddCumulativeWeight(11), pendingTasks)
+	conflict4 := newConflict("conflict4", weight.New(weights).AddCumulativeWeight(11), pendingTasks)
 	conflict4.SetAcceptanceState(acceptance.Rejected)
-	conflict5 := newConflict("conflict5", weight.New().AddCumulativeWeight(11), pendingTasks)
-	conflict6 := newConflict("conflict6", weight.New().AddCumulativeWeight(2), pendingTasks)
+	conflict5 := newConflict("conflict5", weight.New(weights).AddCumulativeWeight(11), pendingTasks)
+	conflict6 := newConflict("conflict6", weight.New(weights).AddCumulativeWeight(2), pendingTasks)
 	conflict6.SetAcceptanceState(acceptance.Accepted)
 
 	sortedConflicts := NewSortedConflictSet(conflict1, pendingTasks)
@@ -73,11 +77,12 @@ func TestSortedConflict(t *testing.T) {
 }
 
 func TestSortedDecreaseHeaviest(t *testing.T) {
+	weights := sybilprotection.NewWeights(mapdb.NewMapDB())
 	pendingTasks := syncutils.NewCounter()
 
-	conflict1 := newConflict("conflict1", weight.New().AddCumulativeWeight(1), pendingTasks)
+	conflict1 := newConflict("conflict1", weight.New(weights).AddCumulativeWeight(1), pendingTasks)
 	conflict1.SetAcceptanceState(acceptance.Accepted)
-	conflict2 := newConflict("conflict2", weight.New().AddCumulativeWeight(2), pendingTasks)
+	conflict2 := newConflict("conflict2", weight.New(weights).AddCumulativeWeight(2), pendingTasks)
 
 	sortedConflicts := NewSortedConflictSet(conflict1, pendingTasks)
 
@@ -95,6 +100,7 @@ func TestSortedDecreaseHeaviest(t *testing.T) {
 }
 
 func TestSortedConflictParallel(t *testing.T) {
+	weights := sybilprotection.NewWeights(mapdb.NewMapDB())
 	pendingTasks := syncutils.NewCounter()
 
 	const conflictCount = 1000
@@ -105,8 +111,8 @@ func TestSortedConflictParallel(t *testing.T) {
 	for i := 0; i < conflictCount; i++ {
 		alias := "conflict" + strconv.Itoa(i)
 
-		conflicts[alias] = newConflict(alias, weight.New(), pendingTasks)
-		parallelConflicts[alias] = newConflict(alias, weight.New(), pendingTasks)
+		conflicts[alias] = newConflict(alias, weight.New(weights), pendingTasks)
+		parallelConflicts[alias] = newConflict(alias, weight.New(weights), pendingTasks)
 	}
 
 	sortedConflicts := NewSortedConflictSet(conflicts["conflict0"], pendingTasks)

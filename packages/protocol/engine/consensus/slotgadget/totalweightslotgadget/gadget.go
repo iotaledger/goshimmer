@@ -102,7 +102,7 @@ func WithSlotConfirmationThreshold(acceptanceThreshold float64) options.Option[G
 }
 
 func IsThresholdReached(weight, otherWeight int64, threshold float64) bool {
-	return otherWeight > int64(float64(weight)*threshold)
+	return otherWeight > int64(float64(weight)*2.0/3.0)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
