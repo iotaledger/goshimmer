@@ -1,17 +1,17 @@
 package database
 
 import (
-	"github.com/iotaledger/hive.go/constraints"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/kvstore"
+	"github.com/iotaledger/hive.go/serializer/v2"
 )
 
-type PersistentSlotStorage[K, V any, KPtr IndexedKey[K], VPtr constraints.MarshalablePtr[V]] struct {
+type PersistentSlotStorage[K, V any, KPtr IndexedKey[K], VPtr serializer.MarshalablePtr[V]] struct {
 	dbManager *Manager
 	realm     kvstore.Realm
 }
 
-func NewPersistentSlotStorage[K, V any, KPtr IndexedKey[K], VPtr constraints.MarshalablePtr[V]](dbManager *Manager, realm kvstore.Realm) *PersistentSlotStorage[K, V, KPtr, VPtr] {
+func NewPersistentSlotStorage[K, V any, KPtr IndexedKey[K], VPtr serializer.MarshalablePtr[V]](dbManager *Manager, realm kvstore.Realm) *PersistentSlotStorage[K, V, KPtr, VPtr] {
 	return &PersistentSlotStorage[K, V, KPtr, VPtr]{
 		dbManager: dbManager,
 		realm:     realm,
@@ -39,5 +39,5 @@ func (p *PersistentSlotStorage[K, V, KPtr, VPtr]) Iterate(index slot.Index, call
 
 type IndexedKey[A any] interface {
 	slot.IndexedID
-	constraints.MarshalablePtr[A]
+	serializer.MarshalablePtr[A]
 }
