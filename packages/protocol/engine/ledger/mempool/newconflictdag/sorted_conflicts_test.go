@@ -1,4 +1,4 @@
-package conflict
+package newconflictdag
 
 import (
 	"math/rand"
@@ -18,9 +18,9 @@ import (
 	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
-type SortedConflictSet = *SortedSet[utxo.OutputID, utxo.OutputID, vote.MockedPower]
+type SortedConflictSet = *SortedConflicts[utxo.OutputID, utxo.OutputID, vote.MockedPower]
 
-var NewSortedConflictSet = NewSortedSet[utxo.OutputID, utxo.OutputID, vote.MockedPower]
+var NewSortedConflictSet = NewSortedConflicts[utxo.OutputID, utxo.OutputID, vote.MockedPower]
 
 func TestSortedConflict(t *testing.T) {
 	weights := sybilprotection.NewWeights(mapdb.NewMapDB())

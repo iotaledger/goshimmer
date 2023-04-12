@@ -1,4 +1,4 @@
-package conflict
+package newconflictdag
 
 // IDType is the constraint for the identifier of a conflict or a resource.
 type IDType interface {

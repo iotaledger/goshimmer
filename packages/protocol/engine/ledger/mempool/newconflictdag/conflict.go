@@ -1,4 +1,4 @@
-package conflict
+package newconflictdag
 
 import (
 	"bytes"
@@ -30,7 +30,7 @@ type Conflict[ConflictID, ResourceID IDType, VotePower constraints.Comparable[Vo
 	Children *advancedset.AdvancedSet[*Conflict[ConflictID, ResourceID, VotePower]]
 
 	// ConflictingConflicts is the set of conflicts that directly conflict with the Conflict.
-	ConflictingConflicts *SortedSet[ConflictID, ResourceID, VotePower]
+	ConflictingConflicts *SortedConflicts[ConflictID, ResourceID, VotePower]
 
 	// Weight is the Weight of the Conflict.
 	Weight *weight.Weight
@@ -81,8 +81,8 @@ type Conflict[ConflictID, ResourceID IDType, VotePower constraints.Comparable[Vo
 	module.Module
 }
 
-// New creates a new Conflict.
-func New[ConflictID, ResourceID IDType, VotePower constraints.Comparable[VotePower]](id ConflictID, parents []*Conflict[ConflictID, ResourceID, VotePower], conflictSets []*Set[ConflictID, ResourceID, VotePower], initialWeight *weight.Weight, pendingTasksCounter *syncutils.Counter, acceptanceThresholdProvider func() int64) *Conflict[ConflictID, ResourceID, VotePower] {
+// NewConflict creates a new Conflict.
+func NewConflict[ConflictID, ResourceID IDType, VotePower constraints.Comparable[VotePower]](id ConflictID, parents []*Conflict[ConflictID, ResourceID, VotePower], conflictSets []*ConflictSet[ConflictID, ResourceID, VotePower], initialWeight *weight.Weight, pendingTasksCounter *syncutils.Counter, acceptanceThresholdProvider func() int64) *Conflict[ConflictID, ResourceID, VotePower] {
 	c := &Conflict[ConflictID, ResourceID, VotePower]{
 		AcceptanceStateUpdated:  event.New2[acceptance.State, acceptance.State](),
 		PreferredInsteadUpdated: event.New1[*Conflict[ConflictID, ResourceID, VotePower]](),
@@ -117,7 +117,7 @@ func New[ConflictID, ResourceID IDType, VotePower constraints.Comparable[VotePow
 		c.setAcceptanceState(acceptance.Accepted)
 	}
 
-	c.ConflictingConflicts = NewSortedSet[ConflictID, ResourceID, VotePower](c, pendingTasksCounter)
+	c.ConflictingConflicts = NewSortedConflicts[ConflictID, ResourceID, VotePower](c, pendingTasksCounter)
 	c.JoinConflictSets(conflictSets...)
 
 	return c
@@ -148,7 +148,7 @@ func (c *Conflict[ConflictID, ResourceID, VotePower]) ApplyVote(vote *vote.Vote[
 	c.LatestVotes.Set(vote.Voter, vote)
 
 	// abort if the vote does not change the opinion of the validator
-	if exists && latestVote.IsLiked() != vote.IsLiked() {
+	if exists && latestVote.IsLiked() == vote.IsLiked() {
 		return
 	}
 
@@ -160,7 +160,7 @@ func (c *Conflict[ConflictID, ResourceID, VotePower]) ApplyVote(vote *vote.Vote[
 }
 
 // JoinConflictSets registers the Conflict with the given ConflictSets.
-func (c *Conflict[ConflictID, ResourceID, VotePower]) JoinConflictSets(conflictSets ...*Set[ConflictID, ResourceID, VotePower]) (joinedConflictSets map[ResourceID]*Set[ConflictID, ResourceID, VotePower]) {
+func (c *Conflict[ConflictID, ResourceID, VotePower]) JoinConflictSets(conflictSets ...*ConflictSet[ConflictID, ResourceID, VotePower]) (joinedConflictSets map[ResourceID]*ConflictSet[ConflictID, ResourceID, VotePower]) {
 	addConflictingConflict := func(c, conflict *Conflict[ConflictID, ResourceID, VotePower]) {
 		c.structureMutex.Lock()
 		defer c.structureMutex.Unlock()
@@ -172,7 +172,7 @@ func (c *Conflict[ConflictID, ResourceID, VotePower]) JoinConflictSets(conflictS
 		}
 	}
 
-	joinedConflictSets = make(map[ResourceID]*Set[ConflictID, ResourceID, VotePower], 0)
+	joinedConflictSets = make(map[ResourceID]*ConflictSet[ConflictID, ResourceID, VotePower], 0)
 	for _, conflictSet := range conflictSets {
 		if otherConflicts := conflictSet.Add(c); otherConflicts != nil {
 			for _, otherConflict := range otherConflicts {
@@ -395,7 +395,6 @@ func (c *Conflict[ConflictID, ResourceID, VotePower]) setPreferredInstead(prefer
 
 		if previousPreferredInstead, updated = c.preferredInstead, previousPreferredInstead != preferredInstead; updated {
 			c.preferredInstead = preferredInstead
-
 			c.PreferredInsteadUpdated.Trigger(preferredInstead)
 		}
 

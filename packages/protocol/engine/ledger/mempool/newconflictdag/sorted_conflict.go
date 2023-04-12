@@ -1,4 +1,4 @@
-package conflict
+package newconflictdag
 
 import (
 	"bytes"
@@ -11,16 +11,16 @@ import (
 	"github.com/iotaledger/hive.go/runtime/event"
 )
 
-// sortedSetMember is a wrapped Conflict that contains additional information for the SortedSet.
-type sortedSetMember[ConflictID, ResourceID IDType, VotePower constraints.Comparable[VotePower]] struct {
-	// sortedSet is the SortedSet that contains this sortedSetMember.
-	sortedSet *SortedSet[ConflictID, ResourceID, VotePower]
+// sortedConflict is a wrapped Conflict that contains additional information for the SortedConflicts.
+type sortedConflict[ConflictID, ResourceID IDType, VotePower constraints.Comparable[VotePower]] struct {
+	// sortedSet is the SortedConflicts that contains this sortedConflict.
+	sortedSet *SortedConflicts[ConflictID, ResourceID, VotePower]
 
-	// lighterMember is the sortedSetMember that is lighter than this one.
-	lighterMember *sortedSetMember[ConflictID, ResourceID, VotePower]
+	// lighterMember is the sortedConflict that is lighter than this one.
+	lighterMember *sortedConflict[ConflictID, ResourceID, VotePower]
 
-	// heavierMember is the sortedSetMember that is heavierMember than this one.
-	heavierMember *sortedSetMember[ConflictID, ResourceID, VotePower]
+	// heavierMember is the sortedConflict that is heavierMember than this one.
+	heavierMember *sortedConflict[ConflictID, ResourceID, VotePower]
 
 	// currentWeight is the current weight of the Conflict.
 	currentWeight weight.Value
@@ -52,9 +52,9 @@ type sortedSetMember[ConflictID, ResourceID IDType, VotePower constraints.Compar
 	*Conflict[ConflictID, ResourceID, VotePower]
 }
 
-// newSortedSetMember creates a new sortedSetMember.
-func newSortedSetMember[ConflictID, ResourceID IDType, VotePower constraints.Comparable[VotePower]](set *SortedSet[ConflictID, ResourceID, VotePower], conflict *Conflict[ConflictID, ResourceID, VotePower]) *sortedSetMember[ConflictID, ResourceID, VotePower] {
-	s := &sortedSetMember[ConflictID, ResourceID, VotePower]{
+// newSortedConflict creates a new sortedConflict.
+func newSortedConflict[ConflictID, ResourceID IDType, VotePower constraints.Comparable[VotePower]](set *SortedConflicts[ConflictID, ResourceID, VotePower], conflict *Conflict[ConflictID, ResourceID, VotePower]) *sortedConflict[ConflictID, ResourceID, VotePower] {
+	s := &sortedConflict[ConflictID, ResourceID, VotePower]{
 		sortedSet:               set,
 		currentWeight:           conflict.Weight.Value(),
 		currentPreferredInstead: conflict.PreferredInstead(),
@@ -71,16 +71,16 @@ func newSortedSetMember[ConflictID, ResourceID IDType, VotePower constraints.Com
 	return s
 }
 
-// Weight returns the current weight of the sortedSetMember.
-func (s *sortedSetMember[ConflictID, ResourceID, VotePower]) Weight() weight.Value {
+// Weight returns the current weight of the sortedConflict.
+func (s *sortedConflict[ConflictID, ResourceID, VotePower]) Weight() weight.Value {
 	s.weightMutex.RLock()
 	defer s.weightMutex.RUnlock()
 
 	return s.currentWeight
 }
 
-// Compare compares the sortedSetMember to another sortedSetMember.
-func (s *sortedSetMember[ConflictID, ResourceID, VotePower]) Compare(other *sortedSetMember[ConflictID, ResourceID, VotePower]) int {
+// Compare compares the sortedConflict to another sortedConflict.
+func (s *sortedConflict[ConflictID, ResourceID, VotePower]) Compare(other *sortedConflict[ConflictID, ResourceID, VotePower]) int {
 	if result := s.Weight().Compare(other.Weight()); result != weight.Equal {
 		return result
 	}
@@ -88,21 +88,21 @@ func (s *sortedSetMember[ConflictID, ResourceID, VotePower]) Compare(other *sort
 	return bytes.Compare(lo.PanicOnErr(s.ID.Bytes()), lo.PanicOnErr(other.ID.Bytes()))
 }
 
-// PreferredInstead returns the current preferred instead value of the sortedSetMember.
-func (s *sortedSetMember[ConflictID, ResourceID, VotePower]) PreferredInstead() *Conflict[ConflictID, ResourceID, VotePower] {
+// PreferredInstead returns the current preferred instead value of the sortedConflict.
+func (s *sortedConflict[ConflictID, ResourceID, VotePower]) PreferredInstead() *Conflict[ConflictID, ResourceID, VotePower] {
 	s.preferredInsteadMutex.RLock()
 	defer s.preferredInsteadMutex.RUnlock()
 
 	return s.currentPreferredInstead
 }
 
-// IsPreferred returns true if the sortedSetMember is preferred instead of its Conflicts.
-func (s *sortedSetMember[ConflictID, ResourceID, VotePower]) IsPreferred() bool {
+// IsPreferred returns true if the sortedConflict is preferred instead of its Conflicts.
+func (s *sortedConflict[ConflictID, ResourceID, VotePower]) IsPreferred() bool {
 	return s.PreferredInstead() == s.Conflict
 }
 
-// Dispose cleans up the sortedSetMember.
-func (s *sortedSetMember[ConflictID, ResourceID, VotePower]) Dispose() {
+// Dispose cleans up the sortedConflict.
+func (s *sortedConflict[ConflictID, ResourceID, VotePower]) Dispose() {
 	if s.onAcceptanceStateUpdatedHook != nil {
 		s.onAcceptanceStateUpdatedHook.Unhook()
 	}
@@ -111,14 +111,14 @@ func (s *sortedSetMember[ConflictID, ResourceID, VotePower]) Dispose() {
 	s.onPreferredUpdatedHook.Unhook()
 }
 
-func (s *sortedSetMember[ConflictID, ResourceID, VotePower]) onAcceptanceStateUpdated(_, newState acceptance.State) {
+func (s *sortedConflict[ConflictID, ResourceID, VotePower]) onAcceptanceStateUpdated(_, newState acceptance.State) {
 	if newState.IsAccepted() {
 		s.sortedSet.owner.setAcceptanceState(acceptance.Rejected)
 	}
 }
 
-// queueWeightUpdate queues a weight update for the sortedSetMember.
-func (s *sortedSetMember[ConflictID, ResourceID, VotePower]) queueWeightUpdate(newWeight weight.Value) {
+// queueWeightUpdate queues a weight update for the sortedConflict.
+func (s *sortedConflict[ConflictID, ResourceID, VotePower]) queueWeightUpdate(newWeight weight.Value) {
 	s.weightMutex.Lock()
 	defer s.weightMutex.Unlock()
 
@@ -130,8 +130,8 @@ func (s *sortedSetMember[ConflictID, ResourceID, VotePower]) queueWeightUpdate(n
 	s.sortedSet.notifyPendingWeightUpdate(s)
 }
 
-// weightUpdateApplied tries to apply a queued weight update to the sortedSetMember and returns true if successful.
-func (s *sortedSetMember[ConflictID, ResourceID, VotePower]) weightUpdateApplied() bool {
+// weightUpdateApplied tries to apply a queued weight update to the sortedConflict and returns true if successful.
+func (s *sortedConflict[ConflictID, ResourceID, VotePower]) weightUpdateApplied() bool {
 	s.weightMutex.Lock()
 	defer s.weightMutex.Unlock()
 
@@ -152,11 +152,13 @@ func (s *sortedSetMember[ConflictID, ResourceID, VotePower]) weightUpdateApplied
 }
 
 // queuePreferredInsteadUpdate notifies the sortedSet that the preferred instead flag of the Conflict was updated.
-func (s *sortedSetMember[ConflictID, ResourceID, VotePower]) queuePreferredInsteadUpdate(conflict *Conflict[ConflictID, ResourceID, VotePower]) {
+func (s *sortedConflict[ConflictID, ResourceID, VotePower]) queuePreferredInsteadUpdate(conflict *Conflict[ConflictID, ResourceID, VotePower]) {
 	s.preferredInsteadMutex.Lock()
 	defer s.preferredInsteadMutex.Unlock()
 
-	if (s.queuedPreferredInstead == nil && s.currentPreferredInstead == conflict) || (s.queuedPreferredInstead != nil && s.queuedPreferredInstead == conflict) || s.sortedSet.owner == conflict {
+	if (s.queuedPreferredInstead == nil && s.currentPreferredInstead == conflict) ||
+		(s.queuedPreferredInstead != nil && s.queuedPreferredInstead == conflict) ||
+		s.sortedSet.owner == conflict {
 		return
 	}
 
@@ -164,9 +166,9 @@ func (s *sortedSetMember[ConflictID, ResourceID, VotePower]) queuePreferredInste
 	s.sortedSet.notifyPendingPreferredInsteadUpdate(s)
 }
 
-// preferredInsteadUpdateApplied tries to apply a queued preferred instead update to the sortedSetMember and returns
+// preferredInsteadUpdateApplied tries to apply a queued preferred instead update to the sortedConflict and returns
 // true if successful.
-func (s *sortedSetMember[ConflictID, ResourceID, VotePower]) preferredInsteadUpdateApplied() bool {
+func (s *sortedConflict[ConflictID, ResourceID, VotePower]) preferredInsteadUpdateApplied() bool {
 	s.preferredInsteadMutex.Lock()
 	defer s.preferredInsteadMutex.Unlock()
 
