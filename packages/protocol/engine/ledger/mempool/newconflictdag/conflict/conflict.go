@@ -71,12 +71,18 @@ type Conflict[ConflictID, ResourceID IDType, VotePower constraints.Comparable[Vo
 	// structureMutex is used to synchronize access to the structure of the Conflict.
 	structureMutex sync.RWMutex
 
+	// acceptanceThreshold is the function that is used to retrieve the acceptance threshold of the committee.
+	acceptanceThreshold func() int64
+
+	// acceptanceUnhook
+	acceptanceUnhook func()
+
 	// Module embeds the required methods of the module.Interface.
 	module.Module
 }
 
 // New creates a new Conflict.
-func New[ConflictID, ResourceID IDType, VotePower constraints.Comparable[VotePower]](id ConflictID, parents []*Conflict[ConflictID, ResourceID, VotePower], conflictSets []*Set[ConflictID, ResourceID, VotePower], initialWeight *weight.Weight, pendingTasksCounter *syncutils.Counter) *Conflict[ConflictID, ResourceID, VotePower] {
+func New[ConflictID, ResourceID IDType, VotePower constraints.Comparable[VotePower]](id ConflictID, parents []*Conflict[ConflictID, ResourceID, VotePower], conflictSets []*Set[ConflictID, ResourceID, VotePower], initialWeight *weight.Weight, pendingTasksCounter *syncutils.Counter, acceptanceThresholdProvider func() int64) *Conflict[ConflictID, ResourceID, VotePower] {
 	c := &Conflict[ConflictID, ResourceID, VotePower]{
 		AcceptanceStateUpdated:  event.New2[acceptance.State, acceptance.State](),
 		PreferredInsteadUpdated: event.New1[*Conflict[ConflictID, ResourceID, VotePower]](),
@@ -89,18 +95,30 @@ func New[ConflictID, ResourceID IDType, VotePower constraints.Comparable[VotePow
 		LatestVotes:             shrinkingmap.New[identity.ID, *vote.Vote[VotePower]](),
 
 		childUnhookMethods:  shrinkingmap.New[ConflictID, func()](),
+		acceptanceThreshold: acceptanceThresholdProvider,
 		likedInstead:        advancedset.New[*Conflict[ConflictID, ResourceID, VotePower]](),
 		likedInsteadSources: shrinkingmap.New[ConflictID, *advancedset.AdvancedSet[*Conflict[ConflictID, ResourceID, VotePower]]](),
 	}
 
 	c.preferredInstead = c
-	c.ConflictingConflicts = NewSortedSet[ConflictID, ResourceID, VotePower](c, pendingTasksCounter)
-
-	c.JoinConflictSets(conflictSets...)
 
 	for _, parent := range parents {
 		c.UpdateParents(parent)
 	}
+
+	c.acceptanceUnhook = c.Weight.Validators.OnTotalWeightUpdated.Hook(func(updatedWeight int64) {
+		if c.IsPending() && updatedWeight >= c.acceptanceThreshold() {
+			c.setAcceptanceState(acceptance.Accepted)
+		}
+	}).Unhook
+
+	// in case the initial weight is enough to accept the conflict, accept it immediately
+	if initialWeight.Value().ValidatorsWeight() >= c.acceptanceThreshold() {
+		c.setAcceptanceState(acceptance.Accepted)
+	}
+
+	c.ConflictingConflicts = NewSortedSet[ConflictID, ResourceID, VotePower](c, pendingTasksCounter)
+	c.JoinConflictSets(conflictSets...)
 
 	return c
 }
@@ -202,18 +220,6 @@ func (c *Conflict[ConflictID, ResourceID, VotePower]) IsAccepted() bool {
 // IsRejected returns true if the Conflict is rejected.
 func (c *Conflict[ConflictID, ResourceID, VotePower]) IsRejected() bool {
 	return c.Weight.Value().AcceptanceState().IsRejected()
-}
-
-const bftThreshold = 0.67
-
-func (c *Conflict[ConflictID, ResourceID, VotePower]) TrackAcceptance(totalWeight func() int64) {
-	c.Weight.Validators.OnTotalWeightUpdated.Hook(func(updatedWeight int64) {
-		if !c.IsPending() || updatedWeight < int64(float64(totalWeight())*bftThreshold) {
-			return
-		}
-
-		c.setAcceptanceState(acceptance.Accepted)
-	})
 }
 
 // IsPreferred returns true if the Conflict is preferred instead of its conflicting Conflicts.

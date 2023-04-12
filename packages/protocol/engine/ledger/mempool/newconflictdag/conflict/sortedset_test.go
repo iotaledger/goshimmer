@@ -26,15 +26,15 @@ func TestSortedConflict(t *testing.T) {
 	weights := sybilprotection.NewWeights(mapdb.NewMapDB())
 	pendingTasks := syncutils.NewCounter()
 
-	conflict1 := newConflict("conflict1", weight.New(weights).AddCumulativeWeight(12), pendingTasks)
+	conflict1 := NewTestConflict(id("conflict1"), nil, nil, weight.New(weights).AddCumulativeWeight(12), pendingTasks, acceptance.ThresholdProvider(weights.TotalWeight))
 	conflict1.setAcceptanceState(acceptance.Rejected)
-	conflict2 := newConflict("conflict2", weight.New(weights).AddCumulativeWeight(10), pendingTasks)
-	conflict3 := newConflict("conflict3", weight.New(weights).AddCumulativeWeight(1), pendingTasks)
+	conflict2 := NewTestConflict(id("conflict2"), nil, nil, weight.New(weights).AddCumulativeWeight(10), pendingTasks, acceptance.ThresholdProvider(weights.TotalWeight))
+	conflict3 := NewTestConflict(id("conflict3"), nil, nil, weight.New(weights).AddCumulativeWeight(1), pendingTasks, acceptance.ThresholdProvider(weights.TotalWeight))
 	conflict3.setAcceptanceState(acceptance.Accepted)
-	conflict4 := newConflict("conflict4", weight.New(weights).AddCumulativeWeight(11), pendingTasks)
+	conflict4 := NewTestConflict(id("conflict4"), nil, nil, weight.New(weights).AddCumulativeWeight(11), pendingTasks, acceptance.ThresholdProvider(weights.TotalWeight))
 	conflict4.setAcceptanceState(acceptance.Rejected)
-	conflict5 := newConflict("conflict5", weight.New(weights).AddCumulativeWeight(11), pendingTasks)
-	conflict6 := newConflict("conflict6", weight.New(weights).AddCumulativeWeight(2), pendingTasks)
+	conflict5 := NewTestConflict(id("conflict5"), nil, nil, weight.New(weights).AddCumulativeWeight(11), pendingTasks, acceptance.ThresholdProvider(weights.TotalWeight))
+	conflict6 := NewTestConflict(id("conflict6"), nil, nil, weight.New(weights).AddCumulativeWeight(2), pendingTasks, acceptance.ThresholdProvider(weights.TotalWeight))
 	conflict6.setAcceptanceState(acceptance.Accepted)
 
 	sortedConflicts := NewSortedConflictSet(conflict1, pendingTasks)
@@ -80,9 +80,9 @@ func TestSortedDecreaseHeaviest(t *testing.T) {
 	weights := sybilprotection.NewWeights(mapdb.NewMapDB())
 	pendingTasks := syncutils.NewCounter()
 
-	conflict1 := newConflict("conflict1", weight.New(weights).AddCumulativeWeight(1), pendingTasks)
+	conflict1 := NewTestConflict(id("conflict1"), nil, nil, weight.New(weights).AddCumulativeWeight(1), pendingTasks, acceptance.ThresholdProvider(weights.TotalWeight))
 	conflict1.setAcceptanceState(acceptance.Accepted)
-	conflict2 := newConflict("conflict2", weight.New(weights).AddCumulativeWeight(2), pendingTasks)
+	conflict2 := NewTestConflict(id("conflict2"), nil, nil, weight.New(weights).AddCumulativeWeight(2), pendingTasks, acceptance.ThresholdProvider(weights.TotalWeight))
 
 	sortedConflicts := NewSortedConflictSet(conflict1, pendingTasks)
 
@@ -111,8 +111,8 @@ func TestSortedConflictParallel(t *testing.T) {
 	for i := 0; i < conflictCount; i++ {
 		alias := "conflict" + strconv.Itoa(i)
 
-		conflicts[alias] = newConflict(alias, weight.New(weights), pendingTasks)
-		parallelConflicts[alias] = newConflict(alias, weight.New(weights), pendingTasks)
+		conflicts[alias] = NewTestConflict(id(alias), nil, nil, weight.New(weights), pendingTasks, acceptance.ThresholdProvider(weights.TotalWeight))
+		parallelConflicts[alias] = NewTestConflict(id(alias), nil, nil, weight.New(weights), pendingTasks, acceptance.ThresholdProvider(weights.TotalWeight))
 	}
 
 	sortedConflicts := NewSortedConflictSet(conflicts["conflict0"], pendingTasks)
@@ -203,10 +203,6 @@ func assertSortedConflictsOrder(t *testing.T, sortedConflicts SortedConflictSet,
 	}, true))
 
 	require.Empty(t, aliases)
-}
-
-func newConflict(alias string, weight *weight.Weight, pendingTasksCounter *syncutils.Counter) TestConflict {
-	return NewTestConflict(id(alias), nil, nil, weight, pendingTasksCounter)
 }
 
 func id(alias string) utxo.OutputID {

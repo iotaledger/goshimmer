@@ -29,8 +29,8 @@ type ConflictDAG[ConflictID, ResourceID conflict.IDType, VotePower constraints.C
 	// ConflictParentsUpdated is triggered when the parents of a Conflict are updated.
 	ConflictParentsUpdated *event.Event3[*conflict.Conflict[ConflictID, ResourceID, VotePower], *conflict.Conflict[ConflictID, ResourceID, VotePower], []*conflict.Conflict[ConflictID, ResourceID, VotePower]]
 
-	// totalWeightProvider is the function that is used to retrieve the total weight of the network.
-	totalWeightProvider func() int64
+	// acceptanceThresholdProvider is the function that is used to retrieve the acceptance threshold of the committee.
+	acceptanceThresholdProvider func() int64
 
 	// conflictsByID is a mapping of ConflictIDs to Conflicts.
 	conflictsByID *shrinkingmap.ShrinkingMap[ConflictID, *conflict.Conflict[ConflictID, ResourceID, VotePower]]
@@ -48,16 +48,16 @@ type ConflictDAG[ConflictID, ResourceID conflict.IDType, VotePower constraints.C
 }
 
 // New creates a new ConflictDAG.
-func New[ConflictID, ResourceID conflict.IDType, VotePower constraints.Comparable[VotePower]](totalWeightProvider func() int64) *ConflictDAG[ConflictID, ResourceID, VotePower] {
+func New[ConflictID, ResourceID conflict.IDType, VotePower constraints.Comparable[VotePower]](acceptanceThresholdProvider func() int64) *ConflictDAG[ConflictID, ResourceID, VotePower] {
 	return &ConflictDAG[ConflictID, ResourceID, VotePower]{
-		ConflictCreated:           event.New1[*conflict.Conflict[ConflictID, ResourceID, VotePower]](),
-		ConflictingResourcesAdded: event.New2[*conflict.Conflict[ConflictID, ResourceID, VotePower], map[ResourceID]*conflict.Set[ConflictID, ResourceID, VotePower]](),
-		ConflictParentsUpdated:    event.New3[*conflict.Conflict[ConflictID, ResourceID, VotePower], *conflict.Conflict[ConflictID, ResourceID, VotePower], []*conflict.Conflict[ConflictID, ResourceID, VotePower]](),
-		totalWeightProvider:       totalWeightProvider,
-		conflictsByID:             shrinkingmap.New[ConflictID, *conflict.Conflict[ConflictID, ResourceID, VotePower]](),
-		acceptanceHooks:           shrinkingmap.New[ConflictID, *event.Hook[func(int64)]](),
-		conflictSetsByID:          shrinkingmap.New[ResourceID, *conflict.Set[ConflictID, ResourceID, VotePower]](),
-		pendingTasks:              syncutils.NewCounter(),
+		ConflictCreated:             event.New1[*conflict.Conflict[ConflictID, ResourceID, VotePower]](),
+		ConflictingResourcesAdded:   event.New2[*conflict.Conflict[ConflictID, ResourceID, VotePower], map[ResourceID]*conflict.Set[ConflictID, ResourceID, VotePower]](),
+		ConflictParentsUpdated:      event.New3[*conflict.Conflict[ConflictID, ResourceID, VotePower], *conflict.Conflict[ConflictID, ResourceID, VotePower], []*conflict.Conflict[ConflictID, ResourceID, VotePower]](),
+		acceptanceThresholdProvider: acceptanceThresholdProvider,
+		conflictsByID:               shrinkingmap.New[ConflictID, *conflict.Conflict[ConflictID, ResourceID, VotePower]](),
+		acceptanceHooks:             shrinkingmap.New[ConflictID, *event.Hook[func(int64)]](),
+		conflictSetsByID:            shrinkingmap.New[ResourceID, *conflict.Set[ConflictID, ResourceID, VotePower]](),
+		pendingTasks:                syncutils.NewCounter(),
 	}
 }
 
@@ -71,14 +71,12 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) CreateConflict(id Confl
 		conflictSets := lo.Values(c.ConflictSets(resourceIDs...))
 
 		createdConflict, isNew := c.conflictsByID.GetOrCreate(id, func() *conflict.Conflict[ConflictID, ResourceID, VotePower] {
-			return conflict.New[ConflictID, ResourceID, VotePower](id, parents, conflictSets, initialWeight, c.pendingTasks)
+			return conflict.New[ConflictID, ResourceID, VotePower](id, parents, conflictSets, initialWeight, c.pendingTasks, c.acceptanceThresholdProvider)
 		})
 
 		if !isNew {
 			panic("tried to re-create an already existing conflict")
 		}
-
-		createdConflict.TrackAcceptance(c.totalWeightProvider)
 
 		return createdConflict
 	}()
@@ -146,8 +144,8 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) LikedInstead(conflictID
 	likedInstead := make(map[ConflictID]*conflict.Conflict[ConflictID, ResourceID, VotePower])
 	for _, conflictID := range conflictIDs {
 		if currentConflict, exists := c.conflictsByID.Get(conflictID); exists {
-			if largestConflict := largestConflict(currentConflict.LikedInstead()); largestConflict != nil {
-				likedInstead[largestConflict.ID] = largestConflict
+			if likedConflict := heaviestConflict(currentConflict.LikedInstead()); likedConflict != nil {
+				likedInstead[likedConflict.ID] = likedConflict
 			}
 		}
 	}

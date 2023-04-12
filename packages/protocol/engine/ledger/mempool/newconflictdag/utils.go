@@ -7,16 +7,16 @@ import (
 	"github.com/iotaledger/hive.go/ds/advancedset"
 )
 
-// largestConflict returns the largest Conflict from the given Conflicts.
-func largestConflict[ConflictID, ResourceID conflict.IDType, VoterPower constraints.Comparable[VoterPower]](conflicts *advancedset.AdvancedSet[*conflict.Conflict[ConflictID, ResourceID, VoterPower]]) *conflict.Conflict[ConflictID, ResourceID, VoterPower] {
-	var largestConflict *conflict.Conflict[ConflictID, ResourceID, VoterPower]
+// heaviestConflict returns the largest Conflict from the given Conflicts.
+func heaviestConflict[ConflictID, ResourceID conflict.IDType, VoterPower constraints.Comparable[VoterPower]](conflicts *advancedset.AdvancedSet[*conflict.Conflict[ConflictID, ResourceID, VoterPower]]) *conflict.Conflict[ConflictID, ResourceID, VoterPower] {
+	var result *conflict.Conflict[ConflictID, ResourceID, VoterPower]
 	_ = conflicts.ForEach(func(conflict *conflict.Conflict[ConflictID, ResourceID, VoterPower]) (err error) {
-		if conflict.Compare(largestConflict) == weight.Heavier {
-			largestConflict = conflict
+		if conflict.Compare(result) == weight.Heavier {
+			result = conflict
 		}
 
 		return nil
 	})
 
-	return largestConflict
+	return result
 }
