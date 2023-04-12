@@ -150,6 +150,22 @@ func (s *SortedConflicts[ConflictID, ResourceID, VotePower]) ForEach(callback fu
 	return nil
 }
 
+func (s *SortedConflicts[ConflictID, ResourceID, VotePower]) Dispose() {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.pendingWeightUpdatesMutex.Lock()
+	defer s.pendingWeightUpdatesMutex.Unlock()
+	s.pendingPreferredInsteadMutex.Lock()
+	defer s.pendingPreferredInsteadMutex.Unlock()
+
+	s.members.ForEach(func(conflictID ConflictID, sortedConflict *sortedConflict[ConflictID, ResourceID, VotePower]) bool {
+		sortedConflict.Dispose()
+		return true
+	})
+
+	s.isShutdown.Store(true)
+}
+
 // String returns a human-readable representation of the SortedConflicts.
 func (s *SortedConflicts[ConflictID, ResourceID, VotePower]) String() string {
 	structBuilder := stringify.NewStructBuilder("SortedConflicts",

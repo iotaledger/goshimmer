@@ -254,6 +254,27 @@ func (c *Conflict[ConflictID, ResourceID, VotePower]) LikedInstead() *advancedse
 	return c.likedInstead.Clone()
 }
 
+// Dispose cleans up the sortedConflict.
+func (c *Conflict[ConflictID, ResourceID, VotePower]) Dispose() {
+	c.structureMutex.Lock()
+	defer c.structureMutex.Unlock()
+
+	c.ConflictingConflicts.Dispose()
+
+	_ = c.Children.ForEach(func(childConflict *Conflict[ConflictID, ResourceID, VotePower]) (err error) {
+		childConflict.structureMutex.Lock()
+		defer childConflict.structureMutex.Unlock()
+
+		if childConflict.Parents.Delete(c) {
+			c.unregisterChild(childConflict)
+		}
+
+		return nil
+	})
+
+	c.acceptanceUnhook()
+}
+
 // Compare compares the Conflict to the given other Conflict.
 func (c *Conflict[ConflictID, ResourceID, VotePower]) Compare(other *Conflict[ConflictID, ResourceID, VotePower]) int {
 	// no need to lock a mutex here, because the Weight is already thread-safe
