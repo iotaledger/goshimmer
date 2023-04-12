@@ -5,7 +5,6 @@ import (
 
 	"golang.org/x/xerrors"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/conflict"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/vote"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/weight"
@@ -62,8 +61,6 @@ func New[ConflictID, ResourceID conflict.IDType, VotePower constraints.Comparabl
 	}
 }
 
-const bftThreshold = 0.67
-
 // CreateConflict creates a new Conflict that is conflicting over the given ResourceIDs and that has the given parents.
 func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) CreateConflict(id ConflictID, parentIDs []ConflictID, resourceIDs []ResourceID, initialWeight *weight.Weight) *conflict.Conflict[ConflictID, ResourceID, VotePower] {
 	createdConflict := func() *conflict.Conflict[ConflictID, ResourceID, VotePower] {
@@ -73,19 +70,17 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) CreateConflict(id Confl
 		parents := lo.Values(c.Conflicts(parentIDs...))
 		conflictSets := lo.Values(c.ConflictSets(resourceIDs...))
 
-		if createdConflict, isNew := c.conflictsByID.GetOrCreate(id, func() *conflict.Conflict[ConflictID, ResourceID, VotePower] {
+		createdConflict, isNew := c.conflictsByID.GetOrCreate(id, func() *conflict.Conflict[ConflictID, ResourceID, VotePower] {
 			return conflict.New[ConflictID, ResourceID, VotePower](id, parents, conflictSets, initialWeight, c.pendingTasks)
-		}); isNew {
-			c.acceptanceHooks.Set(createdConflict.ID, createdConflict.Weight.Validators.OnTotalWeightUpdated.Hook(func(updatedWeight int64) {
-				if createdConflict.Weight.AcceptanceState().IsPending() && updatedWeight > int64(float64(c.totalWeightProvider())*bftThreshold) {
-					createdConflict.SetAcceptanceState(acceptance.Accepted)
-				}
-			}))
+		})
 
-			return createdConflict
+		if !isNew {
+			panic("tried to re-create an already existing conflict")
 		}
 
-		panic("tried to re-create an already existing conflict")
+		createdConflict.TrackAcceptance(c.totalWeightProvider)
+
+		return createdConflict
 	}()
 
 	c.ConflictCreated.Trigger(createdConflict)

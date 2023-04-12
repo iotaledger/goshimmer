@@ -27,15 +27,15 @@ func TestSortedConflict(t *testing.T) {
 	pendingTasks := syncutils.NewCounter()
 
 	conflict1 := newConflict("conflict1", weight.New(weights).AddCumulativeWeight(12), pendingTasks)
-	conflict1.SetAcceptanceState(acceptance.Rejected)
+	conflict1.setAcceptanceState(acceptance.Rejected)
 	conflict2 := newConflict("conflict2", weight.New(weights).AddCumulativeWeight(10), pendingTasks)
 	conflict3 := newConflict("conflict3", weight.New(weights).AddCumulativeWeight(1), pendingTasks)
-	conflict3.SetAcceptanceState(acceptance.Accepted)
+	conflict3.setAcceptanceState(acceptance.Accepted)
 	conflict4 := newConflict("conflict4", weight.New(weights).AddCumulativeWeight(11), pendingTasks)
-	conflict4.SetAcceptanceState(acceptance.Rejected)
+	conflict4.setAcceptanceState(acceptance.Rejected)
 	conflict5 := newConflict("conflict5", weight.New(weights).AddCumulativeWeight(11), pendingTasks)
 	conflict6 := newConflict("conflict6", weight.New(weights).AddCumulativeWeight(2), pendingTasks)
-	conflict6.SetAcceptanceState(acceptance.Accepted)
+	conflict6.setAcceptanceState(acceptance.Accepted)
 
 	sortedConflicts := NewSortedConflictSet(conflict1, pendingTasks)
 	pendingTasks.WaitIsZero()
@@ -81,7 +81,7 @@ func TestSortedDecreaseHeaviest(t *testing.T) {
 	pendingTasks := syncutils.NewCounter()
 
 	conflict1 := newConflict("conflict1", weight.New(weights).AddCumulativeWeight(1), pendingTasks)
-	conflict1.SetAcceptanceState(acceptance.Accepted)
+	conflict1.setAcceptanceState(acceptance.Accepted)
 	conflict2 := newConflict("conflict2", weight.New(weights).AddCumulativeWeight(2), pendingTasks)
 
 	sortedConflicts := NewSortedConflictSet(conflict1, pendingTasks)

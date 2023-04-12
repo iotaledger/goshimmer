@@ -113,7 +113,7 @@ func (s *sortedSetMember[ConflictID, ResourceID, VotePower]) Dispose() {
 
 func (s *sortedSetMember[ConflictID, ResourceID, VotePower]) onAcceptanceStateUpdated(_, newState acceptance.State) {
 	if newState.IsAccepted() {
-		s.sortedSet.owner.SetAcceptanceState(acceptance.Rejected)
+		s.sortedSet.owner.setAcceptanceState(acceptance.Rejected)
 	}
 }
 

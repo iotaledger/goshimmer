@@ -21,8 +21,6 @@ import (
 	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
-type TestVotePower int
-
 type TestConflict = *Conflict[utxo.OutputID, utxo.OutputID, vote.MockedPower]
 
 type TestConflicts = []TestConflict
@@ -37,13 +35,13 @@ func TestConflict_SetRejected(t *testing.T) {
 	conflict2 := NewTestConflict(id("Conflict2"), TestConflicts{conflict1}, nil, weight.New(weights), pendingTasks)
 	conflict3 := NewTestConflict(id("Conflict3"), TestConflicts{conflict2}, nil, weight.New(weights), pendingTasks)
 
-	conflict1.SetAcceptanceState(acceptance.Rejected)
-	require.True(t, conflict1.AcceptanceState().IsRejected())
-	require.True(t, conflict2.AcceptanceState().IsRejected())
-	require.True(t, conflict3.AcceptanceState().IsRejected())
+	conflict1.setAcceptanceState(acceptance.Rejected)
+	require.True(t, conflict1.IsRejected())
+	require.True(t, conflict2.IsRejected())
+	require.True(t, conflict3.IsRejected())
 
 	conflict4 := NewTestConflict(id("Conflict4"), TestConflicts{conflict1}, nil, weight.New(weights), pendingTasks)
-	require.True(t, conflict4.AcceptanceState().IsRejected())
+	require.True(t, conflict4.IsRejected())
 }
 
 func TestConflict_UpdateParents(t *testing.T) {
@@ -70,10 +68,10 @@ func TestConflict_SetAccepted(t *testing.T) {
 		conflict2 := NewTestConflict(id("Conflict2"), nil, ConflictSets{conflictSet1, conflictSet2}, weight.New(weights), pendingTasks)
 		conflict3 := NewTestConflict(id("Conflict3"), nil, ConflictSets{conflictSet2}, weight.New(weights), pendingTasks)
 
-		conflict1.SetAcceptanceState(acceptance.Accepted)
-		require.True(t, conflict1.AcceptanceState().IsAccepted())
-		require.True(t, conflict2.AcceptanceState().IsRejected())
-		require.True(t, conflict3.AcceptanceState().IsPending())
+		conflict1.setAcceptanceState(acceptance.Accepted)
+		require.True(t, conflict1.IsAccepted())
+		require.True(t, conflict2.IsRejected())
+		require.True(t, conflict3.IsPending())
 	}
 
 	{
@@ -84,10 +82,10 @@ func TestConflict_SetAccepted(t *testing.T) {
 		conflict2 := NewTestConflict(id("Conflict2"), nil, ConflictSets{conflictSet1, conflictSet2}, weight.New(weights), pendingTasks)
 		conflict3 := NewTestConflict(id("Conflict3"), nil, ConflictSets{conflictSet2}, weight.New(weights), pendingTasks)
 
-		conflict2.SetAcceptanceState(acceptance.Accepted)
-		require.True(t, conflict1.AcceptanceState().IsRejected())
-		require.True(t, conflict2.AcceptanceState().IsAccepted())
-		require.True(t, conflict3.AcceptanceState().IsRejected())
+		conflict2.setAcceptanceState(acceptance.Accepted)
+		require.True(t, conflict1.IsRejected())
+		require.True(t, conflict2.IsAccepted())
+		require.True(t, conflict3.IsRejected())
 	}
 }
 

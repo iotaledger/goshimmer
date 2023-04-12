@@ -143,15 +143,23 @@ func (c *Conflict[ConflictID, ResourceID, VotePower]) ApplyVote(vote *vote.Vote[
 
 // JoinConflictSets registers the Conflict with the given ConflictSets.
 func (c *Conflict[ConflictID, ResourceID, VotePower]) JoinConflictSets(conflictSets ...*Set[ConflictID, ResourceID, VotePower]) (joinedConflictSets map[ResourceID]*Set[ConflictID, ResourceID, VotePower]) {
-	// no need to lock a mutex here, because the ConflictSet is already thread-safe
+	addConflictingConflict := func(c, conflict *Conflict[ConflictID, ResourceID, VotePower]) {
+		c.structureMutex.Lock()
+		defer c.structureMutex.Unlock()
+
+		if c.ConflictingConflicts.Add(conflict) {
+			if conflict.IsAccepted() {
+				c.setAcceptanceState(acceptance.Rejected)
+			}
+		}
+	}
 
 	joinedConflictSets = make(map[ResourceID]*Set[ConflictID, ResourceID, VotePower], 0)
 	for _, conflictSet := range conflictSets {
-		if otherConflicts := conflictSet.Add(c); len(otherConflicts) != 0 {
+		if otherConflicts := conflictSet.Add(c); otherConflicts != nil {
 			for _, otherConflict := range otherConflicts {
-				c.addConflictingConflict(otherConflict)
-
-				otherConflict.addConflictingConflict(c)
+				addConflictingConflict(c, otherConflict)
+				addConflictingConflict(otherConflict, c)
 			}
 
 			joinedConflictSets[conflictSet.ID] = conflictSet
@@ -173,7 +181,7 @@ func (c *Conflict[ConflictID, ResourceID, VotePower]) UpdateParents(addedParent 
 		}
 	}
 
-	if parentAdded := c.Parents.Add(addedParent); parentAdded {
+	if c.Parents.Add(addedParent) {
 		addedParent.registerChild(c)
 		updated = true
 	}
@@ -181,30 +189,31 @@ func (c *Conflict[ConflictID, ResourceID, VotePower]) UpdateParents(addedParent 
 	return updated
 }
 
-// AcceptanceState returns the acceptance state of the Conflict.
-func (c *Conflict[ConflictID, ResourceID, VotePower]) AcceptanceState() acceptance.State {
-	// no need to lock a mutex here, because the Weight is already thread-safe
-
-	return c.Weight.Value().AcceptanceState()
+// IsPending returns true if the Conflict is pending.
+func (c *Conflict[ConflictID, ResourceID, VotePower]) IsPending() bool {
+	return c.Weight.Value().AcceptanceState().IsPending()
 }
 
-// SetAcceptanceState sets the acceptance state of the Conflict and returns the previous acceptance state (it triggers
-// an AcceptanceStateUpdated event if the acceptance state was updated).
-func (c *Conflict[ConflictID, ResourceID, VotePower]) SetAcceptanceState(newState acceptance.State) (previousState acceptance.State) {
-	// no need to lock a mutex here, because the Weight is already thread-safe
+// IsAccepted returns true if the Conflict is accepted.
+func (c *Conflict[ConflictID, ResourceID, VotePower]) IsAccepted() bool {
+	return c.Weight.Value().AcceptanceState().IsAccepted()
+}
 
-	if previousState = c.Weight.SetAcceptanceState(newState); previousState != newState {
-		if newState.IsAccepted() {
-			_ = c.Parents.ForEach(func(parent *Conflict[ConflictID, ResourceID, VotePower]) (err error) {
-				parent.SetAcceptanceState(acceptance.Accepted)
-				return nil
-			})
+// IsRejected returns true if the Conflict is rejected.
+func (c *Conflict[ConflictID, ResourceID, VotePower]) IsRejected() bool {
+	return c.Weight.Value().AcceptanceState().IsRejected()
+}
+
+const bftThreshold = 0.67
+
+func (c *Conflict[ConflictID, ResourceID, VotePower]) TrackAcceptance(totalWeight func() int64) {
+	c.Weight.Validators.OnTotalWeightUpdated.Hook(func(updatedWeight int64) {
+		if !c.IsPending() || updatedWeight < int64(float64(totalWeight())*bftThreshold) {
+			return
 		}
 
-		c.AcceptanceStateUpdated.Trigger(previousState, newState)
-	}
-
-	return previousState
+		c.setAcceptanceState(acceptance.Accepted)
+	})
 }
 
 // IsPreferred returns true if the Conflict is preferred instead of its conflicting Conflicts.
@@ -285,7 +294,7 @@ func (c *Conflict[ConflictID, ResourceID, VotePower]) registerChild(child *Confl
 		c.childUnhookMethods.Set(child.ID, lo.Batch(
 			c.AcceptanceStateUpdated.Hook(func(_, newState acceptance.State) {
 				if newState.IsRejected() {
-					child.SetAcceptanceState(newState)
+					child.setAcceptanceState(newState)
 				}
 			}).Unhook,
 
@@ -305,8 +314,8 @@ func (c *Conflict[ConflictID, ResourceID, VotePower]) registerChild(child *Confl
 			child.addLikedInsteadReference(c, conflicts.Next())
 		}
 
-		if c.AcceptanceState().IsRejected() {
-			child.SetAcceptanceState(acceptance.Rejected)
+		if c.IsRejected() {
+			child.setAcceptanceState(acceptance.Rejected)
 		}
 	}
 }
@@ -323,20 +332,6 @@ func (c *Conflict[ConflictID, ResourceID, VotePower]) unregisterChild(conflict *
 			unhookFunc()
 		}
 	}
-}
-
-// addConflictingConflict adds the given conflicting Conflict and returns true if it was added.
-func (c *Conflict[ConflictID, ResourceID, VotePower]) addConflictingConflict(conflict *Conflict[ConflictID, ResourceID, VotePower]) (added bool) {
-	c.structureMutex.Lock()
-	defer c.structureMutex.Unlock()
-
-	if added = c.ConflictingConflicts.Add(conflict); added {
-		if conflict.AcceptanceState().IsAccepted() {
-			c.SetAcceptanceState(acceptance.Rejected)
-		}
-	}
-
-	return added
 }
 
 // addLikedInsteadReference adds the given reference as a liked instead reference from the given source.
@@ -414,6 +409,25 @@ func (c *Conflict[ConflictID, ResourceID, VotePower]) setPreferredInstead(prefer
 	}
 
 	return previousPreferredInstead
+}
+
+// setAcceptanceState sets the acceptance state of the Conflict and returns the previous acceptance state (it triggers
+// an AcceptanceStateUpdated event if the acceptance state was updated).
+func (c *Conflict[ConflictID, ResourceID, VotePower]) setAcceptanceState(newState acceptance.State) (previousState acceptance.State) {
+	if previousState = c.Weight.SetAcceptanceState(newState); previousState == newState {
+		return previousState
+	}
+
+	// propagate acceptance to parents first
+	if newState.IsAccepted() {
+		for _, parent := range c.Parents.Slice() {
+			parent.setAcceptanceState(acceptance.Accepted)
+		}
+	}
+
+	c.AcceptanceStateUpdated.Trigger(previousState, newState)
+
+	return previousState
 }
 
 func (c *Conflict[ConflictID, ResourceID, VotePower]) isValidatorRelevant(id identity.ID) bool {

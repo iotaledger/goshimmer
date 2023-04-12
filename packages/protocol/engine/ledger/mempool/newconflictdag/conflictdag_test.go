@@ -147,10 +147,10 @@ func TestConflictDAG_CastVotes(t *testing.T) {
 
 	require.Contains(t, conflictDAG.LikedInstead(conflictID1), conflictID2)
 
-	require.True(t, conflict1.AcceptanceState().IsRejected())
-	require.True(t, conflict2.AcceptanceState().IsAccepted())
-	require.True(t, conflict3.AcceptanceState().IsRejected())
-	require.True(t, conflict4.AcceptanceState().IsRejected())
+	require.True(t, conflict1.IsRejected())
+	require.True(t, conflict2.IsAccepted())
+	require.True(t, conflict3.IsRejected())
+	require.True(t, conflict4.IsRejected())
 
 	require.Error(t, conflictDAG.CastVotes(vote.NewVote(nodesByIdentity["nodeID3"], vote.MockedPower{
 		VotePower: 10,
@@ -206,10 +206,10 @@ func TestConflictDAG_CastVotes1(t *testing.T) {
 
 	require.Equal(t, 0, len(conflictDAG.LikedInstead(conflictID1)))
 
-	require.True(t, conflict1.AcceptanceState().IsAccepted())
-	require.True(t, conflict2.AcceptanceState().IsRejected())
-	require.True(t, conflict3.AcceptanceState().IsAccepted())
-	require.True(t, conflict4.AcceptanceState().IsRejected())
+	require.True(t, conflict1.IsAccepted())
+	require.True(t, conflict2.IsRejected())
+	require.True(t, conflict3.IsAccepted())
+	require.True(t, conflict4.IsRejected())
 }
 
 func TestConflictDAG_CreateConflict(t *testing.T) {
