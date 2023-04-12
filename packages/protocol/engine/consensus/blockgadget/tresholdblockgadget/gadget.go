@@ -85,6 +85,7 @@ func New(opts ...options.Option[Gadget]) *Gadget {
 
 		optsMarkerAcceptanceThreshold:   0.67,
 		optsMarkerConfirmationThreshold: 0.67,
+		optsConflictAcceptanceThreshold: 0.67,
 	}, opts)
 }
 
