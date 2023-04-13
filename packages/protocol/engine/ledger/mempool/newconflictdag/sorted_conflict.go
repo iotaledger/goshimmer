@@ -61,7 +61,7 @@ func newSortedConflict[ConflictID, ResourceID IDType, VotePower constraints.Comp
 		Conflict:                conflict,
 	}
 
-	if conflict != set.owner {
+	if set.owner != nil {
 		s.onAcceptanceStateUpdatedHook = conflict.AcceptanceStateUpdated.Hook(s.onAcceptanceStateUpdated)
 	}
 
@@ -101,14 +101,22 @@ func (s *sortedConflict[ConflictID, ResourceID, VotePower]) IsPreferred() bool {
 	return s.PreferredInstead() == s.Conflict
 }
 
-// Dispose cleans up the sortedConflict.
-func (s *sortedConflict[ConflictID, ResourceID, VotePower]) Dispose() {
+// Unhook cleans up the sortedConflict.
+func (s *sortedConflict[ConflictID, ResourceID, VotePower]) Unhook() {
 	if s.onAcceptanceStateUpdatedHook != nil {
 		s.onAcceptanceStateUpdatedHook.Unhook()
+		s.onAcceptanceStateUpdatedHook = nil
 	}
 
-	s.onWeightUpdatedHook.Unhook()
-	s.onPreferredUpdatedHook.Unhook()
+	if s.onWeightUpdatedHook != nil {
+		s.onWeightUpdatedHook.Unhook()
+		s.onWeightUpdatedHook = nil
+	}
+
+	if s.onPreferredUpdatedHook != nil {
+		s.onPreferredUpdatedHook.Unhook()
+		s.onPreferredUpdatedHook = nil
+	}
 }
 
 func (s *sortedConflict[ConflictID, ResourceID, VotePower]) onAcceptanceStateUpdated(_, newState acceptance.State) {
@@ -158,7 +166,7 @@ func (s *sortedConflict[ConflictID, ResourceID, VotePower]) queuePreferredInstea
 
 	if (s.queuedPreferredInstead == nil && s.currentPreferredInstead == conflict) ||
 		(s.queuedPreferredInstead != nil && s.queuedPreferredInstead == conflict) ||
-		s.sortedSet.owner == conflict {
+		s.sortedSet.owner.Conflict == conflict {
 		return
 	}
 

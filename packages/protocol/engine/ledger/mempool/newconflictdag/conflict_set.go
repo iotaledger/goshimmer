@@ -3,6 +3,8 @@ package newconflictdag
 import (
 	"sync"
 
+	"go.uber.org/atomic"
+
 	"github.com/iotaledger/hive.go/constraints"
 	"github.com/iotaledger/hive.go/ds/advancedset"
 )
@@ -14,6 +16,8 @@ type ConflictSet[ConflictID, ResourceID IDType, VotePower constraints.Comparable
 
 	// members is the set of Conflicts that are conflicting over the shared resource.
 	members *advancedset.AdvancedSet[*Conflict[ConflictID, ResourceID, VotePower]]
+
+	allMembersEvicted atomic.Bool
 
 	mutex sync.RWMutex
 }
@@ -41,17 +45,15 @@ func (c *ConflictSet[ConflictID, ResourceID, VotePower]) Add(addedConflict *Conf
 }
 
 // Remove removes a Conflict from the ConflictSet and returns all remaining members of the set.
-func (c *ConflictSet[ConflictID, ResourceID, VotePower]) Remove(removedConflict *Conflict[ConflictID, ResourceID, VotePower]) (otherMembers []*Conflict[ConflictID, ResourceID, VotePower]) {
+func (c *ConflictSet[ConflictID, ResourceID, VotePower]) Remove(removedConflict *Conflict[ConflictID, ResourceID, VotePower]) (removed bool) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	if !c.members.Delete(removedConflict) {
-		return nil
+	if removed = !c.members.Delete(removedConflict); removed && c.members.IsEmpty() {
+		if wasShutdown := c.allMembersEvicted.Swap(true); !wasShutdown {
+			// TODO: trigger conflict set removal
+		}
 	}
 
-	if c.members.IsEmpty() {
-		// TODO: trigger conflict set removal
-	}
-
-	return c.members.Slice()
+	return removed
 }

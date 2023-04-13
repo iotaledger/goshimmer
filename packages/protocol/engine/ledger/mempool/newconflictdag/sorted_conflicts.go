@@ -15,7 +15,7 @@ import (
 // SortedConflicts is a set of Conflicts that is sorted by their weight.
 type SortedConflicts[ConflictID, ResourceID IDType, VotePower constraints.Comparable[VotePower]] struct {
 	// owner is the Conflict that owns this SortedConflicts.
-	owner *Conflict[ConflictID, ResourceID, VotePower]
+	owner *sortedConflict[ConflictID, ResourceID, VotePower]
 
 	// members is a map of ConflictIDs to their corresponding sortedConflict.
 	members *shrinkingmap.ShrinkingMap[ConflictID, *sortedConflict[ConflictID, ResourceID, VotePower]]
@@ -59,7 +59,6 @@ type SortedConflicts[ConflictID, ResourceID IDType, VotePower constraints.Compar
 // NewSortedConflicts creates a new SortedConflicts that is owned by the given Conflict.
 func NewSortedConflicts[ConflictID, ResourceID IDType, VotePower constraints.Comparable[VotePower]](owner *Conflict[ConflictID, ResourceID, VotePower], pendingUpdatesCounter *syncutils.Counter) *SortedConflicts[ConflictID, ResourceID, VotePower] {
 	s := &SortedConflicts[ConflictID, ResourceID, VotePower]{
-		owner:                          owner,
 		members:                        shrinkingmap.New[ConflictID, *sortedConflict[ConflictID, ResourceID, VotePower]](),
 		pendingWeightUpdates:           shrinkingmap.New[ConflictID, *sortedConflict[ConflictID, ResourceID, VotePower]](),
 		pendingUpdatesCounter:          pendingUpdatesCounter,
@@ -68,11 +67,11 @@ func NewSortedConflicts[ConflictID, ResourceID IDType, VotePower constraints.Com
 	s.pendingWeightUpdatesSignal = sync.NewCond(&s.pendingWeightUpdatesMutex)
 	s.pendingPreferredInsteadSignal = sync.NewCond(&s.pendingPreferredInsteadMutex)
 
-	newMember := newSortedConflict[ConflictID, ResourceID, VotePower](s, owner)
-	s.members.Set(owner.ID, newMember)
+	s.owner = newSortedConflict[ConflictID, ResourceID, VotePower](s, owner)
+	s.members.Set(owner.ID, s.owner)
 
-	s.heaviestMember = newMember
-	s.heaviestPreferredMember = newMember
+	s.heaviestMember = s.owner
+	s.heaviestPreferredMember = s.owner
 
 	// TODO: move to WorkerPool so we are consistent with the rest of the codebase
 	go s.fixMemberPositionWorker()
@@ -85,6 +84,10 @@ func NewSortedConflicts[ConflictID, ResourceID IDType, VotePower constraints.Com
 func (s *SortedConflicts[ConflictID, ResourceID, VotePower]) Add(conflict *Conflict[ConflictID, ResourceID, VotePower]) bool {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+
+	if s.isShutdown.Load() {
+		return false
+	}
 
 	newMember, isNew := s.members.GetOrCreate(conflict.ID, func() *sortedConflict[ConflictID, ResourceID, VotePower] {
 		return newSortedConflict[ConflictID, ResourceID, VotePower](s, conflict)
@@ -138,7 +141,7 @@ func (s *SortedConflicts[ConflictID, ResourceID, VotePower]) ForEach(callback fu
 	defer s.mutex.RUnlock()
 
 	for currentMember := s.heaviestMember; currentMember != nil; currentMember = currentMember.lighterMember {
-		if !lo.First(optIncludeOwner) && currentMember.Conflict == s.owner {
+		if !lo.First(optIncludeOwner) && currentMember == s.owner {
 			continue
 		}
 
@@ -150,20 +153,37 @@ func (s *SortedConflicts[ConflictID, ResourceID, VotePower]) ForEach(callback fu
 	return nil
 }
 
-func (s *SortedConflicts[ConflictID, ResourceID, VotePower]) Dispose() {
+func (s *SortedConflicts[ConflictID, ResourceID, VotePower]) EvictConflict(id ConflictID) bool {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	s.pendingWeightUpdatesMutex.Lock()
-	defer s.pendingWeightUpdatesMutex.Unlock()
-	s.pendingPreferredInsteadMutex.Lock()
-	defer s.pendingPreferredInsteadMutex.Unlock()
 
-	s.members.ForEach(func(conflictID ConflictID, sortedConflict *sortedConflict[ConflictID, ResourceID, VotePower]) bool {
-		sortedConflict.Dispose()
-		return true
-	})
+	conflict, exists := s.members.Get(id)
+	if !exists || !s.members.Delete(id) {
+		return false
+	}
 
-	s.isShutdown.Store(true)
+	conflict.Unhook()
+
+	if conflict.heavierMember != nil {
+		conflict.heavierMember.lighterMember = conflict.lighterMember
+	}
+
+	if conflict.lighterMember != nil {
+		conflict.lighterMember.heavierMember = conflict.heavierMember
+	}
+
+	if s.heaviestMember == conflict {
+		s.heaviestMember = conflict.lighterMember
+	}
+
+	if s.heaviestPreferredMember == conflict {
+		s.findLowerHeaviestPreferredMember(conflict.lighterMember)
+	}
+
+	conflict.lighterMember = nil
+	conflict.heavierMember = nil
+
+	return true
 }
 
 // String returns a human-readable representation of the SortedConflicts.
@@ -240,7 +260,7 @@ func (s *SortedConflicts[ConflictID, ResourceID, VotePower]) fixMemberPosition(m
 	for currentMember := member.heavierMember; currentMember != nil && currentMember.Compare(member) == weight.Lighter; currentMember = member.heavierMember {
 		s.swapNeighbors(member, currentMember)
 
-		if currentMember == s.heaviestPreferredMember && (preferredConflict == currentMember.Conflict || memberIsPreferred || member.Conflict == s.owner) {
+		if currentMember == s.heaviestPreferredMember && (preferredConflict == currentMember.Conflict || memberIsPreferred || member == s.owner) {
 			s.heaviestPreferredMember = member
 			s.owner.setPreferredInstead(member.Conflict)
 		}
@@ -250,7 +270,7 @@ func (s *SortedConflicts[ConflictID, ResourceID, VotePower]) fixMemberPosition(m
 	for currentMember := member.lighterMember; currentMember != nil && currentMember.Compare(member) == weight.Heavier; currentMember = member.lighterMember {
 		s.swapNeighbors(currentMember, member)
 
-		if member == s.heaviestPreferredMember && (currentMember.IsPreferred() || currentMember.PreferredInstead() == member.Conflict || currentMember.Conflict == s.owner) {
+		if member == s.heaviestPreferredMember && (currentMember.IsPreferred() || currentMember.PreferredInstead() == member.Conflict || currentMember == s.owner) {
 			s.heaviestPreferredMember = currentMember
 			s.owner.setPreferredInstead(currentMember.Conflict)
 		}
@@ -318,15 +338,21 @@ func (s *SortedConflicts[ConflictID, ResourceID, VotePower]) fixHeaviestPreferre
 	}
 
 	if s.heaviestPreferredMember == member {
-		for currentMember := member; ; currentMember = currentMember.lighterMember {
-			if currentMember.Conflict == s.owner || currentMember.IsPreferred() || currentMember.PreferredInstead() == member.Conflict {
-				s.heaviestPreferredMember = currentMember
-				s.owner.setPreferredInstead(currentMember.Conflict)
+		s.findLowerHeaviestPreferredMember(member)
+	}
+}
 
-				return
-			}
+func (s *SortedConflicts[ConflictID, ResourceID, VotePower]) findLowerHeaviestPreferredMember(member *sortedConflict[ConflictID, ResourceID, VotePower]) {
+	for currentMember := member; currentMember != nil; currentMember = currentMember.lighterMember {
+		if currentMember == s.owner || currentMember.IsPreferred() || currentMember.PreferredInstead() == member.Conflict {
+			s.heaviestPreferredMember = currentMember
+			s.owner.setPreferredInstead(currentMember.Conflict)
+
+			return
 		}
 	}
+
+	s.heaviestPreferredMember = nil
 }
 
 // swapNeighbors swaps the given members in the SortedConflicts.
@@ -346,4 +372,23 @@ func (s *SortedConflicts[ConflictID, ResourceID, VotePower]) swapNeighbors(heavi
 	if s.heaviestMember == lighterMember {
 		s.heaviestMember = heavierMember
 	}
+}
+
+func (s *SortedConflicts[ConflictID, ResourceID, VotePower]) Shutdown() []*Conflict[ConflictID, ResourceID, VotePower] {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	s.isShutdown.Store(true)
+
+	s.pendingWeightUpdatesMutex.Lock()
+	s.pendingWeightUpdates.Clear()
+	s.pendingWeightUpdatesMutex.Unlock()
+
+	s.pendingPreferredInsteadMutex.Lock()
+	s.pendingPreferredInsteadUpdates.Clear()
+	s.pendingPreferredInsteadMutex.Unlock()
+
+	return lo.Map(s.members.Values(), func(conflict *sortedConflict[ConflictID, ResourceID, VotePower]) *Conflict[ConflictID, ResourceID, VotePower] {
+		return conflict.Conflict
+	})
 }

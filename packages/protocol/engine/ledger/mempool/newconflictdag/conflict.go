@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"sync"
 
+	"go.uber.org/atomic"
+
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/vote"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/weight"
@@ -58,6 +60,9 @@ type Conflict[ConflictID, ResourceID IDType, VotePower constraints.Comparable[Vo
 
 	// preferredInstead is the preferred instead value of the Conflict.
 	preferredInstead *Conflict[ConflictID, ResourceID, VotePower]
+
+	// evicted
+	evicted atomic.Bool
 
 	// preferredInsteadMutex is used to synchronize access to the preferred instead value of the Conflict.
 	preferredInsteadMutex sync.RWMutex
@@ -165,6 +170,10 @@ func (c *Conflict[ConflictID, ResourceID, VotePower]) ApplyVote(vote *vote.Vote[
 
 // JoinConflictSets registers the Conflict with the given ConflictSets.
 func (c *Conflict[ConflictID, ResourceID, VotePower]) JoinConflictSets(conflictSets ...*ConflictSet[ConflictID, ResourceID, VotePower]) (joinedConflictSets map[ResourceID]*ConflictSet[ConflictID, ResourceID, VotePower]) {
+	if c.evicted.Load() {
+		return
+	}
+
 	registerConflictingConflict := func(c, conflict *Conflict[ConflictID, ResourceID, VotePower]) {
 		c.structureMutex.Lock()
 		defer c.structureMutex.Unlock()
@@ -260,25 +269,48 @@ func (c *Conflict[ConflictID, ResourceID, VotePower]) LikedInstead() *advancedse
 	return c.likedInstead.Clone()
 }
 
-// Dispose cleans up the sortedConflict.
-func (c *Conflict[ConflictID, ResourceID, VotePower]) Dispose() {
-	c.structureMutex.Lock()
-	defer c.structureMutex.Unlock()
+// Evict cleans up the sortedConflict.
+func (c *Conflict[ConflictID, ResourceID, VotePower]) Evict() []ConflictID {
+	// TODO: make other methods respect c.evicted flag
+	c.evicted.Store(true)
 
-	c.ConflictingConflicts.Dispose()
-
+	// iterate through the children and dispose of them
 	_ = c.Children.ForEach(func(childConflict *Conflict[ConflictID, ResourceID, VotePower]) (err error) {
-		childConflict.structureMutex.Lock()
-		defer childConflict.structureMutex.Unlock()
-
-		if childConflict.Parents.Delete(c) {
-			c.unregisterChild(childConflict)
+		if !childConflict.IsPending() {
+			childConflict.Evict()
 		}
 
 		return nil
 	})
 
+	c.structureMutex.Lock()
+	defer c.structureMutex.Unlock()
+
+	for _, parentConflict := range c.Parents.Slice() {
+		parentConflict.unregisterChild(c)
+	}
+	c.Parents.Clear()
+
+	// deattach all events etc.
+
+	for _, conflictSet := range c.ConflictSets.Slice() {
+		conflictSet.Remove(c)
+	}
+
+	c.ConflictSets.Clear()
+
+	for _, conflict := range c.ConflictingConflicts.Shutdown() {
+		if conflict != c {
+			conflict.ConflictingConflicts.EvictConflict(c.ID)
+			c.ConflictingConflicts.EvictConflict(conflict.ID)
+		}
+	}
+
+	c.ConflictingConflicts.EvictConflict(c.ID)
+
 	c.acceptanceUnhook()
+
+	return nil
 }
 
 // Compare compares the Conflict to the given other Conflict.
