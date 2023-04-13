@@ -2,7 +2,6 @@ package newconflictdag
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -10,7 +9,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/vote"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/ds/advancedset"
@@ -369,27 +367,31 @@ func TestConflictDAG_CreateConflict(t *testing.T) {
 }
 
 func TestConflictDAG_LikedInstead(t *testing.T) {
-	weights := sybilprotection.NewWeights(mapdb.NewMapDB())
+	tf := NewTestFramework(t)
 
-	conflictID1 := NewTestID("conflict1")
-	conflictID2 := NewTestID("conflict2")
-	conflictID3 := NewTestID("conflict3")
-	conflictID4 := NewTestID("conflict4")
-	resourceID1 := NewTestID("resource1")
-	resourceID2 := NewTestID("resource2")
+	conflict1, err := tf.CreateConflict("conflict1", []string{}, []string{"resource1"}, tf.Weight().SetCumulativeWeight(5))
+	require.NoError(t, err)
+
+	conflict2, err := tf.CreateConflict("conflict2", []string{}, []string{"resource1"}, tf.Weight().SetCumulativeWeight(1))
+	require.NoError(t, err)
+
+	require.Error(t, lo.Return2(tf.CreateConflict("conflict2", []string{}, []string{}, tf.Weight()))))
+	require.Error(t, lo.Return2(tf.CreateConflict("conflict2", []string{}, []string{}, tf.Weight()))))
+
+	requireConflicts(t, tf.LikedInstead("conflict1", "conflict2"), conflict1)
+
+	conflict3, err := tf.CreateConflict("conflict3", []string{"conflict1"}, []string{"resource2"}, tf.Weight().SetCumulativeWeight(0))
+	require.NoError(t, err)
+
+	conflict4, err := tf.CreateConflict("conflict4", []string{"conflict1"}, []string{"resource2"}, tf.Weight().SetCumulativeWeight(1))
+	require.NoError(t, err)
 
 	conflictDAG := New[TestID, TestID, vote.MockedPower](acceptance.ThresholdProvider(weights.TotalWeight))
 	conflict1 := conflictDAG.CreateConflict(conflictID1, []TestID{}, []TestID{resourceID1}, tf.Weight().SetCumulativeWeight(5))
 	conflictDAG.CreateConflict(conflictID2, []TestID{}, []TestID{resourceID1}, tf.Weight().SetCumulativeWeight(1))
 
-	require.Panics(t, func() {
-		conflictDAG.CreateConflict(NewTestID("conflict1"), []TestID{}, []TestID{}, tf.Weight())
-	})
-	require.Panics(t, func() {
-		conflictDAG.CreateConflict(NewTestID("conflict2"), []TestID{}, []TestID{}, tf.Weight())
-	})
 
-	requireConflicts(t, conflictDAG.LikedInstead(conflictID1, conflictID2), conflict1)
+
 
 	conflictDAG.CreateConflict(conflictID3, []TestID{conflictID1}, []TestID{resourceID2}, tf.Weight().SetCumulativeWeight(0))
 	conflict4 := conflictDAG.CreateConflict(conflictID4, []TestID{conflictID1}, []TestID{resourceID2}, tf.Weight().SetCumulativeWeight(1))
@@ -397,26 +399,10 @@ func TestConflictDAG_LikedInstead(t *testing.T) {
 	requireConflicts(t, conflictDAG.LikedInstead(conflictID1, conflictID2, conflictID3, conflictID4), conflict1, conflict4)
 }
 
-type TestID struct {
-	utxo.TransactionID
-}
-
-func NewTestID(alias string) TestID {
-	hashedAlias := blake2b.Sum256([]byte(alias))
-
-	testID := utxo.NewTransactionID(hashedAlias[:])
-	testID.RegisterAlias(alias)
-
-	return TestID{testID}
-}
-
-func (id TestID) String() string {
-	return strings.Replace(id.TransactionID.String(), "TransactionID", "TestID", 1)
-}
-
-func requireConflicts(t *testing.T, conflicts map[TestID]*Conflict[TestID, TestID, vote.MockedPower], expectedConflicts ...*Conflict[TestID, TestID, vote.MockedPower]) {
+func requireConflicts(t *testing.T, conflicts []*Conflict[TestID, TestID, vote.MockedPower], expectedConflicts ...*Conflict[TestID, TestID, vote.MockedPower]) {
 	require.Equalf(t, len(expectedConflicts), len(conflicts), "number of liked conflicts incorrect")
 	for _, expectedConflict := range expectedConflicts {
+		require.Contains(t, conflicts, expectedConflict, "conflict %s must be liked", expectedConflict.ID)
 		conflict, exists := conflicts[expectedConflict.ID]
 		require.True(t, exists, "conflict %s must be liked. Actual LikedInstead IDs: %s", expectedConflict.ID, lo.Keys(conflicts))
 		require.Equalf(t, conflict, expectedConflict, "conflicts with ID not equal %s", expectedConflict.ID)
