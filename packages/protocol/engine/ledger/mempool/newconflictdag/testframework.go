@@ -7,7 +7,6 @@ import (
 
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotaledger/goshimmer/packages/core/votes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/vote"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/weight"
@@ -20,11 +19,11 @@ import (
 
 type TestFramework struct {
 	test        *testing.T
-	ConflictDAG *ConflictDAG[TestID, TestID, votes.MockedVotePower]
+	ConflictDAG *ConflictDAG[TestID, TestID, vote.MockedPower]
 	Weights     *sybilprotection.Weights
 
-	conflictsByAlias    map[string]*Conflict[TestID, TestID, votes.MockedVotePower]
-	conflictSetsByAlias map[string]*ConflictSet[TestID, TestID, votes.MockedVotePower]
+	conflictsByAlias    map[string]*Conflict[TestID, TestID, vote.MockedPower]
+	conflictSetsByAlias map[string]*ConflictSet[TestID, TestID, vote.MockedPower]
 }
 
 // NewTestFramework creates a new instance of the TestFramework with one default output "Genesis" which has to be
@@ -32,20 +31,20 @@ type TestFramework struct {
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) *TestFramework {
 	return options.Apply(&TestFramework{
 		test:                test,
-		conflictsByAlias:    make(map[string]*Conflict[TestID, TestID, votes.MockedVotePower]),
-		conflictSetsByAlias: make(map[string]*ConflictSet[TestID, TestID, votes.MockedVotePower]),
+		conflictsByAlias:    make(map[string]*Conflict[TestID, TestID, vote.MockedPower]),
+		conflictSetsByAlias: make(map[string]*ConflictSet[TestID, TestID, vote.MockedPower]),
 	}, opts, func(t *TestFramework) {
 		if t.Weights == nil {
 			t.Weights = sybilprotection.NewWeights(mapdb.NewMapDB())
 		}
 
 		if t.ConflictDAG == nil {
-			t.ConflictDAG = New[TestID, TestID, votes.MockedVotePower](acceptance.ThresholdProvider(t.Weights.TotalWeight))
+			t.ConflictDAG = New[TestID, TestID, vote.MockedPower](acceptance.ThresholdProvider(t.Weights.TotalWeight))
 		}
 	})
 }
 
-func (t *TestFramework) CreateConflict(alias string, parentIDs []string, resourceAliases []string, initialWeight *weight.Weight) (*Conflict[TestID, TestID, votes.MockedVotePower], error) {
+func (t *TestFramework) CreateConflict(alias string, parentIDs []string, resourceAliases []string, initialWeight *weight.Weight) (*Conflict[TestID, TestID, vote.MockedPower], error) {
 	if err := t.ConflictDAG.CreateConflict(NewTestID(alias), t.ConflictIDs(parentIDs...), t.ConflictSetIDs(resourceAliases...), initialWeight); err != nil {
 		return nil, err
 	}
@@ -75,7 +74,7 @@ func (t *TestFramework) ConflictSetIDs(aliases ...string) (conflictSetIDs []Test
 	return conflictSetIDs
 }
 
-func (t *TestFramework) Conflict(alias string) *Conflict[TestID, TestID, votes.MockedVotePower] {
+func (t *TestFramework) Conflict(alias string) *Conflict[TestID, TestID, vote.MockedPower] {
 	conflict, ok := t.conflictsByAlias[alias]
 	if !ok {
 		panic(fmt.Sprintf("Conflict alias %s not registered", alias))
@@ -84,7 +83,7 @@ func (t *TestFramework) Conflict(alias string) *Conflict[TestID, TestID, votes.M
 	return conflict
 }
 
-func (t *TestFramework) ConflictSet(alias string) *ConflictSet[TestID, TestID, votes.MockedVotePower] {
+func (t *TestFramework) ConflictSet(alias string) *ConflictSet[TestID, TestID, vote.MockedPower] {
 	conflictSet, ok := t.conflictSetsByAlias[alias]
 	if !ok {
 		panic(fmt.Sprintf("ConflictSet alias %s not registered", alias))
@@ -101,15 +100,15 @@ func (t *TestFramework) UpdateConflictParents(conflictAlias string, addedParentI
 	return t.ConflictDAG.UpdateConflictParents(NewTestID(conflictAlias), NewTestID(addedParentID), t.ConflictIDs(removedParentIDs...)...)
 }
 
-func (t *TestFramework) JoinConflictSets(conflictAlias string, resourceAliases ...string) []*ConflictSet[TestID, TestID, votes.MockedVotePower] {
+func (t *TestFramework) JoinConflictSets(conflictAlias string, resourceAliases ...string) []*ConflictSet[TestID, TestID, vote.MockedPower] {
 	return lo.Values(t.ConflictDAG.JoinConflictSets(NewTestID(conflictAlias), t.ConflictSetIDs(resourceAliases...)...))
 }
 
-func (t *TestFramework) LikedInstead(conflictAliases ...string) []*Conflict[TestID, TestID, votes.MockedVotePower] {
+func (t *TestFramework) LikedInstead(conflictAliases ...string) []*Conflict[TestID, TestID, vote.MockedPower] {
 	return lo.Values(t.ConflictDAG.LikedInstead(t.ConflictIDs(conflictAliases...)...))
 }
 
-func (t *TestFramework) CastVotes(vote *vote.Vote[votes.MockedVotePower], conflictAliases ...string) error {
+func (t *TestFramework) CastVotes(vote *vote.Vote[vote.MockedPower], conflictAliases ...string) error {
 	return t.ConflictDAG.CastVotes(vote, t.ConflictIDs(conflictAliases...)...)
 }
 
