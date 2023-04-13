@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"go.uber.org/atomic"
+	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/vote"
@@ -169,9 +170,9 @@ func (c *Conflict[ConflictID, ResourceID, VotePower]) ApplyVote(vote *vote.Vote[
 }
 
 // JoinConflictSets registers the Conflict with the given ConflictSets.
-func (c *Conflict[ConflictID, ResourceID, VotePower]) JoinConflictSets(conflictSets ...*ConflictSet[ConflictID, ResourceID, VotePower]) (joinedConflictSets map[ResourceID]*ConflictSet[ConflictID, ResourceID, VotePower]) {
+func (c *Conflict[ConflictID, ResourceID, VotePower]) JoinConflictSets(conflictSets ...*ConflictSet[ConflictID, ResourceID, VotePower]) (joinedConflictSets []ResourceID, err error) {
 	if c.evicted.Load() {
-		return
+		return nil, xerrors.Errorf("tried to join conflict sets of evicted conflict: %w", ErrEntityEvicted)
 	}
 
 	registerConflictingConflict := func(c, conflict *Conflict[ConflictID, ResourceID, VotePower]) {
@@ -185,7 +186,7 @@ func (c *Conflict[ConflictID, ResourceID, VotePower]) JoinConflictSets(conflictS
 		}
 	}
 
-	joinedConflictSets = make(map[ResourceID]*ConflictSet[ConflictID, ResourceID, VotePower], 0)
+	joinedConflictSets = make([]ResourceID, 0)
 	for _, conflictSet := range conflictSets {
 		if c.ConflictSets.Add(conflictSet) {
 			if otherConflicts := conflictSet.Add(c); otherConflicts != nil {
@@ -194,12 +195,12 @@ func (c *Conflict[ConflictID, ResourceID, VotePower]) JoinConflictSets(conflictS
 					registerConflictingConflict(otherConflict, c)
 				}
 
-				joinedConflictSets[conflictSet.ID] = conflictSet
+				joinedConflictSets = append(joinedConflictSets, conflictSet.ID)
 			}
 		}
 	}
 
-	return joinedConflictSets
+	return joinedConflictSets, nil
 }
 
 // UpdateParents updates the parents of the Conflict.

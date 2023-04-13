@@ -100,8 +100,30 @@ func (t *TestFramework) UpdateConflictParents(conflictAlias string, addedParentI
 	return t.ConflictDAG.UpdateConflictParents(NewTestID(conflictAlias), NewTestID(addedParentID), t.ConflictIDs(removedParentIDs...)...)
 }
 
-func (t *TestFramework) JoinConflictSets(conflictAlias string, resourceAliases ...string) []*ConflictSet[TestID, TestID, vote.MockedPower] {
-	return lo.Values(t.ConflictDAG.JoinConflictSets(NewTestID(conflictAlias), t.ConflictSetIDs(resourceAliases...)...))
+func (t *TestFramework) JoinConflictSets(conflictAlias string, resourceAliases ...string) ([]*ConflictSet[TestID, TestID, vote.MockedPower], error) {
+	conflictSetsByID := make(map[TestID]*ConflictSet[TestID, TestID, vote.MockedPower])
+	for _, resourceAlias := range resourceAliases {
+		resource, exists := t.conflictSetsByAlias[resourceAlias]
+		if !exists {
+			panic(fmt.Sprintf("Resource %s not registered", resourceAlias))
+		}
+
+		conflictSetsByID[resource.ID] = resource
+	}
+
+	joinedConflictSets, err := t.ConflictDAG.JoinConflictSets(NewTestID(conflictAlias), t.ConflictSetIDs(resourceAliases...)...)
+	if err != nil {
+		return nil, err
+	}
+
+	return lo.Map(joinedConflictSets, func(conflictID TestID) *ConflictSet[TestID, TestID, vote.MockedPower] {
+		conflictSet, exists := conflictSetsByID[conflictID]
+		if !exists {
+			panic(fmt.Sprintf("ConflictSet %s not registered", conflictID))
+		}
+
+		return conflictSet
+	}), nil
 }
 
 func (t *TestFramework) LikedInstead(conflictAliases ...string) []*Conflict[TestID, TestID, vote.MockedPower] {

@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/vote"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/hive.go/crypto/identity"
@@ -65,17 +66,23 @@ func TestConflictDAG_JoinConflictSets(t *testing.T) {
 	_, err1 := tf.CreateConflict("conflict1", []string{}, []string{"resource1"}, tf.Weight().SetCumulativeWeight(5))
 	require.NoError(t, err1)
 
-	_, err2 := tf.CreateConflict("conflict2", []string{}, []string{"resource1"}, tf.Weight().SetCumulativeWeight(1))
+	conflict2, err2 := tf.CreateConflict("conflict2", []string{}, []string{"resource1"}, tf.Weight().SetCumulativeWeight(1))
 	require.NoError(t, err2)
 
-	require.Empty(t, tf.JoinConflictSets("conflict3", "resource2"))
+	conflict2.setAcceptanceState(acceptance.Rejected)
+
+	// test to modify non-existing conflict
+	require.ErrorIs(t, lo.Return2(tf.ConflictDAG.JoinConflictSets(NewTestID("conflict3"), NewTestID("resource2"))), ErrEntityEvicted)
+
+	// test to modify conflict with non-existing resource
+	require.ErrorIs(t, lo.Return2(tf.ConflictDAG.JoinConflictSets(NewTestID("conflict2"), NewTestID("resource2"))), ErrEntityEvicted)
 
 	_, err3 := tf.CreateConflict("conflict3", []string{}, []string{"resource2"}, tf.Weight().SetCumulativeWeight(1))
 	require.NoError(t, err3)
 
-	require.NotEmpty(t, tf.JoinConflictSets("conflict1", "resource2"))
+	require.NotEmpty(t, lo.PanicOnErr(tf.JoinConflictSets("conflict1", "resource2")))
 
-	require.Empty(t, tf.JoinConflictSets("conflict1", "resource2"))
+	require.Empty(t, lo.PanicOnErr(tf.JoinConflictSets("conflict1", "resource2")))
 
 	likedInstead := tf.LikedInstead("conflict1", "conflict2", "conflict3")
 	require.Contains(t, likedInstead, tf.Conflict("conflict1"))
