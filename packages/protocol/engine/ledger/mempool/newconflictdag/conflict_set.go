@@ -26,7 +26,7 @@ func NewConflictSet[ConflictID, ResourceID IDType, VotePower constraints.Compara
 	}
 }
 
-// Add adds a newMember to the conflict set and all existing members of the set.
+// Add adds a Conflict to the ConflictSet and returns all other members of the set.
 func (c *ConflictSet[ConflictID, ResourceID, VotePower]) Add(addedConflict *Conflict[ConflictID, ResourceID, VotePower]) (otherMembers []*Conflict[ConflictID, ResourceID, VotePower]) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -38,4 +38,20 @@ func (c *ConflictSet[ConflictID, ResourceID, VotePower]) Add(addedConflict *Conf
 	}
 
 	return otherMembers
+}
+
+// Remove removes a Conflict from the ConflictSet and returns all remaining members of the set.
+func (c *ConflictSet[ConflictID, ResourceID, VotePower]) Remove(removedConflict *Conflict[ConflictID, ResourceID, VotePower]) (otherMembers []*Conflict[ConflictID, ResourceID, VotePower]) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	if !c.members.Delete(removedConflict) {
+		return nil
+	}
+
+	if c.members.IsEmpty() {
+		// TODO: trigger conflict set removal
+	}
+
+	return c.members.Slice()
 }
