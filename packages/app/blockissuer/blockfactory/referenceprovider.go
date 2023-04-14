@@ -41,7 +41,7 @@ func (r *ReferenceProvider) References(payload payload.Payload, strongParents mo
 
 	excludedConflictIDs := utxo.NewTransactionIDs()
 
-	err = r.protocol.Engine().Ledger.MemPool().ConflictDAG().Read(func(conflictDAG newconflictdag.ReadLockedConflictDAG[utxo.TransactionID, utxo.OutputID, booker.BlockVotePower]) error {
+	err = r.protocol.Engine().Ledger.MemPool().ConflictDAG().ReadConsistent(func(conflictDAG newconflictdag.ReadLockedConflictDAG[utxo.TransactionID, utxo.OutputID, models.BlockVotePower]) error {
 		for strongParent := range strongParents {
 			excludedConflictIDsCopy := excludedConflictIDs.Clone()
 			referencesToAdd, validStrongParent := r.addedReferencesForBlock(strongParent, excludedConflictIDsCopy, conflictDAG)
@@ -87,7 +87,7 @@ func (r *ReferenceProvider) References(payload payload.Payload, strongParents mo
 	return references, err
 }
 
-func (r *ReferenceProvider) referencesToMissingConflicts(amount int, conflictDAG newconflictdag.ReadLockedConflictDAG[utxo.TransactionID, utxo.OutputID, booker.BlockVotePower]) (blockIDs models.BlockIDs) {
+func (r *ReferenceProvider) referencesToMissingConflicts(amount int, conflictDAG newconflictdag.ReadLockedConflictDAG[utxo.TransactionID, utxo.OutputID, models.BlockVotePower]) (blockIDs models.BlockIDs) {
 	blockIDs = models.NewBlockIDs()
 	if amount == 0 {
 		return blockIDs
@@ -177,7 +177,7 @@ func (r *ReferenceProvider) referencesFromUnacceptedInputs(payload payload.Paylo
 }
 
 // addedReferenceForBlock returns the reference that is necessary to correct our opinion on the given block.
-func (r *ReferenceProvider) addedReferencesForBlock(blockID models.BlockID, excludedConflictIDs utxo.TransactionIDs, conflictDAG newconflictdag.ReadLockedConflictDAG[utxo.TransactionID, utxo.OutputID, booker.BlockVotePower]) (addedReferences models.ParentBlockIDs, success bool) {
+func (r *ReferenceProvider) addedReferencesForBlock(blockID models.BlockID, excludedConflictIDs utxo.TransactionIDs, conflictDAG newconflictdag.ReadLockedConflictDAG[utxo.TransactionID, utxo.OutputID, models.BlockVotePower]) (addedReferences models.ParentBlockIDs, success bool) {
 	engineInstance := r.protocol.Engine()
 
 	block, exists := engineInstance.Tangle.Booker().Block(blockID)
@@ -223,7 +223,7 @@ func (r *ReferenceProvider) addedReferencesForBlock(blockID models.BlockID, excl
 }
 
 // addedReferencesForConflicts returns the references that are necessary to correct our opinion on the given conflicts.
-func (r *ReferenceProvider) addedReferencesForConflicts(conflictIDs utxo.TransactionIDs, excludedConflictIDs utxo.TransactionIDs, conflictDAG newconflictdag.ReadLockedConflictDAG[utxo.TransactionID, utxo.OutputID, booker.BlockVotePower]) (referencesToAdd models.ParentBlockIDs, err error) {
+func (r *ReferenceProvider) addedReferencesForConflicts(conflictIDs utxo.TransactionIDs, excludedConflictIDs utxo.TransactionIDs, conflictDAG newconflictdag.ReadLockedConflictDAG[utxo.TransactionID, utxo.OutputID, models.BlockVotePower]) (referencesToAdd models.ParentBlockIDs, err error) {
 	referencesToAdd = models.NewParentBlockIDs()
 
 	for it := conflictIDs.Iterator(); it.HasNext(); {
@@ -250,7 +250,7 @@ func (r *ReferenceProvider) addedReferencesForConflicts(conflictIDs utxo.Transac
 }
 
 // adjustOpinion returns the reference that is necessary to correct our opinion on the given conflict.
-func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, excludedConflictIDs utxo.TransactionIDs, conflictDAG newconflictdag.ReadLockedConflictDAG[utxo.TransactionID, utxo.OutputID, booker.BlockVotePower]) (adjust bool, attachmentID models.BlockID, err error) {
+func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, excludedConflictIDs utxo.TransactionIDs, conflictDAG newconflictdag.ReadLockedConflictDAG[utxo.TransactionID, utxo.OutputID, models.BlockVotePower]) (adjust bool, attachmentID models.BlockID, err error) {
 	engineInstance := r.protocol.Engine()
 
 	likedConflictID := conflictDAG.LikedInstead(conflictID)
@@ -298,7 +298,7 @@ func (r *ReferenceProvider) latestValidAttachment(txID utxo.TransactionID) (bloc
 }
 
 // payloadLiked checks if the payload of a Block is liked.
-func (r *ReferenceProvider) payloadLiked(blockID models.BlockID, conflictDAG newconflictdag.ReadLockedConflictDAG[utxo.TransactionID, utxo.OutputID, booker.BlockVotePower]) (liked bool) {
+func (r *ReferenceProvider) payloadLiked(blockID models.BlockID, conflictDAG newconflictdag.ReadLockedConflictDAG[utxo.TransactionID, utxo.OutputID, models.BlockVotePower]) (liked bool) {
 	engineInstance := r.protocol.Engine()
 
 	block, exists := engineInstance.Tangle.Booker().Block(blockID)
