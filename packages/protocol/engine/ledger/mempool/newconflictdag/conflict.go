@@ -282,8 +282,6 @@ func (c *Conflict[ConflictID, ResourceID, VotePower]) Evict() (evictedConflicts 
 		return nil, nil
 	}
 
-	evictedConflicts = []ConflictID{c.ID}
-
 	c.unhookAcceptanceMonitoring()
 
 	switch c.Weight.AcceptanceState() {
