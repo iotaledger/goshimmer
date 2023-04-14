@@ -41,7 +41,7 @@ type Booker interface {
 
 	SequenceManager() *markers.SequenceManager
 
-	SequenceTracker() *sequencetracker.SequenceTracker[BlockVotePower]
+	SequenceTracker() *sequencetracker.SequenceTracker[models.BlockVotePower]
 
 	// MarkerVotersTotalWeight retrieves Validators supporting a given marker.
 	MarkerVotersTotalWeight(marker markers.Marker) (totalWeight int64)

@@ -7,7 +7,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/ds/walker"
 	"github.com/iotaledger/hive.go/objectstorage/generic"
@@ -25,7 +25,7 @@ type MemPool interface {
 	Utils() Utils
 
 	// ConflictDAG is a reference to the ConflictDAG that is used by this MemPool.
-	ConflictDAG() newconflictdag.Interface[utxo.TransactionID, utxo.OutputID, booker.BlockVotePower]
+	ConflictDAG() newconflictdag.Interface[utxo.TransactionID, utxo.OutputID, models.BlockVotePower]
 
 	// StoreAndProcessTransaction stores and processes the given Transaction.
 	StoreAndProcessTransaction(ctx context.Context, tx utxo.Transaction) (err error)

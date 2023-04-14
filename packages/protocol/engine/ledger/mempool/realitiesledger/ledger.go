@@ -15,7 +15,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
-	blockbooker "github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/ds/walker"
@@ -44,7 +44,7 @@ type RealitiesLedger struct {
 	utils *Utils
 
 	// conflictDAG is a reference to the conflictDAG that is used by this RealitiesLedger.
-	conflictDAG *newconflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID, blockbooker.BlockVotePower]
+	conflictDAG *newconflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID, models.BlockVotePower]
 
 	// sybilProtectionWeights
 	sybilProtectionWeights *sybilprotection.Weights
@@ -129,7 +129,7 @@ func (l *RealitiesLedger) Initialize(workerPool *workerpool.WorkerPool, storage 
 	l.chainStorage = storage
 	l.workerPool = workerPool
 
-	l.conflictDAG = newconflictdag.New[utxo.TransactionID, utxo.OutputID, blockbooker.BlockVotePower](acceptance.ThresholdProvider(sybilProtection.Validators().TotalWeight))
+	l.conflictDAG = newconflictdag.New[utxo.TransactionID, utxo.OutputID, models.BlockVotePower](acceptance.ThresholdProvider(sybilProtection.Validators().TotalWeight))
 	l.events.ConflictDAG.LinkTo(l.conflictDAG.Events)
 
 	l.sybilProtectionWeights = sybilProtection.Weights()
@@ -159,7 +159,7 @@ func (l *RealitiesLedger) Events() *mempool.Events {
 	return l.events
 }
 
-func (l *RealitiesLedger) ConflictDAG() *newconflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID, blockbooker.BlockVotePower] {
+func (l *RealitiesLedger) ConflictDAG() *newconflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID, models.BlockVotePower] {
 	return l.conflictDAG
 }
 

@@ -45,7 +45,7 @@ type Booker struct {
 	blockDAG        blockdag.BlockDAG
 	evictionState   *eviction.State
 	validators      *sybilprotection.WeightedSet
-	sequenceTracker *sequencetracker.SequenceTracker[booker.BlockVotePower]
+	sequenceTracker *sequencetracker.SequenceTracker[models.BlockVotePower]
 	slotTracker     *slottracker.SlotTracker
 
 	bookingOrder          *causalorder.CausalOrder[models.BlockID, *booker.Block]
@@ -112,7 +112,7 @@ func New(workers *workerpool.Group, evictionState *eviction.State, memPool mempo
 		slotTimeProviderFunc: slotTimeProviderFunc,
 	}, opts, func(b *Booker) {
 		b.markerManager = markermanager.NewMarkerManager(b.optsMarkerManager...)
-		b.sequenceTracker = sequencetracker.NewSequenceTracker[booker.BlockVotePower](validators, b.markerManager.SequenceManager.Sequence, b.optsSequenceCutoffCallback)
+		b.sequenceTracker = sequencetracker.NewSequenceTracker[models.BlockVotePower](validators, b.markerManager.SequenceManager.Sequence, b.optsSequenceCutoffCallback)
 		b.slotTracker = slottracker.NewSlotTracker(b.optsSlotCutoffCallback)
 		b.bookingOrder = causalorder.New(
 			workers.CreatePool("BookingOrder", 2),
@@ -176,7 +176,7 @@ func (b *Booker) Events() *booker.Events {
 	return b.events
 }
 
-func (b *Booker) SequenceTracker() *sequencetracker.SequenceTracker[booker.BlockVotePower] {
+func (b *Booker) SequenceTracker() *sequencetracker.SequenceTracker[models.BlockVotePower] {
 	return b.sequenceTracker
 }
 
@@ -462,9 +462,9 @@ func (b *Booker) book(block *booker.Block) (inheritingErr error) {
 		ConflictIDs: inheritedConflictIDs,
 	})
 
-	votePower := booker.NewBlockVotePower(block.ID(), block.IssuingTime())
+	votePower := models.NewBlockVotePower(block.ID(), block.IssuingTime())
 
-	if err := b.MemPool.ConflictDAG().CastVotes(vote.NewVote[booker.BlockVotePower](block.IssuerID(), votePower), inheritedConflictIDs.Slice()...); err != nil {
+	if err := b.MemPool.ConflictDAG().CastVotes(vote.NewVote[models.BlockVotePower](block.IssuerID(), votePower), inheritedConflictIDs.Slice()...); err != nil {
 		fmt.Println("block is subjectively invalid", block.ID(), err)
 		block.SetSubjectivelyInvalid(true)
 	} else {
@@ -780,7 +780,7 @@ func (b *Booker) propagateToBlock(block *booker.Block, addedConflictID utxo.Tran
 	// Do not apply votes of subjectively invalid blocks on forking. Votes of subjectively invalid blocks are also not counted
 	// when booking.
 	if !block.IsSubjectivelyInvalid() && b.MemPool.ConflictDAG().AllConflictsSupported(block.IssuerID(), removedConflictIDs.Slice()...) {
-		if err = b.MemPool.ConflictDAG().CastVotes(vote.NewVote(block.IssuerID(), booker.NewBlockVotePower(block.ID(), block.IssuingTime())), addedConflictID); err != nil {
+		if err = b.MemPool.ConflictDAG().CastVotes(vote.NewVote(block.IssuerID(), models.NewBlockVotePower(block.ID(), block.IssuingTime())), addedConflictID); err != nil {
 			return false, xerrors.Errorf("failed to cast vote during forking conflict %s on block %s: %w", addedConflictID, block.ID(), err)
 		}
 	}

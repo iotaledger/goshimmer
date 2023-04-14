@@ -11,7 +11,7 @@ import (
 
 type Interface[ConflictID, ResourceID IDType, VotePower constraints.Comparable[VotePower]] interface {
 	CreateConflict(id ConflictID, parentIDs []ConflictID, resourceIDs []ResourceID, initialWeight *weight.Weight) error
-	Read(callback func(conflictDAG ReadLockedConflictDAG[ConflictID, ResourceID, VotePower]) error) error
+	ReadConsistent(callback func(conflictDAG ReadLockedConflictDAG[ConflictID, ResourceID, VotePower]) error) error
 	JoinConflictSets(conflictID ConflictID, resourceIDs ...ResourceID) error
 	UpdateConflictParents(conflictID ConflictID, addedParentID ConflictID, removedParentIDs ...ConflictID) error
 	FutureCone(conflictIDs *advancedset.AdvancedSet[ConflictID]) (futureCone *advancedset.AdvancedSet[ConflictID])

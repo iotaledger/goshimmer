@@ -48,9 +48,9 @@ type TestFramework struct {
 // consumed by the first transaction.
 func NewTestFramework(test *testing.T, instance MemPool) *TestFramework {
 	t := &TestFramework{
-		test:                test,
-		Instance:            instance,
-		ConflictDAG:         conflictdag.NewTestFramework(test, instance.ConflictDAG()),
+		test:     test,
+		Instance: instance,
+		//ConflictDAG:         conflictdag.NewTestFramework(test, instance.ConflictDAG()),
 		transactionsByAlias: make(map[string]*mockedvm.MockedTransaction),
 		outputIDsByAlias:    make(map[string]utxo.OutputID),
 	}

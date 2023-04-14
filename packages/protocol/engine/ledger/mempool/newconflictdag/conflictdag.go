@@ -218,7 +218,7 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) ConflictingConflicts(co
 
 	conflictingConflicts = advancedset.New[ConflictID]()
 	_ = conflict.ConflictingConflicts.ForEach(func(conflictingConflict *Conflict[ConflictID, ResourceID, VotePower]) error {
-		conflictingConflicts.Add(conflictingConflict.ID())
+		conflictingConflicts.Add(conflictingConflict.ID)
 		return nil
 	})
 

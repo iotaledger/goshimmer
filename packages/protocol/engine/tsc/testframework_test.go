@@ -31,7 +31,6 @@ func NewTestFramework(test *testing.T, tangleTF *tangle.TestFramework, optsTSCMa
 		Tangle:         tangleTF,
 		BlockDAG:       tangleTF.BlockDAG,
 		Booker:         tangleTF.Booker,
-		VirtualVoting:  tangleTF.VirtualVoting,
 		MockAcceptance: blockgadget.NewMockAcceptanceGadget(),
 	}
 

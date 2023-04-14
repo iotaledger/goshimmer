@@ -1,17 +1,13 @@
-package booker
+package models
 
-import (
-	"time"
-
-	"github.com/iotaledger/goshimmer/packages/protocol/models"
-)
+import "time"
 
 type BlockVotePower struct {
-	blockID models.BlockID
+	blockID BlockID
 	time    time.Time
 }
 
-func NewBlockVotePower(id models.BlockID, time time.Time) BlockVotePower {
+func NewBlockVotePower(id BlockID, time time.Time) BlockVotePower {
 	return BlockVotePower{
 		blockID: id,
 		time:    time,
