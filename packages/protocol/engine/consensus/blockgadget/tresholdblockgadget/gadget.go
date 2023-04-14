@@ -370,7 +370,7 @@ func (g *Gadget) markAsAccepted(block *blockgadget.Block, weakly bool) (err erro
 
 		g.events.BlockAccepted.Trigger(block)
 
-		// set AcceptanceState of payload (applicable only to transactions)
+		// set ConfirmationState of payload (applicable only to transactions)
 		if tx, ok := block.Transaction(); ok {
 			g.memPool.SetTransactionInclusionSlot(tx.ID(), g.slotTimeProvider.IndexFromTime(block.IssuingTime()))
 		}
