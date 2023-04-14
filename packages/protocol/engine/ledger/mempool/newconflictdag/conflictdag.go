@@ -5,6 +5,7 @@ import (
 
 	"golang.org/x/xerrors"
 
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/vote"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/weight"
 	"github.com/iotaledger/hive.go/constraints"
@@ -19,17 +20,8 @@ import (
 // ConflictDAG represents a data structure that tracks causal relationships between Conflicts and that allows to
 // efficiently manage these Conflicts (and vote on their fate).
 type ConflictDAG[ConflictID, ResourceID IDType, VotePower constraints.Comparable[VotePower]] struct {
-	// ConflictCreated is triggered when a new Conflict is created.
-	ConflictCreated *event.Event1[ConflictID]
-
-	// ConflictEvicted is triggered when a Conflict is evicted from the ConflictDAG.
-	ConflictEvicted *event.Event1[ConflictID]
-
-	// ConflictingResourcesAdded is triggered when the Conflict is added to a new ConflictSet.
-	ConflictingResourcesAdded *event.Event2[ConflictID, []ResourceID]
-
-	// ConflictParentsUpdated is triggered when the parents of a Conflict are updated.
-	ConflictParentsUpdated *event.Event3[ConflictID, ConflictID, []ConflictID]
+	// Events contains the Events of the ConflictDAG.
+	Events *Events[ConflictID, ResourceID]
 
 	// acceptanceThresholdProvider is the function that is used to retrieve the acceptance threshold of the committee.
 	acceptanceThresholdProvider func() int64
@@ -52,10 +44,7 @@ type ConflictDAG[ConflictID, ResourceID IDType, VotePower constraints.Comparable
 // New creates a new ConflictDAG.
 func New[ConflictID, ResourceID IDType, VotePower constraints.Comparable[VotePower]](acceptanceThresholdProvider func() int64) *ConflictDAG[ConflictID, ResourceID, VotePower] {
 	return &ConflictDAG[ConflictID, ResourceID, VotePower]{
-		ConflictCreated:             event.New1[ConflictID](),
-		ConflictEvicted:             event.New1[ConflictID](),
-		ConflictingResourcesAdded:   event.New2[ConflictID, []ResourceID](),
-		ConflictParentsUpdated:      event.New3[ConflictID, ConflictID, []ConflictID](),
+
 		acceptanceThresholdProvider: acceptanceThresholdProvider,
 		conflictsByID:               shrinkingmap.New[ConflictID, *Conflict[ConflictID, ResourceID, VotePower]](),
 		acceptanceHooks:             shrinkingmap.New[ConflictID, *event.Hook[func(int64)]](),
@@ -90,7 +79,7 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) CreateConflict(id Confl
 	}()
 
 	if err == nil {
-		c.ConflictCreated.Trigger(id)
+		c.Events.ConflictCreated.Trigger(id)
 	}
 
 	return err
@@ -124,7 +113,7 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) JoinConflictSets(confli
 	}
 
 	if len(joinedConflictSets) > 0 {
-		c.ConflictingResourcesAdded.Trigger(conflictID, joinedConflictSets)
+		c.Events.ConflictingResourcesAdded.Trigger(conflictID, joinedConflictSets)
 	}
 
 	return nil
@@ -162,7 +151,7 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) UpdateConflictParents(c
 	}
 
 	if updated {
-		c.ConflictParentsUpdated.Trigger(conflictID, addedParentID, removedParentIDs)
+		c.Events.ConflictParentsUpdated.Trigger(conflictID, addedParentID, removedParentIDs)
 	}
 
 	return nil
@@ -208,6 +197,35 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) CastVotes(vote *vote.Vo
 	return nil
 }
 
+func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) ConfirmationState(conflictIDs ...ConflictID) acceptance.State {
+	// we are on master reality.
+	if len(conflictIDs) == 0 {
+		return acceptance.Accepted
+	}
+
+	// TODO: RLock possible? depends where it's used
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	lowestObservedState := acceptance.Accepted
+	for _, conflictID := range conflictIDs {
+		conflict, exists := c.conflictsByID.Get(conflictID)
+		if !exists {
+			panic(xerrors.Errorf("tried to retrieve non-existing conflict: %w", ErrFatal))
+		}
+
+		if lowestObservedState == acceptance.Accepted && conflict.IsPending() {
+			lowestObservedState = acceptance.Pending
+		}
+
+		if conflict.IsRejected() {
+			return acceptance.Rejected
+		}
+	}
+
+	return lowestObservedState
+}
+
 // EvictConflict removes conflict with given ConflictID from ConflictDAG.
 func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) EvictConflict(conflictID ConflictID) error {
 	evictedConflictIDs, err := func() ([]ConflictID, error) {
@@ -239,7 +257,7 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) EvictConflict(conflictI
 
 	// trigger the ConflictEvicted event
 	for _, evictedConflictID := range evictedConflictIDs {
-		c.ConflictEvicted.Trigger(evictedConflictID)
+		c.Events.ConflictEvicted.Trigger(evictedConflictID)
 	}
 
 	return nil

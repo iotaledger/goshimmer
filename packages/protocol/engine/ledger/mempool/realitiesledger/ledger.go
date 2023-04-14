@@ -9,9 +9,13 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
+	blockbooker "github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/storage"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/ds/walker"
@@ -40,7 +44,7 @@ type RealitiesLedger struct {
 	utils *Utils
 
 	// conflictDAG is a reference to the conflictDAG that is used by this RealitiesLedger.
-	conflictDAG *conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID]
+	conflictDAG *newconflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID, blockbooker.BlockVotePower]
 
 	workerPool *workerpool.WorkerPool
 
@@ -91,7 +95,7 @@ func NewProvider(opts ...options.Option[RealitiesLedger]) module.Provider[*engin
 		l := New(opts...)
 
 		e.HookConstructed(func() {
-			l.Initialize(e.Workers.CreatePool("MemPool", 2), e.Storage)
+			l.Initialize(e.Workers.CreatePool("MemPool", 2), e.Storage, e.SybilProtection)
 		})
 
 		return l
@@ -110,27 +114,30 @@ func New(opts ...options.Option[RealitiesLedger]) *RealitiesLedger {
 		optsConsumerCacheTime:           10 * time.Second,
 		mutex:                           syncutils.NewDAGMutex[utxo.TransactionID](),
 	}, opts, func(l *RealitiesLedger) {
-		l.conflictDAG = conflictdag.New(l.optConflictDAG...)
-		l.events.ConflictDAG.LinkTo(l.conflictDAG.Events)
 
 		l.validator = newValidator(l)
 		l.booker = newBooker(l)
 		l.dataFlow = newDataFlow(l)
 		l.utils = newUtils(l)
-	}, (*RealitiesLedger).TriggerConstructed)
+	})
 }
 
-func (l *RealitiesLedger) Initialize(workerPool *workerpool.WorkerPool, storage *storage.Storage) {
+func (l *RealitiesLedger) Initialize(workerPool *workerpool.WorkerPool, storage *storage.Storage, sybilProtection sybilprotection.SybilProtection) {
 	l.chainStorage = storage
 	l.workerPool = workerPool
 
+	l.conflictDAG = newconflictdag.New[utxo.TransactionID, utxo.OutputID, blockbooker.BlockVotePower](acceptance.ThresholdProvider(sybilProtection.Validators().Weights.TotalWeight))
+	l.events.ConflictDAG.LinkTo(l.conflictDAG.Events)
+
 	l.storage = newStorage(l, l.chainStorage.UnspentOutputs)
+
+	l.TriggerConstructed()
 
 	asyncOpt := event.WithWorkerPool(l.workerPool)
 
 	// TODO: revisit whether we should make the process of setting conflict and transaction as accepted/rejected atomic
-	l.conflictDAG.Events.ConflictAccepted.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-		l.propagateAcceptanceToIncludedTransactions(conflict.ID())
+	l.conflictDAG.Events.ConflictAccepted.Hook(func(conflictID utxo.TransactionID) {
+		l.propagateAcceptanceToIncludedTransactions(conflictID)
 	}, asyncOpt)
 	l.conflictDAG.Events.ConflictRejected.Hook(l.propagatedRejectionToTransactions, asyncOpt)
 	l.events.TransactionBooked.Hook(func(event *mempool.TransactionBookedEvent) {
@@ -147,7 +154,7 @@ func (l *RealitiesLedger) Events() *mempool.Events {
 	return l.events
 }
 
-func (l *RealitiesLedger) ConflictDAG() *conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID] {
+func (l *RealitiesLedger) ConflictDAG() *newconflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID, blockbooker.BlockVotePower] {
 	return l.conflictDAG
 }
 
@@ -245,7 +252,7 @@ func (l *RealitiesLedger) triggerAcceptedEvent(txMetadata *mempool.TransactionMe
 	l.mutex.Lock(txMetadata.ID())
 	defer l.mutex.Unlock(txMetadata.ID())
 
-	if !l.conflictDAG.ConfirmationState(txMetadata.ConflictIDs()).IsAccepted() {
+	if !l.conflictDAG.ConfirmationState(txMetadata.ConflictIDs().Slice()...).IsAccepted() {
 		return false
 	}
 
@@ -368,8 +375,8 @@ func (l *RealitiesLedger) propagateAcceptanceToIncludedTransactions(txID utxo.Tr
 
 // propagateConfirmedConflictToIncludedTransactions propagates confirmations to the included future cone of the given
 // Transaction.
-func (l *RealitiesLedger) propagatedRejectionToTransactions(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-	l.storage.CachedTransactionMetadata(conflict.ID()).Consume(func(txMetadata *mempool.TransactionMetadata) {
+func (l *RealitiesLedger) propagatedRejectionToTransactions(conflictID utxo.TransactionID) {
+	l.storage.CachedTransactionMetadata(conflictID).Consume(func(txMetadata *mempool.TransactionMetadata) {
 		if !l.triggerRejectedEventLocked(txMetadata) {
 			return
 		}

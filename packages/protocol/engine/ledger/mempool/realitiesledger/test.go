@@ -15,7 +15,7 @@ func NewTestLedger(t *testing.T, workers *workerpool.Group, optsLedger ...option
 	l := New(append([]options.Option[RealitiesLedger]{
 		WithVM(new(mockedvm.MockedVM)),
 	}, optsLedger...)...)
-	l.Initialize(workers.CreatePool("RealitiesLedger", 2), storage)
+	l.Initialize(workers.CreatePool("RealitiesLedger", 2), storage, nil)
 
 	t.Cleanup(func() {
 		workers.WaitChildren()
