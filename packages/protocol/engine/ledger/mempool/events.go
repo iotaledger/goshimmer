@@ -3,7 +3,7 @@ package mempool
 import (
 	"context"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/ds/advancedset"
@@ -48,7 +48,7 @@ type Events struct {
 	// Error is event that gets triggered whenever an error occurs while processing a Transaction.
 	Error *event.Event1[error]
 
-	ConflictDAG *conflictdag.Events[utxo.TransactionID, utxo.OutputID]
+	ConflictDAG *newconflictdag.Events[utxo.TransactionID, utxo.OutputID]
 
 	event.Group[Events, *Events]
 }
@@ -70,7 +70,7 @@ var NewEvents = event.CreateGroupConstructor(func() (newEvents *Events) {
 		OutputRejected:               event.New1[utxo.OutputID](),
 		Error:                        event.New1[error](),
 
-		ConflictDAG: conflictdag.NewEvents[utxo.TransactionID, utxo.OutputID](),
+		ConflictDAG: newconflictdag.NewEvents[utxo.TransactionID, utxo.OutputID](),
 	}
 })
 
