@@ -44,6 +44,7 @@ type ConflictDAG[ConflictID, ResourceID IDType, VotePower constraints.Comparable
 // New creates a new ConflictDAG.
 func New[ConflictID, ResourceID IDType, VotePower constraints.Comparable[VotePower]](acceptanceThresholdProvider func() int64) *ConflictDAG[ConflictID, ResourceID, VotePower] {
 	return &ConflictDAG[ConflictID, ResourceID, VotePower]{
+		Events: NewEvents[ConflictID, ResourceID](),
 
 		acceptanceThresholdProvider: acceptanceThresholdProvider,
 		conflictsByID:               shrinkingmap.New[ConflictID, *Conflict[ConflictID, ResourceID, VotePower]](),
@@ -286,9 +287,9 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) AcceptanceState(conflic
 // pending or rejected ones behind).
 func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) UnacceptedConflicts(conflictIDs ...ConflictID) *advancedset.AdvancedSet[ConflictID] {
 	// TODO: introduce optsMergeToMaster
-	//if !c.optsMergeToMaster {
+	// if !c.optsMergeToMaster {
 	//	return conflictIDs.Clone()
-	//}
+	// }
 
 	pendingConflictIDs := advancedset.New[ConflictID]()
 	for _, currentConflictID := range conflictIDs {

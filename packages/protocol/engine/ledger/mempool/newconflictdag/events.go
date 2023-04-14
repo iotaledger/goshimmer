@@ -37,6 +37,8 @@ func NewEvents[ConflictID, ResourceID comparable](optsLinkTarget ...*Events[Conf
 			ConflictEvicted:           event.New1[ConflictID](),
 			ConflictingResourcesAdded: event.New2[ConflictID, []ResourceID](),
 			ConflictParentsUpdated:    event.New3[ConflictID, ConflictID, []ConflictID](),
+			ConflictAccepted:          event.New1[ConflictID](),
+			ConflictRejected:          event.New1[ConflictID](),
 		}
 	})(optsLinkTarget...)
 }
