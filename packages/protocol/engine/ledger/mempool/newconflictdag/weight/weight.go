@@ -108,6 +108,13 @@ func (w *Weight) SetAcceptanceState(acceptanceState acceptance.State) (previousS
 	return previousState
 }
 
+// WithAcceptanceState sets the acceptance state of the weight and returns the Weight instance.
+func (w *Weight) WithAcceptanceState(acceptanceState acceptance.State) *Weight {
+	w.setAcceptanceState(acceptanceState)
+
+	return w
+}
+
 // Value returns an immutable copy of the Weight.
 func (w *Weight) Value() Value {
 	w.mutex.RLock()

@@ -93,7 +93,7 @@ func TestConflictSpamAndMergeToMaster(t *testing.T) {
 		txs = append(txs, sendTripleConflicts(t, n.Peers(), determineOutputSlice(tripletOutputs, i, numberOfConflictingOutputs), keyPairs, i)...)
 	}
 
-	t.Logf("Sending data %d blocks to confirm Conflicts and make ConfirmationState converge on all nodes", dataBlocksAmount*2)
+	t.Logf("Sending data %d blocks to confirm Conflicts and make AcceptanceState converge on all nodes", dataBlocksAmount*2)
 	tests.SendDataBlocksWithDelay(t, n.Peers(), dataBlocksAmount*2, delayBetweenDataBlocks)
 
 	t.Logf("number of txs to verify is %d", len(txs))
@@ -126,11 +126,11 @@ func verifyConfirmationsOnPeers(t *testing.T, peers []*framework.Node, txs []*de
 				return err == nil && metadata != nil
 			}, 10*time.Second, 10*time.Millisecond, "Peer %s can't fetch metadata of tx %s. metadata is %v. Error is %w",
 				peer.Name(), tx.ID().Base58(), metadata, err)
-			t.Logf("ConfirmationState is %s for tx %s in peer %s", metadata.ConfirmationState, tx.ID().Base58(), peer.Name())
+			t.Logf("AcceptanceState is %s for tx %s in peer %s", metadata.ConfirmationState, tx.ID().Base58(), peer.Name())
 			if prevConfirmationState != unknownConfirmationState {
 				require.Eventually(t,
 					func() bool { return prevConfirmationState == metadata.ConfirmationState },
-					10*time.Second, 10*time.Millisecond, "Different confirmation states on tx %s between peers %s (ConfirmationState=%s) and %s (ConfirmationState=%s)", tx.ID().Base58(),
+					10*time.Second, 10*time.Millisecond, "Different confirmation states on tx %s between peers %s (AcceptanceState=%s) and %s (AcceptanceState=%s)", tx.ID().Base58(),
 					peers[i-1].Name(), prevConfirmationState, peer.Name(), metadata.ConfirmationState)
 			}
 			prevConfirmationState = metadata.ConfirmationState

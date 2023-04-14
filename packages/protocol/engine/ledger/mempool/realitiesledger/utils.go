@@ -6,7 +6,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/cerrors"
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/ds/set"
@@ -35,7 +34,7 @@ func (u *Utils) ConflictIDsInFutureCone(conflictIDs utxo.TransactionIDs) (confli
 
 		conflictIDsInFutureCone.Add(conflictID)
 
-		if u.ledger.conflictDAG.ConfirmationState(advancedset.New(conflictID)).IsAccepted() {
+		if u.ledger.conflictDAG.AcceptanceState(conflictID).IsAccepted() {
 			u.ledger.storage.CachedTransactionMetadata(conflictID).Consume(func(txMetadata *mempool.TransactionMetadata) {
 				u.WalkConsumingTransactionMetadata(txMetadata.OutputIDs(), func(consumingTxMetadata *mempool.TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
 					u.ledger.mutex.RLock(consumingTxMetadata.ID())
@@ -49,14 +48,7 @@ func (u *Utils) ConflictIDsInFutureCone(conflictIDs utxo.TransactionIDs) (confli
 			continue
 		}
 
-		conflict, exists := u.ledger.conflictDAG.Conflict(conflictID)
-		if !exists {
-			continue
-		}
-		_ = conflict.Children().ForEach(func(childConflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) (err error) {
-			conflictIDWalker.Push(childConflict.ID())
-			return nil
-		})
+		conflictIDsInFutureCone.AddAll(u.ledger.conflictDAG.FutureCone(advancedset.New(conflictID)))
 	}
 
 	return conflictIDsInFutureCone
@@ -142,24 +134,7 @@ func (u *Utils) ReferencedTransactions(tx utxo.Transaction) (transactionIDs utxo
 	return transactionIDs
 }
 
-// ConflictingTransactions returns the TransactionIDs that are conflicting with the given Transaction.
-func (u *Utils) ConflictingTransactions(transactionID utxo.TransactionID) (conflictingTransactions utxo.TransactionIDs) {
-	conflictingTransactions = utxo.NewTransactionIDs()
-
-	conflict, exists := u.ledger.conflictDAG.Conflict(transactionID)
-	if !exists {
-		return conflictingTransactions
-	}
-
-	conflict.ForEachConflictingConflict(func(conflictingConflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) bool {
-		conflictingTransactions.Add(conflictingConflict.ID())
-		return true
-	})
-
-	return conflictingTransactions
-}
-
-// TransactionConfirmationState returns the ConfirmationState of the Transaction with the given TransactionID.
+// TransactionConfirmationState returns the AcceptanceState of the Transaction with the given TransactionID.
 func (u *Utils) TransactionConfirmationState(txID utxo.TransactionID) (confirmationState confirmation.State) {
 	u.ledger.storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *mempool.TransactionMetadata) {
 		confirmationState = txMetadata.ConfirmationState()
@@ -167,7 +142,7 @@ func (u *Utils) TransactionConfirmationState(txID utxo.TransactionID) (confirmat
 	return
 }
 
-// OutputConfirmationState returns the ConfirmationState of the Output.
+// OutputConfirmationState returns the AcceptanceState of the Output.
 func (u *Utils) OutputConfirmationState(outputID utxo.OutputID) (confirmationState confirmation.State) {
 	u.ledger.storage.CachedOutputMetadata(outputID).Consume(func(outputMetadata *mempool.OutputMetadata) {
 		confirmationState = outputMetadata.ConfirmationState()

@@ -20,10 +20,9 @@ type TestFramework struct {
 	Manager        *tsc.Manager
 	MockAcceptance *blockgadget.MockBlockGadget
 
-	Tangle        *tangle.TestFramework
-	BlockDAG      *blockdag.TestFramework
-	Booker        *booker.TestFramework
-	VirtualVoting *booker.VirtualVotingTestFramework
+	Tangle   *tangle.TestFramework
+	BlockDAG *blockdag.TestFramework
+	Booker   *booker.TestFramework
 }
 
 func NewTestFramework(test *testing.T, tangleTF *tangle.TestFramework, optsTSCManager ...options.Option[tsc.Manager]) *TestFramework {

@@ -5,7 +5,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget/tresholdblockgadget"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/conflictresolver"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/slotgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/slotgadget/totalweightslotgadget"
 	"github.com/iotaledger/hive.go/runtime/module"
@@ -17,9 +16,8 @@ import (
 type Consensus struct {
 	events *consensus.Events
 
-	blockGadget      blockgadget.Gadget
-	slotGadget       slotgadget.Gadget
-	conflictResolver *conflictresolver.ConflictResolver
+	blockGadget blockgadget.Gadget
+	slotGadget  slotgadget.Gadget
 
 	optsBlockGadgetProvider module.Provider[*engine.Engine, blockgadget.Gadget]
 	optsSlotGadgetProvider  module.Provider[*engine.Engine, slotgadget.Gadget]
@@ -41,8 +39,6 @@ func NewProvider(opts ...options.Option[Consensus]) module.Provider[*engine.Engi
 			c.events.SlotGadget.LinkTo(c.slotGadget.Events())
 
 			e.HookConstructed(func() {
-				c.conflictResolver = conflictresolver.New(e.Ledger.MemPool().ConflictDAG(), e.Tangle.Booker().VirtualVoting().ConflictVotersTotalWeight)
-
 				e.Events.Consensus.LinkTo(c.events)
 
 				e.Events.Consensus.BlockGadget.Error.Hook(e.Events.Error.Trigger)
@@ -64,10 +60,6 @@ func (c *Consensus) BlockGadget() blockgadget.Gadget {
 
 func (c *Consensus) SlotGadget() slotgadget.Gadget {
 	return c.slotGadget
-}
-
-func (c *Consensus) ConflictResolver() *conflictresolver.ConflictResolver {
-	return c.conflictResolver
 }
 
 var _ consensus.Consensus = new(Consensus)

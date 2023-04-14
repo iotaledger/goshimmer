@@ -5,10 +5,10 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/ds/shrinkingmap"
 	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/runtime/event"
@@ -39,14 +39,11 @@ func NewTipsConflictTracker(workerPool *workerpool.WorkerPool, engineInstance *e
 }
 
 func (c *TipsConflictTracker) setup() {
-	c.engine.Events.Ledger.MemPool.ConflictDAG.ConflictAccepted.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-		c.deleteConflict(conflict.ID())
+	c.engine.Events.Ledger.MemPool.ConflictDAG.ConflictAccepted.Hook(func(conflictID utxo.TransactionID) {
+		c.deleteConflict(conflictID)
 	}, event.WithWorkerPool(c.workerPool))
-	c.engine.Events.Ledger.MemPool.ConflictDAG.ConflictRejected.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-		c.deleteConflict(conflict.ID())
-	}, event.WithWorkerPool(c.workerPool))
-	c.engine.Events.Ledger.MemPool.ConflictDAG.ConflictNotConflicting.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-		c.deleteConflict(conflict.ID())
+	c.engine.Events.Ledger.MemPool.ConflictDAG.ConflictRejected.Hook(func(conflictID utxo.TransactionID) {
+		c.deleteConflict(conflictID)
 	}, event.WithWorkerPool(c.workerPool))
 }
 
@@ -63,7 +60,7 @@ func (c *TipsConflictTracker) AddTip(block *scheduler.Block, blockConflictIDs ut
 	for it := blockConflictIDs.Iterator(); it.HasNext(); {
 		conflict := it.Next()
 
-		if !c.engine.Ledger.MemPool().ConflictDAG().ConfirmationState(advancedset.New(conflict)).IsPending() {
+		if !c.engine.Ledger.MemPool().ConflictDAG().AcceptanceState(conflict).IsPending() {
 			continue
 		}
 
@@ -96,7 +93,7 @@ func (c *TipsConflictTracker) RemoveTip(block *scheduler.Block) {
 			continue
 		}
 
-		if !c.engine.Ledger.MemPool().ConflictDAG().ConfirmationState(advancedset.New(conflictID)).IsPending() {
+		if !c.engine.Ledger.MemPool().ConflictDAG().AcceptanceState(conflictID).IsPending() {
 			continue
 		}
 
@@ -108,37 +105,27 @@ func (c *TipsConflictTracker) RemoveTip(block *scheduler.Block) {
 	}
 }
 
-func (c *TipsConflictTracker) MissingConflicts(amount int) (missingConflicts utxo.TransactionIDs) {
+func (c *TipsConflictTracker) MissingConflicts(amount int, conflictDAG newconflictdag.ReadLockedConflictDAG[utxo.TransactionID, utxo.OutputID, booker.BlockVotePower]) (missingConflicts utxo.TransactionIDs) {
 	c.Lock()
 	defer c.Unlock()
 
 	missingConflicts = utxo.NewTransactionIDs()
-	censoredConflictsToDelete := utxo.NewTransactionIDs()
-	dislikedConflicts := utxo.NewTransactionIDs()
-	c.censoredConflicts.ForEach(func(conflictID utxo.TransactionID, _ types.Empty) bool {
+	for _, conflictID := range c.censoredConflicts.Keys() {
 		// TODO: this should not be necessary if ConflictAccepted/ConflictRejected events are fired appropriately
 		// If the conflict is not pending anymore or it clashes with a conflict we already introduced, we can remove it from the censored conflicts.
-		if !c.engine.Ledger.MemPool().ConflictDAG().ConfirmationState(advancedset.New(conflictID)).IsPending() || dislikedConflicts.Has(conflictID) {
-			censoredConflictsToDelete.Add(conflictID)
-			return true
+		if !c.engine.Ledger.MemPool().ConflictDAG().AcceptanceState(conflictID).IsPending() {
+			c.censoredConflicts.Delete(conflictID)
+			continue
 		}
 
 		// We want to reintroduce only the pending conflict that is liked.
-		likedConflictID, dislikedConflictsInner := c.engine.Consensus.ConflictResolver().AdjustOpinion(conflictID)
-		dislikedConflicts.AddAll(dislikedConflictsInner)
-
-		if missingConflicts.Add(likedConflictID) && missingConflicts.Size() == amount {
-			// We stop iterating if we have enough conflicts
-			return false
+		if !conflictDAG.LikedInstead(conflictID).IsEmpty() {
+			c.censoredConflicts.Delete(conflictID)
 		}
 
-		return true
-	})
-
-	for it := censoredConflictsToDelete.Iterator(); it.HasNext(); {
-		conflictID := it.Next()
-		c.censoredConflicts.Delete(conflictID)
-		c.tipCountPerConflict.Delete(conflictID)
+		if missingConflicts.Add(conflictID) && missingConflicts.Size() == amount {
+			return missingConflicts
+		}
 	}
 
 	return missingConflicts

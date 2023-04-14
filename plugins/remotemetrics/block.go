@@ -50,7 +50,7 @@ func sendBlockSchedulerRecord(block *scheduler.Block, recordType string) {
 	//	record.DeltaSolid = blockMetadata.SolidificationTime().Sub(record.IssuedTimestamp).Nanoseconds()
 	//	record.QueuedTimestamp = blockMetadata.QueuedTime()
 	//	record.DeltaBooked = blockMetadata.BookedTime().Sub(record.IssuedTimestamp).Nanoseconds()
-	//	record.ConfirmationState = uint8(blockMetadata.ConfirmationState())
+	//	record.AcceptanceState = uint8(blockMetadata.AcceptanceState())
 	//	record.ConfirmationStateTimestamp = blockMetadata.ConfirmationStateTime()
 	//	if !blockMetadata.ConfirmationStateTime().IsZero() {
 	//		record.DeltaConfirmationStateTime = blockMetadata.ConfirmationStateTime().Sub(record.IssuedTimestamp).Nanoseconds()

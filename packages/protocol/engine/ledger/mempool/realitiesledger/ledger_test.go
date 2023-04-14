@@ -178,12 +178,12 @@ func TestLedger_SetConflictConfirmed(t *testing.T) {
 			"TXI": {},
 		})
 
-		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXA")))
-		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXB")))
-		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXC")))
-		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXD")))
-		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXH")))
-		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXI")))
+		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG().AcceptanceState(tf.ConflictIDs("TXA")))
+		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG().AcceptanceState(tf.ConflictIDs("TXB")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().AcceptanceState(tf.ConflictIDs("TXC")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().AcceptanceState(tf.ConflictIDs("TXD")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().AcceptanceState(tf.ConflictIDs("TXH")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().AcceptanceState(tf.ConflictIDs("TXI")))
 	}
 
 	// When creating the middle layer the new transaction E should be booked only under its Pending parent C
@@ -210,12 +210,12 @@ func TestLedger_SetConflictConfirmed(t *testing.T) {
 			"TXI": {},
 		})
 
-		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXA")))
-		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXB")))
-		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXC")))
-		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXD")))
-		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXH")))
-		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXI")))
+		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG().AcceptanceState(tf.ConflictIDs("TXA")))
+		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG().AcceptanceState(tf.ConflictIDs("TXB")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().AcceptanceState(tf.ConflictIDs("TXC")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().AcceptanceState(tf.ConflictIDs("TXD")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().AcceptanceState(tf.ConflictIDs("TXH")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().AcceptanceState(tf.ConflictIDs("TXI")))
 	}
 
 	// When creating the first transaction (F) of top layer it should be booked under the Pending parent C
@@ -243,12 +243,12 @@ func TestLedger_SetConflictConfirmed(t *testing.T) {
 			"TXI": {},
 		})
 
-		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXA")))
-		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXB")))
-		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXC")))
-		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXD")))
-		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXH")))
-		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXI")))
+		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG().AcceptanceState(tf.ConflictIDs("TXA")))
+		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG().AcceptanceState(tf.ConflictIDs("TXB")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().AcceptanceState(tf.ConflictIDs("TXC")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().AcceptanceState(tf.ConflictIDs("TXD")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().AcceptanceState(tf.ConflictIDs("TXH")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().AcceptanceState(tf.ConflictIDs("TXI")))
 	}
 
 	// When creating the conflicting TX (G) of the top layer conflicts F & G are spawned by the fork of G
@@ -279,14 +279,14 @@ func TestLedger_SetConflictConfirmed(t *testing.T) {
 			"TXG": {"TXC"},
 		})
 
-		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXA")))
-		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXB")))
-		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXC")))
-		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXD")))
-		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXH")))
-		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXI")))
-		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXF")))
-		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXG")))
+		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG().AcceptanceState(tf.ConflictIDs("TXA")))
+		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG().AcceptanceState(tf.ConflictIDs("TXB")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().AcceptanceState(tf.ConflictIDs("TXC")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().AcceptanceState(tf.ConflictIDs("TXD")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().AcceptanceState(tf.ConflictIDs("TXH")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().AcceptanceState(tf.ConflictIDs("TXI")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().AcceptanceState(tf.ConflictIDs("TXF")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().AcceptanceState(tf.ConflictIDs("TXG")))
 	}
 
 	require.True(t, tf.Instance.ConflictDAG().SetConflictAccepted(tf.Transaction("TXD").ID()))
@@ -320,14 +320,14 @@ func TestLedger_SetConflictConfirmed(t *testing.T) {
 			"TXG": {"TXC"},
 		})
 
-		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXA")))
-		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXC")))
-		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXD")))
-		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXH")))
-		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXI")))
-		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXF")))
-		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXG")))
-		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXG", "TXH")))
+		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG().AcceptanceState(tf.ConflictIDs("TXA")))
+		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG().AcceptanceState(tf.ConflictIDs("TXC")))
+		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG().AcceptanceState(tf.ConflictIDs("TXD")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().AcceptanceState(tf.ConflictIDs("TXH")))
+		require.Equal(t, confirmation.Pending, tf.Instance.ConflictDAG().AcceptanceState(tf.ConflictIDs("TXI")))
+		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG().AcceptanceState(tf.ConflictIDs("TXF")))
+		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG().AcceptanceState(tf.ConflictIDs("TXG")))
+		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG().AcceptanceState(tf.ConflictIDs("TXG", "TXH")))
 	}
 
 	require.True(t, tf.Instance.ConflictDAG().SetConflictAccepted(tf.Transaction("TXH").ID()))
@@ -362,15 +362,15 @@ func TestLedger_SetConflictConfirmed(t *testing.T) {
 			"TXG": {"TXC"},
 		})
 
-		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXA")))
-		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXB")))
-		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXC")))
-		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXD")))
-		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXH")))
-		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXI")))
-		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXF")))
-		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXG")))
-		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG().ConfirmationState(tf.ConflictIDs("TXG", "TXH")))
+		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG().AcceptanceState(tf.ConflictIDs("TXA")))
+		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG().AcceptanceState(tf.ConflictIDs("TXB")))
+		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG().AcceptanceState(tf.ConflictIDs("TXC")))
+		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG().AcceptanceState(tf.ConflictIDs("TXD")))
+		require.Equal(t, confirmation.Accepted, tf.Instance.ConflictDAG().AcceptanceState(tf.ConflictIDs("TXH")))
+		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG().AcceptanceState(tf.ConflictIDs("TXI")))
+		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG().AcceptanceState(tf.ConflictIDs("TXF")))
+		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG().AcceptanceState(tf.ConflictIDs("TXG")))
+		require.Equal(t, confirmation.Rejected, tf.Instance.ConflictDAG().AcceptanceState(tf.ConflictIDs("TXG", "TXH")))
 	}
 }
 

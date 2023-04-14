@@ -109,9 +109,9 @@ func TestSimpleDoubleSpend(t *testing.T) {
 	err = n.DoManualPeering(ctx)
 	require.NoError(t, err)
 
-	t.Logf("Sending %d data blocks to make ConfirmationState converge", dataBlocksAmount)
+	t.Logf("Sending %d data blocks to make AcceptanceState converge", dataBlocksAmount)
 	tests.SendDataBlocksWithDelay(t, n.Peers(), dataBlocksAmount, delayBetweenDataBlocks)
-	t.Logf("Sending %d data blocks to make ConfirmationState converge... done", dataBlocksAmount)
+	t.Logf("Sending %d data blocks to make AcceptanceState converge... done", dataBlocksAmount)
 
 	t.Logf("Waiting for conflicting transactions to be marked...")
 	// conflicting txs should have spawned conflicts
@@ -125,8 +125,8 @@ func TestSimpleDoubleSpend(t *testing.T) {
 	t.Logf("Waiting for conflicting transactions to be marked... done")
 
 	t.Logf("Sending data blocks to resolve the conflict...")
-	// we issue blks on both nodes so the txs' ConfirmationState can change, given that they are dependent on their
-	// attachments' ConfirmationState. if blks would only be issued on node 2 or 1, they weight would never surpass 50%.
+	// we issue blks on both nodes so the txs' AcceptanceState can change, given that they are dependent on their
+	// attachments' AcceptanceState. if blks would only be issued on node 2 or 1, they weight would never surpass 50%.
 	tests.SendDataBlocks(t, n.Peers(), 50)
 	t.Logf("Sending data blocks to resolve the conflict... done")
 

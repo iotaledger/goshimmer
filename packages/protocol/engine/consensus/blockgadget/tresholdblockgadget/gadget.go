@@ -5,14 +5,11 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
@@ -104,10 +101,6 @@ func (g *Gadget) Initialize(workers *workerpool.Group, booker booker.Booker, blo
 	g.booker.Events().SequenceTracker.VotersUpdated.Hook(func(evt *sequencetracker.VoterUpdatedEvent) {
 		g.RefreshSequence(evt.SequenceID, evt.NewMaxSupportedIndex, evt.PrevMaxSupportedIndex)
 	}, event.WithWorkerPool(wp))
-
-	g.booker.Events().VirtualVoting.ConflictTracker.VoterAdded.Hook(func(evt *conflicttracker.VoterEvent[utxo.TransactionID]) {
-		g.RefreshConflictAcceptance(evt.ConflictID)
-	})
 
 	g.booker.Events().SequenceEvicted.Hook(g.evictSequence, event.WithWorkerPool(wp))
 
@@ -377,7 +370,7 @@ func (g *Gadget) markAsAccepted(block *blockgadget.Block, weakly bool) (err erro
 
 		g.events.BlockAccepted.Trigger(block)
 
-		// set ConfirmationState of payload (applicable only to transactions)
+		// set AcceptanceState of payload (applicable only to transactions)
 		if tx, ok := block.Transaction(); ok {
 			g.memPool.SetTransactionInclusionSlot(tx.ID(), g.slotTimeProvider.IndexFromTime(block.IssuingTime()))
 		}
@@ -469,39 +462,6 @@ func (g *Gadget) registerBlock(virtualVotingBlock *booker.Block) (block *blockga
 	})
 
 	return block, nil
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region Conflict Acceptance //////////////////////////////////////////////////////////////////////////////////////////
-
-func (g *Gadget) RefreshConflictAcceptance(conflictID utxo.TransactionID) {
-	conflict, exists := g.memPool.ConflictDAG().Conflict(conflictID)
-	if !exists {
-		return
-	}
-
-	conflictWeight := g.booker.VirtualVoting().ConflictVotersTotalWeight(conflictID)
-
-	if !IsThresholdReached(g.totalWeightCallback(), conflictWeight, g.optsConflictAcceptanceThreshold) {
-		return
-	}
-
-	markAsAccepted := true
-
-	conflict.ForEachConflictingConflict(func(conflictingConflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) bool {
-		conflictingConflictWeight := g.booker.VirtualVoting().ConflictVotersTotalWeight(conflictingConflict.ID())
-
-		// if the conflict is less than 66% ahead, then don't mark as accepted
-		if !IsThresholdReached(g.totalWeightCallback(), conflictWeight-conflictingConflictWeight, g.optsConflictAcceptanceThreshold) {
-			markAsAccepted = false
-		}
-		return markAsAccepted
-	})
-
-	if markAsAccepted {
-		g.memPool.ConflictDAG().SetConflictAccepted(conflictID)
-	}
 }
 
 func IsThresholdReached(weight, otherWeight int64, threshold float64) bool {

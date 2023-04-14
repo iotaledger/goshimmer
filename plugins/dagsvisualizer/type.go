@@ -11,7 +11,7 @@ const (
 	BlkTypeTangleBooked
 	// BlkTypeTangleConfirmed is the type of the Tangle DAG confirmed block.
 	BlkTypeTangleConfirmed
-	// BlkTypeTangleTxConfirmationState is the type of the Tangle DAG transaction ConfirmationState.
+	// BlkTypeTangleTxConfirmationState is the type of the Tangle DAG transaction AcceptanceState.
 	BlkTypeTangleTxConfirmationState
 	// BlkTypeUTXOVertex is the type of the UTXO DAG vertex.
 	BlkTypeUTXOVertex

@@ -25,7 +25,7 @@ type MemPool interface {
 	Utils() Utils
 
 	// ConflictDAG is a reference to the ConflictDAG that is used by this MemPool.
-	ConflictDAG() *newconflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID, booker.BlockVotePower]
+	ConflictDAG() newconflictdag.Interface[utxo.TransactionID, utxo.OutputID, booker.BlockVotePower]
 
 	// StoreAndProcessTransaction stores and processes the given Transaction.
 	StoreAndProcessTransaction(ctx context.Context, tx utxo.Transaction) (err error)
@@ -57,7 +57,7 @@ type Utils interface {
 
 	ReferencedTransactions(tx utxo.Transaction) (transactionIDs utxo.TransactionIDs)
 
-	// TransactionConfirmationState returns the ConfirmationState of the Transaction with the given TransactionID.
+	// TransactionConfirmationState returns the AcceptanceState of the Transaction with the given TransactionID.
 	TransactionConfirmationState(txID utxo.TransactionID) (confirmationState confirmation.State)
 
 	// WithTransactionAndMetadata walks over the transactions that consume the named OutputIDs and calls the callback

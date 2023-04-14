@@ -150,7 +150,7 @@ func registerUTXOEvents(plugin *node.Plugin) {
 
 func registerConflictEvents(plugin *node.Plugin) {
 	conflictWeightChangedFunc := func(e *conflicttracker.VoterEvent[utxo.TransactionID]) {
-		conflictConfirmationState := deps.Protocol.Engine().Ledger.MemPool().ConflictDAG().ConfirmationState(utxo.NewTransactionIDs(e.ConflictID))
+		conflictConfirmationState := deps.Protocol.Engine().Ledger.MemPool().ConflictDAG().AcceptanceState(utxo.NewTransactionIDs(e.ConflictID))
 		wsBlk := &wsBlock{
 			Type: BlkTypeConflictWeightChanged,
 			Data: &conflictWeightChanged{
@@ -363,7 +363,7 @@ func newConflictVertex(conflictID utxo.TransactionID) (ret *conflictVertex) {
 			return conflict.ID()
 		})
 	}
-	confirmationState := deps.Protocol.Engine().Ledger.MemPool().ConflictDAG().ConfirmationState(utxo.NewTransactionIDs(conflictID))
+	confirmationState := deps.Protocol.Engine().Ledger.MemPool().ConflictDAG().AcceptanceState(utxo.NewTransactionIDs(conflictID))
 	ret = &conflictVertex{
 		ID:                conflictID.Base58(),
 		Parents:           lo.Map(conflict.Parents().Slice(), utxo.TransactionID.Base58),

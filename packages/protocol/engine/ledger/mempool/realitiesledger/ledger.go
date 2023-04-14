@@ -46,6 +46,9 @@ type RealitiesLedger struct {
 	// conflictDAG is a reference to the conflictDAG that is used by this RealitiesLedger.
 	conflictDAG *newconflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID, blockbooker.BlockVotePower]
 
+	// sybilProtectionWeights
+	sybilProtectionWeights *sybilprotection.Weights
+
 	workerPool *workerpool.WorkerPool
 
 	// dataFlow is a RealitiesLedger component that defines the data flow (how the different commands are chained together)
@@ -126,8 +129,10 @@ func (l *RealitiesLedger) Initialize(workerPool *workerpool.WorkerPool, storage 
 	l.chainStorage = storage
 	l.workerPool = workerPool
 
-	l.conflictDAG = newconflictdag.New[utxo.TransactionID, utxo.OutputID, blockbooker.BlockVotePower](acceptance.ThresholdProvider(sybilProtection.Validators().Weights.TotalWeight))
+	l.conflictDAG = newconflictdag.New[utxo.TransactionID, utxo.OutputID, blockbooker.BlockVotePower](acceptance.ThresholdProvider(sybilProtection.Validators().TotalWeight))
 	l.events.ConflictDAG.LinkTo(l.conflictDAG.Events)
+
+	l.sybilProtectionWeights = sybilProtection.Weights()
 
 	l.storage = newStorage(l, l.chainStorage.UnspentOutputs)
 
@@ -252,7 +257,7 @@ func (l *RealitiesLedger) triggerAcceptedEvent(txMetadata *mempool.TransactionMe
 	l.mutex.Lock(txMetadata.ID())
 	defer l.mutex.Unlock(txMetadata.ID())
 
-	if !l.conflictDAG.ConfirmationState(txMetadata.ConflictIDs().Slice()...).IsAccepted() {
+	if !l.conflictDAG.AcceptanceState(txMetadata.ConflictIDs().Slice()...).IsAccepted() {
 		return false
 	}
 

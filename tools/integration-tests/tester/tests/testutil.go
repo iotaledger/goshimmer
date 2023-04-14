@@ -391,7 +391,7 @@ func SendTransaction(t *testing.T, from *framework.Node, to *framework.Node, col
 }
 
 // RequireBlocksAvailable asserts that all nodes have received BlockIDs in waitFor time, periodically checking each tick.
-// Optionally, a ConfirmationState can be specified, which then requires the blocks to reach this ConfirmationState.
+// Optionally, a AcceptanceState can be specified, which then requires the blocks to reach this AcceptanceState.
 func RequireBlocksAvailable(t *testing.T, nodes []*framework.Node, blockIDs map[string]DataBlockSent, waitFor time.Duration, tick time.Duration, accepted ...bool) {
 	missing := make(map[identity.ID]*advancedset.AdvancedSet[string], len(nodes))
 	for _, node := range nodes {
@@ -417,10 +417,10 @@ func RequireBlocksAvailable(t *testing.T, nodes []*framework.Node, blockIDs map[
 				}
 				require.NoErrorf(t, err, "node=%s, blockID=%s, 'GetBlockMetadata' failed", node, blockID)
 
-				// retry, if the block has not yet reached the specified ConfirmationState
+				// retry, if the block has not yet reached the specified AcceptanceState
 				if len(accepted) > 0 && accepted[0] {
 					if !blk.M.Accepted {
-						log.Printf("node=%s, blockID=%s, expected Accepted=true, actual Accepted=%v; ConfirmationState not reached", node, blockID, blk.M.Accepted)
+						log.Printf("node=%s, blockID=%s, expected Accepted=true, actual Accepted=%v; AcceptanceState not reached", node, blockID, blk.M.Accepted)
 						continue
 					}
 				}
@@ -600,19 +600,19 @@ func RequireConfirmationStateEqual(t *testing.T, nodes framework.Nodes, expected
 				// the confirmation state can change, so we should check all transactions every time
 				stateEqual, confirmationState := txMetadataStateEqual(t, node, txID, expInclState)
 				if !stateEqual {
-					t.Logf("Current ConfirmationState for txId %s is %s on %s", txID, confirmationState, node.Name())
+					t.Logf("Current AcceptanceState for txId %s is %s on %s", txID, confirmationState, node.Name())
 					return false
 				}
-				t.Logf("Current ConfirmationState for txId %s is %s on %s", txID, confirmationState, node.Name())
+				t.Logf("Current AcceptanceState for txId %s is %s on %s", txID, confirmationState, node.Name())
 
 			}
 		}
 		return true
 	}
 
-	log.Printf("Waiting for %d transactions to reach the correct ConfirmationState...", len(expectedStates))
+	log.Printf("Waiting for %d transactions to reach the correct AcceptanceState...", len(expectedStates))
 	require.Eventually(t, condition, waitFor, tick)
-	log.Println("Waiting for ConfirmationState... done")
+	log.Println("Waiting for AcceptanceState... done")
 }
 
 // ShutdownNetwork shuts down the network and reports errors.

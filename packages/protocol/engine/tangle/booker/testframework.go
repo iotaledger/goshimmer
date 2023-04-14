@@ -30,7 +30,6 @@ type TestFramework struct {
 	Ledger          *mempool.TestFramework
 	BlockDAG        *blockdag.TestFramework
 	ConflictDAG     *conflictdag.TestFramework
-	VirtualVoting   *VirtualVotingTestFramework
 	SequenceTracker *sequencetracker.TestFramework[BlockVotePower]
 	Votes           *votes.TestFramework
 
@@ -42,13 +41,12 @@ type TestFramework struct {
 
 func NewTestFramework(test *testing.T, workers *workerpool.Group, instance Booker, blockDAG blockdag.BlockDAG, memPool mempool.MemPool, validators *sybilprotection.WeightedSet, slotTimeProviderFunc func() *slot.TimeProvider) *TestFramework {
 	t := &TestFramework{
-		Test:          test,
-		Workers:       workers,
-		Instance:      instance,
-		BlockDAG:      blockdag.NewTestFramework(test, workers.CreateGroup("BlockDAG"), blockDAG, slotTimeProviderFunc),
-		ConflictDAG:   conflictdag.NewTestFramework(test, memPool.ConflictDAG()),
-		Ledger:        mempool.NewTestFramework(test, memPool),
-		VirtualVoting: NewVirtualVotingTestFramework(test, instance.VirtualVoting(), memPool, validators),
+		Test:        test,
+		Workers:     workers,
+		Instance:    instance,
+		BlockDAG:    blockdag.NewTestFramework(test, workers.CreateGroup("BlockDAG"), blockDAG, slotTimeProviderFunc),
+		ConflictDAG: conflictdag.NewTestFramework(test, memPool.ConflictDAG()),
+		Ledger:      mempool.NewTestFramework(test, memPool),
 	}
 
 	t.Votes = votes.NewTestFramework(test, validators)

@@ -89,7 +89,7 @@ type BlockScheduledMetrics struct {
 	QueuedTimestamp            time.Time `json:"queuedTimestamp" bson:"queuedTimestamp"`
 	DroppedTimestamp           time.Time `json:"droppedTimestamp,omitempty" bson:"DroppedTimestamp"`
 	ConfirmationStateTimestamp time.Time `json:"confirmationStateTimestamp,omitempty" bson:"ConfirmationStateTimestamp"`
-	ConfirmationState          uint8     `json:"confirmationState" bson:"ConfirmationState"`
+	ConfirmationState          uint8     `json:"confirmationState" bson:"AcceptanceState"`
 	DeltaConfirmationStateTime int64     `json:"deltaConfirmationStateTime" bson:"deltaConfirmationStateTime"`
 	DeltaSolid                 int64     `json:"deltaSolid,omitempty" bson:"deltaSolid"`
 	// ScheduledTimestamp - IssuedTimestamp in nanoseconds
