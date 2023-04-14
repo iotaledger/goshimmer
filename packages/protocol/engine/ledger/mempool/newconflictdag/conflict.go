@@ -93,16 +93,16 @@ type Conflict[ConflictID, ResourceID IDType, VotePower constraints.Comparable[Vo
 // NewConflict creates a new Conflict.
 func NewConflict[ConflictID, ResourceID IDType, VotePower constraints.Comparable[VotePower]](id ConflictID, parents []*Conflict[ConflictID, ResourceID, VotePower], conflictSets []*ConflictSet[ConflictID, ResourceID, VotePower], initialWeight *weight.Weight, pendingTasksCounter *syncutils.Counter, acceptanceThresholdProvider func() int64) *Conflict[ConflictID, ResourceID, VotePower] {
 	c := &Conflict[ConflictID, ResourceID, VotePower]{
-		AcceptanceStateUpdated:  event.New2[acceptance.State, acceptance.State](),
-		PreferredInsteadUpdated: event.New1[*Conflict[ConflictID, ResourceID, VotePower]](),
-		LikedInsteadAdded:       event.New1[*Conflict[ConflictID, ResourceID, VotePower]](),
-		LikedInsteadRemoved:     event.New1[*Conflict[ConflictID, ResourceID, VotePower]](),
 		ID:                      id,
 		Parents:                 advancedset.New[*Conflict[ConflictID, ResourceID, VotePower]](),
 		Children:                advancedset.New[*Conflict[ConflictID, ResourceID, VotePower]](),
 		ConflictSets:            advancedset.New[*ConflictSet[ConflictID, ResourceID, VotePower]](),
 		Weight:                  initialWeight,
 		LatestVotes:             shrinkingmap.New[identity.ID, *vote.Vote[VotePower]](),
+		AcceptanceStateUpdated:  event.New2[acceptance.State, acceptance.State](),
+		PreferredInsteadUpdated: event.New1[*Conflict[ConflictID, ResourceID, VotePower]](),
+		LikedInsteadAdded:       event.New1[*Conflict[ConflictID, ResourceID, VotePower]](),
+		LikedInsteadRemoved:     event.New1[*Conflict[ConflictID, ResourceID, VotePower]](),
 
 		childUnhookMethods:  shrinkingmap.New[ConflictID, func()](),
 		acceptanceThreshold: acceptanceThresholdProvider,
@@ -113,7 +113,9 @@ func NewConflict[ConflictID, ResourceID IDType, VotePower constraints.Comparable
 	c.preferredInstead = c
 
 	for _, parent := range parents {
-		c.UpdateParents(parent)
+		if c.Parents.Add(parent) {
+			parent.registerChild(c)
+		}
 	}
 
 	c.unhookAcceptanceMonitoring = c.Weight.Validators.OnTotalWeightUpdated.Hook(func(updatedWeight int64) {
