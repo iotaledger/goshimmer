@@ -144,6 +144,8 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) UpdateConflictParents(c
 		addedParent, addedParentExists := c.conflictsByID.Get(addedParentID)
 		if !addedParentExists {
 			if !currentConflict.IsRejected() {
+				// UpdateConflictParents is only called when a Conflict is forked, which means that the added parent
+				// must exist (unless it was forked on top of a rejected branch, just before eviction).
 				return false, xerrors.Errorf("tried to add non-existent parent with %s: %w", addedParentID, ErrFatal)
 			}
 
