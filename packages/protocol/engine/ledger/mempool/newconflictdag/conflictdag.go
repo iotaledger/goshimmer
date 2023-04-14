@@ -22,6 +22,9 @@ type ConflictDAG[ConflictID, ResourceID IDType, VotePower constraints.Comparable
 	// ConflictCreated is triggered when a new Conflict is created.
 	ConflictCreated *event.Event1[ConflictID]
 
+	// ConflictEvicted is triggered when a Conflict is evicted from the ConflictDAG.
+	ConflictEvicted *event.Event1[ConflictID]
+
 	// ConflictingResourcesAdded is triggered when the Conflict is added to a new ConflictSet.
 	ConflictingResourcesAdded *event.Event2[ConflictID, []ResourceID]
 
@@ -50,6 +53,7 @@ type ConflictDAG[ConflictID, ResourceID IDType, VotePower constraints.Comparable
 func New[ConflictID, ResourceID IDType, VotePower constraints.Comparable[VotePower]](acceptanceThresholdProvider func() int64) *ConflictDAG[ConflictID, ResourceID, VotePower] {
 	return &ConflictDAG[ConflictID, ResourceID, VotePower]{
 		ConflictCreated:             event.New1[ConflictID](),
+		ConflictEvicted:             event.New1[ConflictID](),
 		ConflictingResourcesAdded:   event.New2[ConflictID, []ResourceID](),
 		ConflictParentsUpdated:      event.New3[ConflictID, ConflictID, []ConflictID](),
 		acceptanceThresholdProvider: acceptanceThresholdProvider,
@@ -205,29 +209,40 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) CastVotes(vote *vote.Vo
 }
 
 // EvictConflict removes conflict with given ConflictID from ConflictDAG.
-func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) EvictConflict(conflictID ConflictID) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-	// TODO: make locking more fine-grained on conflictset level
+func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) EvictConflict(conflictID ConflictID) error {
+	evictedConflictIDs, err := func() ([]ConflictID, error) {
+		c.mutex.RLock()
+		defer c.mutex.RUnlock()
 
-	conflict, exists := c.conflictsByID.Get(conflictID)
-	if !exists {
-		return
+		// evicting an already evicted conflict is fine
+		conflict, exists := c.conflictsByID.Get(conflictID)
+		if !exists {
+			return nil, nil
+		}
+
+		// abort if we faced an error while evicting the conflict
+		evictedConflictIDs, err := conflict.Evict()
+		if err != nil {
+			return nil, xerrors.Errorf("failed to evict conflict with %s: %w", conflictID, err)
+		}
+
+		// remove the conflicts from the ConflictDAG dictionary
+		for _, evictedConflictID := range evictedConflictIDs {
+			c.conflictsByID.Delete(evictedConflictID)
+		}
+
+		return evictedConflictIDs, nil
+	}()
+	if err != nil {
+		return xerrors.Errorf("failed to evict conflict with %s: %w", conflictID, err)
 	}
 
-	evictedConflictIDs := conflict.Evict()
-
+	// trigger the ConflictEvicted event
 	for _, evictedConflictID := range evictedConflictIDs {
-		c.conflictsByID.Delete(evictedConflictID)
+		c.ConflictEvicted.Trigger(evictedConflictID)
 	}
 
-	// _ = conflictSets.ForEach(func(conflictSet *ConflictSet[ConflictID, ResourceID, VotePower]) (err error) {
-	//	if conflictSet.members.IsEmpty() {
-	//		c.conflictSetsByID.Delete(conflictSet.ID)
-	//	}
-	//
-	//	return nil
-	// })
+	return nil
 }
 
 // conflicts returns the Conflicts that are associated with the given ConflictIDs. If ignoreMissing is set to true, it
