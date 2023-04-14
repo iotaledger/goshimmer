@@ -230,7 +230,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) SetConflictAccepted(confli
 	//	pendingConflicts := false
 	//	for itConflict := conflictSet.Conflicts().Iterator(); itConflict.HasNext(); {
 	//		conflict := itConflict.Next()
-	//		if conflict.AcceptanceState() == confirmation.Pending {
+	//		if conflict.ConfirmationState() == confirmation.Pending {
 	//			pendingConflicts = true
 	//			continue
 	//		}
