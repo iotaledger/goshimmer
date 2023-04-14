@@ -26,7 +26,7 @@ type ConflictDAG[ConflictID, ResourceID IDType, VotePower constraints.Comparable
 	ConflictingResourcesAdded *event.Event2[ConflictID, []ResourceID]
 
 	// ConflictParentsUpdated is triggered when the parents of a Conflict are updated.
-	ConflictParentsUpdated *event.Event3[*Conflict[ConflictID, ResourceID, VotePower], *Conflict[ConflictID, ResourceID, VotePower], []*Conflict[ConflictID, ResourceID, VotePower]]
+	ConflictParentsUpdated *event.Event3[ConflictID, ConflictID, []ConflictID]
 
 	// acceptanceThresholdProvider is the function that is used to retrieve the acceptance threshold of the committee.
 	acceptanceThresholdProvider func() int64
@@ -51,7 +51,7 @@ func New[ConflictID, ResourceID IDType, VotePower constraints.Comparable[VotePow
 	return &ConflictDAG[ConflictID, ResourceID, VotePower]{
 		ConflictCreated:             event.New1[ConflictID](),
 		ConflictingResourcesAdded:   event.New2[ConflictID, []ResourceID](),
-		ConflictParentsUpdated:      event.New3[*Conflict[ConflictID, ResourceID, VotePower], *Conflict[ConflictID, ResourceID, VotePower], []*Conflict[ConflictID, ResourceID, VotePower]](),
+		ConflictParentsUpdated:      event.New3[ConflictID, ConflictID, []ConflictID](),
 		acceptanceThresholdProvider: acceptanceThresholdProvider,
 		conflictsByID:               shrinkingmap.New[ConflictID, *Conflict[ConflictID, ResourceID, VotePower]](),
 		acceptanceHooks:             shrinkingmap.New[ConflictID, *event.Hook[func(int64)]](),
@@ -66,52 +66,35 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) CreateConflict(id Confl
 		c.mutex.RLock()
 		defer c.mutex.RUnlock()
 
-		parents := lo.Values(c.Conflicts(parentIDs...))
+		parents, err := c.conflicts(parentIDs, !initialWeight.AcceptanceState().IsRejected())
+		if err != nil {
+			return xerrors.Errorf("failed to create conflict: %w", err)
+		}
 
-		conflictSets, err := c.conflictSets(!initialWeight.AcceptanceState().IsRejected(), resourceIDs...)
+		conflictSets, err := c.conflictSets(resourceIDs, !initialWeight.AcceptanceState().IsRejected())
 		if err != nil {
 			return xerrors.Errorf("failed to create conflict: %w", err)
 		}
 
 		if _, isNew := c.conflictsByID.GetOrCreate(id, func() *Conflict[ConflictID, ResourceID, VotePower] {
 			return NewConflict[ConflictID, ResourceID, VotePower](id, parents, conflictSets, initialWeight, c.pendingTasks, c.acceptanceThresholdProvider)
-		}); isNew {
-			return nil
+		}); !isNew {
+			return xerrors.Errorf("tried to create conflict with %s twice: %w", id, ErrFatal)
 		}
 
-		return xerrors.Errorf("tried to create conflict with %s twice: %w", id, ErrFatal)
+		return nil
 	}()
 
-	c.ConflictCreated.Trigger(id)
+	if err == nil {
+		c.ConflictCreated.Trigger(id)
+	}
 
 	return err
 }
 
-func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) conflictSets(createMissing bool, resourceIDs ...ResourceID) ([]*ConflictSet[ConflictID, ResourceID, VotePower], error) {
-	conflictSetsMap := make(map[ResourceID]*ConflictSet[ConflictID, ResourceID, VotePower])
-	for _, resourceID := range resourceIDs {
-		if conflictSet, exists := c.conflictSetsByID.Get(resourceID); exists {
-			conflictSetsMap[resourceID] = conflictSet
-
-			continue
-		}
-
-		if !createMissing {
-			return nil, xerrors.Errorf("tried to create a Conflict with evicted Resource: %w", ErrEntityEvicted)
-		}
-
-		conflictSetsMap[resourceID] = lo.Return1(c.conflictSetsByID.GetOrCreate(resourceID, func() *ConflictSet[ConflictID, ResourceID, VotePower] {
-			// TODO: hook to conflictSet event that is triggered when it becomes empty
-			return NewConflictSet[ConflictID, ResourceID, VotePower](resourceID)
-		}))
-	}
-
-	return lo.Values(conflictSetsMap), nil
-}
-
 // JoinConflictSets adds the Conflict to the given ConflictSets and returns true if the conflict membership was modified during this operation.
-func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) JoinConflictSets(conflictID ConflictID, resourceIDs ...ResourceID) (joinedConflictSets []ResourceID, err error) {
-	joinedConflictSets, err = func() ([]ResourceID, error) {
+func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) JoinConflictSets(conflictID ConflictID, resourceIDs ...ResourceID) error {
+	joinedConflictSets, err := func() ([]ResourceID, error) {
 		c.mutex.RLock()
 		defer c.mutex.RUnlock()
 
@@ -120,54 +103,69 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) JoinConflictSets(confli
 			return nil, xerrors.Errorf("tried to modify evicted conflict with %s: %w", conflictID, ErrEntityEvicted)
 		}
 
-		conflictSets, err := c.conflictSets(!currentConflict.IsRejected(), resourceIDs...)
+		conflictSets, err := c.conflictSets(resourceIDs, !currentConflict.IsRejected())
 		if err != nil {
-			return nil, xerrors.Errorf("failed to join conflict: %w", err)
+			return nil, xerrors.Errorf("failed to join conflict sets: %w", err)
 		}
 
-		return currentConflict.JoinConflictSets(conflictSets...)
-	}()
+		joinedConflictSets, err := currentConflict.JoinConflictSets(conflictSets...)
+		if err != nil {
+			return nil, xerrors.Errorf("failed to join conflict sets: %w", err)
+		}
 
+		return joinedConflictSets, nil
+	}()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if len(joinedConflictSets) > 0 {
 		c.ConflictingResourcesAdded.Trigger(conflictID, joinedConflictSets)
 	}
 
-	return joinedConflictSets, nil
+	return nil
 }
 
-func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) UpdateConflictParents(conflictID ConflictID, addedParentID ConflictID, removedParentIDs ...ConflictID) bool {
-	currentConflict, addedParent, removedParents, updated := func() (*Conflict[ConflictID, ResourceID, VotePower], *Conflict[ConflictID, ResourceID, VotePower], []*Conflict[ConflictID, ResourceID, VotePower], bool) {
+// UpdateConflictParents updates the parents of the given Conflict and returns an error if the operation failed.
+func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) UpdateConflictParents(conflictID ConflictID, addedParentID ConflictID, removedParentIDs ...ConflictID) error {
+	updated, err := func() (bool, error) {
 		c.mutex.RLock()
 		defer c.mutex.RUnlock()
 
 		currentConflict, currentConflictExists := c.conflictsByID.Get(conflictID)
 		if !currentConflictExists {
-			return nil, nil, nil, false
+			return false, xerrors.Errorf("tried to modify evicted conflict with %s: %w", conflictID, ErrEntityEvicted)
 		}
 
-		addedParent, addedParentExists := c.Conflicts(addedParentID)[addedParentID]
+		addedParent, addedParentExists := c.conflictsByID.Get(addedParentID)
 		if !addedParentExists {
-			return nil, nil, nil, false
+			if !currentConflict.IsRejected() {
+				return false, xerrors.Errorf("tried to add non-existent parent with %s: %w", addedParentID, ErrFatal)
+			}
+
+			return false, xerrors.Errorf("tried to add evicted parent with %s to rejected conflict with %s: %w", addedParentID, conflictID, ErrEntityEvicted)
 		}
 
-		removedParents := lo.Values(c.Conflicts(removedParentIDs...))
+		removedParents, err := c.conflicts(removedParentIDs, !currentConflict.IsRejected())
+		if err != nil {
+			return false, xerrors.Errorf("failed to update conflict parents: %w", err)
+		}
 
-		return currentConflict, addedParent, removedParents, currentConflict.UpdateParents(addedParent, removedParents...)
+		return currentConflict.UpdateParents(addedParent, removedParents...), nil
 	}()
-
-	if updated {
-		c.ConflictParentsUpdated.Trigger(currentConflict, addedParent, removedParents)
+	if err != nil {
+		return err
 	}
 
-	return updated
+	if updated {
+		c.ConflictParentsUpdated.Trigger(conflictID, addedParentID, removedParentIDs)
+	}
+
+	return nil
 }
 
 // LikedInstead returns the ConflictIDs of the Conflicts that are liked instead of the Conflicts.
-func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) LikedInstead(conflictIDs ...ConflictID) map[ConflictID]*Conflict[ConflictID, ResourceID, VotePower] {
+func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) LikedInstead(conflictIDs ...ConflictID) []ConflictID {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -182,32 +180,7 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) LikedInstead(conflictID
 		}
 	}
 
-	return likedInstead
-}
-
-// Conflicts returns the Conflicts that are associated with the given ConflictIDs.
-func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) Conflicts(ids ...ConflictID) map[ConflictID]*Conflict[ConflictID, ResourceID, VotePower] {
-	conflicts := make(map[ConflictID]*Conflict[ConflictID, ResourceID, VotePower])
-	for _, id := range ids {
-		if existingConflict, exists := c.conflictsByID.Get(id); exists {
-			conflicts[id] = existingConflict
-		}
-	}
-
-	return conflicts
-}
-
-// ConflictSets returns the ConflictSets that are associated with the given ResourceIDs.
-func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) ConflictSets(resourceIDs ...ResourceID) map[ResourceID]*ConflictSet[ConflictID, ResourceID, VotePower] {
-	conflictSets := make(map[ResourceID]*ConflictSet[ConflictID, ResourceID, VotePower])
-	for _, resourceID := range resourceIDs {
-		conflictSets[resourceID] = lo.Return1(c.conflictSetsByID.GetOrCreate(resourceID, func() *ConflictSet[ConflictID, ResourceID, VotePower] {
-			// TODO: hook to conflictSet event that is triggered when it becomes empty
-			return NewConflictSet[ConflictID, ResourceID, VotePower](resourceID)
-		}))
-	}
-
-	return conflictSets
+	return lo.Keys(likedInstead)
 }
 
 // CastVotes applies the given votes to the ConflictDAG.
@@ -216,7 +189,6 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) CastVotes(vote *vote.Vo
 	defer c.mutex.RUnlock()
 
 	supportedConflicts, revokedConflicts, err := c.determineVotes(conflictIDs...)
-
 	if err != nil {
 		return xerrors.Errorf("failed to determine votes: %w", err)
 	}
@@ -258,6 +230,51 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) EvictConflict(conflictI
 	// })
 }
 
+// conflicts returns the Conflicts that are associated with the given ConflictIDs. If ignoreMissing is set to true, it
+// will ignore missing Conflicts instead of returning an ErrEntityEvicted error.
+func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) conflicts(ids []ConflictID, ignoreMissing bool) ([]*Conflict[ConflictID, ResourceID, VotePower], error) {
+	conflicts := make(map[ConflictID]*Conflict[ConflictID, ResourceID, VotePower])
+	for _, id := range ids {
+		existingConflict, exists := c.conflictsByID.Get(id)
+		if !exists {
+			if !ignoreMissing {
+				return nil, xerrors.Errorf("tried to retrieve an evicted conflict with %s: %w", id, ErrEntityEvicted)
+			}
+
+			continue
+		}
+
+		conflicts[id] = existingConflict
+	}
+
+	return lo.Values(conflicts), nil
+}
+
+// conflictSets returns the ConflictSets that are associated with the given ResourceIDs. If createMissing is set to
+// true, it will create an empty ConflictSet for each missing ResourceID.
+func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) conflictSets(resourceIDs []ResourceID, createMissing bool) ([]*ConflictSet[ConflictID, ResourceID, VotePower], error) {
+	conflictSetsMap := make(map[ResourceID]*ConflictSet[ConflictID, ResourceID, VotePower])
+	for _, resourceID := range resourceIDs {
+		if conflictSet, exists := c.conflictSetsByID.Get(resourceID); exists {
+			conflictSetsMap[resourceID] = conflictSet
+
+			continue
+		}
+
+		if !createMissing {
+			return nil, xerrors.Errorf("tried to create a Conflict with evicted Resource: %w", ErrEntityEvicted)
+		}
+
+		conflictSetsMap[resourceID] = lo.Return1(c.conflictSetsByID.GetOrCreate(resourceID, func() *ConflictSet[ConflictID, ResourceID, VotePower] {
+			// TODO: hook to conflictSet event that is triggered when it becomes empty
+			return NewConflictSet[ConflictID, ResourceID, VotePower](resourceID)
+		}))
+	}
+
+	return lo.Values(conflictSetsMap), nil
+}
+
+// determineVotes determines the Conflicts that are supported and revoked by the given ConflictIDs.
 func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) determineVotes(conflictIDs ...ConflictID) (supportedConflicts, revokedConflicts *advancedset.AdvancedSet[*Conflict[ConflictID, ResourceID, VotePower]], err error) {
 	supportedConflicts = advancedset.New[*Conflict[ConflictID, ResourceID, VotePower]]()
 	revokedConflicts = advancedset.New[*Conflict[ConflictID, ResourceID, VotePower]]()
@@ -288,7 +305,7 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) determineVotes(conflict
 		return nil
 	}
 
-	for supportedWalker.PushAll(lo.Values(c.Conflicts(conflictIDs...))...); supportedWalker.HasNext(); {
+	for supportedWalker.PushAll(lo.Return1(c.conflicts(conflictIDs, true))...); supportedWalker.HasNext(); {
 		if err := supportConflict(supportedWalker.Next()); err != nil {
 			return nil, nil, xerrors.Errorf("failed to collect supported conflicts: %w", err)
 		}

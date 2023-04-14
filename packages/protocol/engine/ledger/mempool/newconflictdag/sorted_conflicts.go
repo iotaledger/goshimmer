@@ -153,7 +153,8 @@ func (s *SortedConflicts[ConflictID, ResourceID, VotePower]) ForEach(callback fu
 	return nil
 }
 
-func (s *SortedConflicts[ConflictID, ResourceID, VotePower]) EvictConflict(id ConflictID) bool {
+// Remove removes the Conflict with the given ID from the SortedConflicts.
+func (s *SortedConflicts[ConflictID, ResourceID, VotePower]) Remove(id ConflictID) bool {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 

@@ -83,8 +83,8 @@ type Conflict[ConflictID, ResourceID IDType, VotePower constraints.Comparable[Vo
 	// acceptanceThreshold is the function that is used to retrieve the acceptance threshold of the committee.
 	acceptanceThreshold func() int64
 
-	// acceptanceUnhook
-	acceptanceUnhook func()
+	// unhookAcceptanceMonitoring
+	unhookAcceptanceMonitoring func()
 
 	// Module embeds the required methods of the module.Interface.
 	module.Module
@@ -116,7 +116,7 @@ func NewConflict[ConflictID, ResourceID IDType, VotePower constraints.Comparable
 		c.UpdateParents(parent)
 	}
 
-	c.acceptanceUnhook = c.Weight.Validators.OnTotalWeightUpdated.Hook(func(updatedWeight int64) {
+	c.unhookAcceptanceMonitoring = c.Weight.Validators.OnTotalWeightUpdated.Hook(func(updatedWeight int64) {
 		if c.IsPending() && updatedWeight >= c.acceptanceThreshold() {
 			c.setAcceptanceState(acceptance.Accepted)
 		}
@@ -131,42 +131,6 @@ func NewConflict[ConflictID, ResourceID IDType, VotePower constraints.Comparable
 	c.JoinConflictSets(conflictSets...)
 
 	return c
-}
-
-func (c *Conflict[ConflictID, ResourceID, VotePower]) ApplyVote(vote *vote.Vote[VotePower]) {
-	// abort if the conflict has already been accepted or rejected
-	if !c.Weight.AcceptanceState().IsPending() {
-		return
-	}
-
-	// abort if the vote is not relevant (and apply cumulative weight if no validator has made statements yet)
-	if !c.isValidatorRelevant(vote.Voter) {
-		if c.LatestVotes.IsEmpty() && vote.IsLiked() {
-			c.Weight.AddCumulativeWeight(1)
-		}
-
-		return
-	}
-
-	// abort if we have another vote from the same validator with higher power
-	latestVote, exists := c.LatestVotes.Get(vote.Voter)
-	if exists && latestVote.Power.Compare(vote.Power) >= 0 {
-		return
-	}
-
-	// update the latest vote
-	c.LatestVotes.Set(vote.Voter, vote)
-
-	// abort if the vote does not change the opinion of the validator
-	if exists && latestVote.IsLiked() == vote.IsLiked() {
-		return
-	}
-
-	if vote.IsLiked() {
-		c.Weight.Validators.Add(vote.Voter)
-	} else {
-		c.Weight.Validators.Delete(vote.Voter)
-	}
 }
 
 // JoinConflictSets registers the Conflict with the given ConflictSets.
@@ -203,24 +167,66 @@ func (c *Conflict[ConflictID, ResourceID, VotePower]) JoinConflictSets(conflictS
 	return joinedConflictSets, nil
 }
 
+func (c *Conflict[ConflictID, ResourceID, VotePower]) removeParent(parent *Conflict[ConflictID, ResourceID, VotePower]) (removed bool) {
+	if removed = c.Parents.Delete(parent); removed {
+		parent.unregisterChild(c)
+	}
+
+	return removed
+}
+
 // UpdateParents updates the parents of the Conflict.
 func (c *Conflict[ConflictID, ResourceID, VotePower]) UpdateParents(addedParent *Conflict[ConflictID, ResourceID, VotePower], removedParents ...*Conflict[ConflictID, ResourceID, VotePower]) (updated bool) {
 	c.structureMutex.Lock()
 	defer c.structureMutex.Unlock()
 
 	for _, removedParent := range removedParents {
-		if c.Parents.Delete(removedParent) {
-			removedParent.unregisterChild(c)
-			updated = true
-		}
+		updated = c.removeParent(removedParent) || updated
 	}
 
 	if c.Parents.Add(addedParent) {
 		addedParent.registerChild(c)
+
 		updated = true
 	}
 
 	return updated
+}
+
+func (c *Conflict[ConflictID, ResourceID, VotePower]) ApplyVote(vote *vote.Vote[VotePower]) {
+	// abort if the conflict has already been accepted or rejected
+	if !c.Weight.AcceptanceState().IsPending() {
+		return
+	}
+
+	// abort if the vote is not relevant (and apply cumulative weight if no validator has made statements yet)
+	if !c.isValidatorRelevant(vote.Voter) {
+		if c.LatestVotes.IsEmpty() && vote.IsLiked() {
+			c.Weight.AddCumulativeWeight(1)
+		}
+
+		return
+	}
+
+	// abort if we have another vote from the same validator with higher power
+	latestVote, exists := c.LatestVotes.Get(vote.Voter)
+	if exists && latestVote.Power.Compare(vote.Power) >= 0 {
+		return
+	}
+
+	// update the latest vote
+	c.LatestVotes.Set(vote.Voter, vote)
+
+	// abort if the vote does not change the opinion of the validator
+	if exists && latestVote.IsLiked() == vote.IsLiked() {
+		return
+	}
+
+	if vote.IsLiked() {
+		c.Weight.Validators.Add(vote.Voter)
+	} else {
+		c.Weight.Validators.Delete(vote.Voter)
+	}
 }
 
 // IsPending returns true if the Conflict is pending.
@@ -271,18 +277,43 @@ func (c *Conflict[ConflictID, ResourceID, VotePower]) LikedInstead() *advancedse
 }
 
 // Evict cleans up the sortedConflict.
-func (c *Conflict[ConflictID, ResourceID, VotePower]) Evict() []ConflictID {
-	// TODO: make other methods respect c.evicted flag
-	c.evicted.Store(true)
+func (c *Conflict[ConflictID, ResourceID, VotePower]) Evict() (evictedConflicts []ConflictID, err error) {
+	if firstEvictCall := !c.evicted.Swap(true); !firstEvictCall {
+		return nil, nil
+	}
 
-	// iterate through the children and dispose of them
-	_ = c.Children.ForEach(func(childConflict *Conflict[ConflictID, ResourceID, VotePower]) (err error) {
-		if !childConflict.IsPending() {
-			childConflict.Evict()
+	evictedConflicts = []ConflictID{c.ID}
+
+	c.unhookAcceptanceMonitoring()
+
+	switch c.Weight.AcceptanceState() {
+	case acceptance.Pending:
+		return nil, xerrors.Errorf("tried to evict pending conflict with %s: %w", c.ID, ErrFatal)
+	case acceptance.Accepted:
+		// remove evicted conflict from parents of children (merge to master)
+		_ = c.Children.ForEach(func(childConflict *Conflict[ConflictID, ResourceID, VotePower]) (err error) {
+			childConflict.structureMutex.Lock()
+			defer childConflict.structureMutex.Unlock()
+
+			childConflict.removeParent(c)
+
+			return nil
+		})
+	case acceptance.Rejected:
+		// evict the entire future cone of rejected conflicts
+		if err = c.Children.ForEach(func(childConflict *Conflict[ConflictID, ResourceID, VotePower]) (err error) {
+			evictedChildConflicts, err := childConflict.Evict()
+			if err != nil {
+				return xerrors.Errorf("failed to evict child conflict %s: %w", childConflict.ID, err)
+			}
+
+			evictedConflicts = append(evictedConflicts, evictedChildConflicts...)
+
+			return nil
+		}); err != nil {
+			return nil, err
 		}
-
-		return nil
-	})
+	}
 
 	c.structureMutex.Lock()
 	defer c.structureMutex.Unlock()
@@ -292,26 +323,31 @@ func (c *Conflict[ConflictID, ResourceID, VotePower]) Evict() []ConflictID {
 	}
 	c.Parents.Clear()
 
-	// deattach all events etc.
-
 	for _, conflictSet := range c.ConflictSets.Slice() {
 		conflictSet.Remove(c)
 	}
-
 	c.ConflictSets.Clear()
 
 	for _, conflict := range c.ConflictingConflicts.Shutdown() {
 		if conflict != c {
-			conflict.ConflictingConflicts.EvictConflict(c.ID)
-			c.ConflictingConflicts.EvictConflict(conflict.ID)
+			conflict.ConflictingConflicts.Remove(c.ID)
+			c.ConflictingConflicts.Remove(conflict.ID)
+
+			if c.IsAccepted() {
+				evictedChildConflicts, err := conflict.Evict()
+				if err != nil {
+					return nil, xerrors.Errorf("failed to evict child conflict %s: %w", conflict.ID, err)
+				}
+
+				evictedConflicts = append(evictedConflicts, evictedChildConflicts...)
+			}
 		}
 	}
 
-	c.ConflictingConflicts.EvictConflict(c.ID)
+	c.ConflictingConflicts.Remove(c.ID)
+	evictedConflicts = append(evictedConflicts, c.ID)
 
-	c.acceptanceUnhook()
-
-	return nil
+	return evictedConflicts, nil
 }
 
 // Compare compares the Conflict to the given other Conflict.

@@ -41,7 +41,7 @@ func TestConflictDAG_UpdateConflictParents(t *testing.T) {
 	conflict25, err25 := tf.CreateConflict("conflict2.5", []string{"conflict1", "conflict2"}, []string{"conflict2.5"}, tf.Weight().SetCumulativeWeight(5))
 	require.NoError(t, err25)
 
-	tf.UpdateConflictParents("conflict3", "conflict2.5", "conflict1", "conflict2")
+	require.NoError(t, tf.UpdateConflictParents("conflict3", "conflict2.5", "conflict1", "conflict2"))
 
 	require.Equal(t, 1, conflict1.Children.Size())
 	require.True(t, conflict1.Children.Has(conflict25))
@@ -72,17 +72,16 @@ func TestConflictDAG_JoinConflictSets(t *testing.T) {
 	conflict2.setAcceptanceState(acceptance.Rejected)
 
 	// test to modify non-existing conflict
-	require.ErrorIs(t, lo.Return2(tf.ConflictDAG.JoinConflictSets(NewTestID("conflict3"), NewTestID("resource2"))), ErrEntityEvicted)
+	require.ErrorIs(t, tf.ConflictDAG.JoinConflictSets(NewTestID("conflict3"), NewTestID("resource2")), ErrEntityEvicted)
 
 	// test to modify conflict with non-existing resource
-	require.ErrorIs(t, lo.Return2(tf.ConflictDAG.JoinConflictSets(NewTestID("conflict2"), NewTestID("resource2"))), ErrEntityEvicted)
+	require.ErrorIs(t, tf.ConflictDAG.JoinConflictSets(NewTestID("conflict2"), NewTestID("resource2")), ErrEntityEvicted)
 
 	_, err3 := tf.CreateConflict("conflict3", []string{}, []string{"resource2"}, tf.Weight().SetCumulativeWeight(1))
 	require.NoError(t, err3)
 
-	require.NotEmpty(t, lo.PanicOnErr(tf.JoinConflictSets("conflict1", "resource2")))
-
-	require.Empty(t, lo.PanicOnErr(tf.JoinConflictSets("conflict1", "resource2")))
+	require.NoError(t, tf.JoinConflictSets("conflict1", "resource2"))
+	require.NoError(t, tf.JoinConflictSets("conflict1", "resource2"))
 
 	likedInstead := tf.LikedInstead("conflict1", "conflict2", "conflict3")
 	require.Contains(t, likedInstead, tf.Conflict("conflict1"))
