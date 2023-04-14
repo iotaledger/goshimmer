@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/vote"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/weight"
 	"github.com/iotaledger/hive.go/constraints"
+	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/ds/shrinkingmap"
 	"github.com/iotaledger/hive.go/ds/walker"
@@ -160,28 +161,29 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) UpdateConflictParents(c
 }
 
 // LikedInstead returns the ConflictIDs of the Conflicts that are liked instead of the Conflicts.
-func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) LikedInstead(conflictIDs ...ConflictID) []ConflictID {
+func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) LikedInstead(conflictIDs ...ConflictID) *advancedset.AdvancedSet[ConflictID] {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
 	c.pendingTasks.WaitIsZero()
 
-	likedInstead := make(map[ConflictID]*Conflict[ConflictID, ResourceID, VotePower])
+	likedInstead := advancedset.New[ConflictID]()
 	for _, conflictID := range conflictIDs {
 		if currentConflict, exists := c.conflictsByID.Get(conflictID); exists {
 			if likedConflict := heaviestConflict(currentConflict.LikedInstead()); likedConflict != nil {
-				likedInstead[likedConflict.ID] = likedConflict
+				likedInstead.Add(likedConflict.ID)
 			}
 		}
 	}
 
-	return lo.Keys(likedInstead)
+	return likedInstead
 }
 
 // CastVotes applies the given votes to the ConflictDAG.
 func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) CastVotes(vote *vote.Vote[VotePower], conflictIDs ...ConflictID) error {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
+	// TODO: introduce a DAG mutex to lock per identity when casting a vote
 
 	supportedConflicts, revokedConflicts, err := c.determineVotes(conflictIDs...)
 	if err != nil {
@@ -205,9 +207,8 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) ConfirmationState(confl
 		return acceptance.Accepted
 	}
 
-	// TODO: RLock possible? depends where it's used
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
 
 	lowestObservedState := acceptance.Accepted
 	for _, conflictID := range conflictIDs {
@@ -226,6 +227,27 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) ConfirmationState(confl
 	}
 
 	return lowestObservedState
+}
+
+// UnacceptedConflicts takes a set of ConflictIDs and removes all the accepted Conflicts (leaving only the
+// pending or rejected ones behind).
+func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) UnacceptedConflicts(conflictIDs ...ConflictID) *advancedset.AdvancedSet[ConflictID] {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	// TODO: introduce optsMergeToMaster
+	//if !c.optsMergeToMaster {
+	//	return conflictIDs.Clone()
+	//}
+
+	pendingConflictIDs := advancedset.New[ConflictID]()
+	for _, currentConflictID := range conflictIDs {
+		if conflict, exists := c.conflictsByID.Get(currentConflictID); exists && !conflict.IsAccepted() {
+			pendingConflictIDs.Add(currentConflictID)
+		}
+	}
+
+	return pendingConflictIDs
 }
 
 // EvictConflict removes conflict with given ConflictID from ConflictDAG.
@@ -353,4 +375,32 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) determineVotes(conflict
 	}
 
 	return supportedConflicts, revokedConflicts, nil
+}
+
+func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) ConflictingConflicts(conflictID ConflictID) (conflictingConflicts *advancedset.AdvancedSet[ConflictID], exists bool) {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	conflict, exists := c.conflictsByID.Get(conflictID)
+	if !exists {
+		return nil, false
+	}
+
+	conflictingConflicts = advancedset.New[ConflictID]()
+	_ = conflict.ConflictingConflicts.ForEach(func(conflictingConflict *Conflict[ConflictID, ResourceID, VotePower]) error {
+		conflictingConflicts.Add(conflictingConflict.ID())
+		return nil
+	})
+
+	return conflictingConflicts, true
+}
+
+func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) AllConflictsSupported(issuerID identity.ID, conflictIDs ...ConflictID) bool {
+	for _, conflict := range lo.Return1(c.conflicts(conflictIDs, true)) {
+		if lastVote, exists := conflict.LatestVotes.Get(issuerID); !exists || !lastVote.IsLiked() {
+			return false
+		}
+	}
+
+	return true
 }

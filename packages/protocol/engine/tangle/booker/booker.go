@@ -1,10 +1,8 @@
 package booker
 
 import (
-	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/slot"
@@ -14,8 +12,6 @@ import (
 
 type Booker interface {
 	Events() *Events
-
-	VirtualVoting() VirtualVoting
 
 	// Block retrieves a Block with metadata from the in-memory storage of the Booker.
 	Block(id models.BlockID) (block *Block, exists bool)
@@ -56,16 +52,4 @@ type Booker interface {
 	GetAllAttachments(txID utxo.TransactionID) (attachments *advancedset.AdvancedSet[*Block])
 
 	module.Interface
-}
-
-type VirtualVoting interface {
-	Events() *VirtualVotingEvents
-
-	ConflictTracker() *conflicttracker.ConflictTracker[utxo.TransactionID, utxo.OutputID, BlockVotePower]
-
-	// ConflictVotersTotalWeight retrieves the total weight of the Validators voting for a given conflict.
-	ConflictVotersTotalWeight(conflictID utxo.TransactionID) (totalWeight int64)
-
-	// ConflictVoters retrieves Validators voting for a given conflict.
-	ConflictVoters(conflictID utxo.TransactionID) (voters *sybilprotection.WeightedSet)
 }

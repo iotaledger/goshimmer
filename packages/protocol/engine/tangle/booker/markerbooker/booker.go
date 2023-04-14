@@ -6,19 +6,19 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
+	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/slottracker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/vote"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markerbooker/markermanager"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markerbooker/markervirtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/causalorder"
@@ -47,7 +47,6 @@ type Booker struct {
 	validators      *sybilprotection.WeightedSet
 	sequenceTracker *sequencetracker.SequenceTracker[booker.BlockVotePower]
 	slotTracker     *slottracker.SlotTracker
-	virtualVoting   *markervirtualvoting.VirtualVoting
 
 	bookingOrder          *causalorder.CausalOrder[models.BlockID, *booker.Block]
 	attachments           *attachments
@@ -115,7 +114,6 @@ func New(workers *workerpool.Group, evictionState *eviction.State, memPool mempo
 		b.markerManager = markermanager.NewMarkerManager(b.optsMarkerManager...)
 		b.sequenceTracker = sequencetracker.NewSequenceTracker[booker.BlockVotePower](validators, b.markerManager.SequenceManager.Sequence, b.optsSequenceCutoffCallback)
 		b.slotTracker = slottracker.NewSlotTracker(b.optsSlotCutoffCallback)
-		b.virtualVoting = markervirtualvoting.New(workers.CreateGroup("VirtualVoting"), memPool.ConflictDAG(), b.markerManager.SequenceManager, validators)
 		b.bookingOrder = causalorder.New(
 			workers.CreatePool("BookingOrder", 2),
 			b.Block,
@@ -128,7 +126,6 @@ func New(workers *workerpool.Group, evictionState *eviction.State, memPool mempo
 
 		b.evictionState.Events.SlotEvicted.Hook(b.evict)
 
-		b.events.VirtualVoting.LinkTo(b.virtualVoting.Events())
 		b.events.SequenceEvicted.LinkTo(b.markerManager.Events.SequenceEvicted)
 		b.events.SequenceTracker.LinkTo(b.sequenceTracker.Events)
 		b.events.SlotTracker.LinkTo(b.slotTracker.Events)
@@ -177,10 +174,6 @@ var _ booker.Booker = new(Booker)
 
 func (b *Booker) Events() *booker.Events {
 	return b.events
-}
-
-func (b *Booker) VirtualVoting() booker.VirtualVoting {
-	return b.virtualVoting
 }
 
 func (b *Booker) SequenceTracker() *sequencetracker.SequenceTracker[booker.BlockVotePower] {
@@ -268,15 +261,10 @@ func (b *Booker) PayloadConflictID(block *booker.Block) (conflictID utxo.Transac
 		return conflictID, conflictingConflictIDs, false
 	}
 
-	conflict, exists := b.MemPool.ConflictDAG().Conflict(transaction.ID())
-	if !exists {
+	conflictingConflictIDs, conflictExists := b.MemPool.ConflictDAG().ConflictingConflicts(transaction.ID())
+	if !conflictExists {
 		return utxo.EmptyTransactionID, conflictingConflictIDs, true
 	}
-
-	conflict.ForEachConflictingConflict(func(conflictingConflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) bool {
-		conflictingConflictIDs.Add(conflictingConflict.ID())
-		return true
-	})
 
 	return transaction.ID(), conflictingConflictIDs, true
 }
@@ -364,14 +352,20 @@ func (b *Booker) GetAllAttachments(txID utxo.TransactionID) (attachments *advanc
 	return b.attachments.GetAttachmentBlocks(txID)
 }
 
-func (b *Booker) ProcessForkedMarker(marker markers.Marker, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) {
+func (b *Booker) ProcessForkedMarker(marker markers.Marker, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) error {
 	b.sequenceEvictionMutex.RLock()
 	defer b.sequenceEvictionMutex.RUnlock()
 
 	// take everything in future cone because it was not conflicting before and move to new conflict.
 	for voterID, votePower := range b.sequenceTracker.VotersWithPower(marker) {
-		b.virtualVoting.ConflictTracker().AddSupportToForkedConflict(forkedConflictID, parentConflictIDs, voterID, votePower)
+		if b.MemPool.ConflictDAG().AllConflictsSupported(voterID, parentConflictIDs.Slice()...) {
+			if err := b.MemPool.ConflictDAG().CastVotes(vote.NewVote(voterID, votePower), forkedConflictID); err != nil {
+				return xerrors.Errorf("failed to cast vote during marker forking conflict %s on marker %s: %w", forkedConflictID, marker, err)
+			}
+		}
 	}
+
+	return nil
 }
 
 func (b *Booker) EvictSequence(sequenceID markers.SequenceID) {
@@ -458,18 +452,22 @@ func (b *Booker) book(block *booker.Block) (inheritingErr error) {
 		return
 	}
 
-	inheritedConflitIDs, inheritingErr := tryInheritConflictIDs()
+	inheritedConflictIDs, inheritingErr := tryInheritConflictIDs()
 	if inheritingErr != nil {
 		return inheritingErr
 	}
 
 	b.events.BlockBooked.Trigger(&booker.BlockBookedEvent{
 		Block:       block,
-		ConflictIDs: inheritedConflitIDs,
+		ConflictIDs: inheritedConflictIDs,
 	})
 
 	votePower := booker.NewBlockVotePower(block.ID(), block.IssuingTime())
-	if invalid := b.virtualVoting.Track(block, inheritedConflitIDs, votePower); !invalid {
+
+	if err := b.MemPool.ConflictDAG().CastVotes(vote.NewVote[booker.BlockVotePower](block.IssuerID(), votePower), inheritedConflictIDs.Slice()...); err != nil {
+		fmt.Println("block is subjectively invalid", block.ID(), err)
+		block.SetSubjectivelyInvalid(true)
+	} else {
 		b.sequenceTracker.TrackVotes(block.StructureDetails().PastMarkers(), block.IssuerID(), votePower)
 		b.slotTracker.TrackVotes(block.Commitment().Index(), block.IssuerID(), slottracker.SlotVotePower{Index: block.ID().Index()})
 	}
@@ -571,8 +569,8 @@ func (b *Booker) determineBookingConflictIDs(block *booker.Block) (parentsPastMa
 		inheritedConflictIDs.DeleteAll(b.MemPool.Utils().ConflictIDsInFutureCone(selfDislikedConflictIDs))
 	}
 
-	unconfirmedParentsPast := b.MemPool.ConflictDAG().UnconfirmedConflicts(parentsPastMarkersConflictIDs)
-	unconfirmedInherited := b.MemPool.ConflictDAG().UnconfirmedConflicts(inheritedConflictIDs)
+	unconfirmedParentsPast := b.MemPool.ConflictDAG().UnacceptedConflicts(parentsPastMarkersConflictIDs.Slice()...)
+	unconfirmedInherited := b.MemPool.ConflictDAG().UnacceptedConflicts(inheritedConflictIDs.Slice()...)
 
 	return unconfirmedParentsPast, unconfirmedInherited, nil
 }
@@ -779,7 +777,13 @@ func (b *Booker) propagateToBlock(block *booker.Block, addedConflictID utxo.Tran
 		ParentConflictIDs: removedConflictIDs,
 	})
 
-	b.virtualVoting.ProcessForkedBlock(block, addedConflictID, removedConflictIDs)
+	// Do not apply votes of subjectively invalid blocks on forking. Votes of subjectively invalid blocks are also not counted
+	// when booking.
+	if !block.IsSubjectivelyInvalid() && b.MemPool.ConflictDAG().AllConflictsSupported(block.IssuerID(), removedConflictIDs.Slice()...) {
+		if err = b.MemPool.ConflictDAG().CastVotes(vote.NewVote(block.IssuerID(), booker.NewBlockVotePower(block.ID(), block.IssuingTime())), addedConflictID); err != nil {
+			return false, xerrors.Errorf("failed to cast vote during forking conflict %s on block %s: %w", addedConflictID, block.ID(), err)
+		}
+	}
 
 	return true, nil
 }
@@ -860,7 +864,9 @@ func (b *Booker) forkSingleMarker(currentMarker markers.Marker, newConflictID ut
 		ParentConflictIDs: removedConflictIDs,
 	})
 
-	b.ProcessForkedMarker(currentMarker, newConflictID, removedConflictIDs)
+	if err = b.ProcessForkedMarker(currentMarker, newConflictID, removedConflictIDs); err != nil {
+		return xerrors.Errorf("error while processing forked marker: %w", err)
+	}
 
 	// propagate updates to later ConflictID mappings of the same sequence.
 	b.markerManager.ForEachConflictIDMapping(currentMarker.SequenceID(), currentMarker.Index(), func(mappedMarker markers.Marker, _ utxo.TransactionIDs) {

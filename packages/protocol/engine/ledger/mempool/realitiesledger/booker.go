@@ -72,7 +72,7 @@ func (b *booker) bookTransaction(ctx context.Context, tx utxo.Transaction, txMet
 
 	b.storeOutputs(outputs, conflictIDs, consensusPledgeID, accessPledgeID)
 
-	if b.ledger.conflictDAG.ConfirmationState(conflictIDs).IsRejected() {
+	if b.ledger.conflictDAG.ConfirmationState(conflictIDs.Slice()...).IsRejected() {
 		b.ledger.triggerRejectedEvent(txMetadata)
 	}
 
@@ -89,7 +89,7 @@ func (b *booker) bookTransaction(ctx context.Context, tx utxo.Transaction, txMet
 
 // inheritedConflictIDs determines the ConflictIDs that a Transaction should inherit when being booked.
 func (b *booker) inheritConflictIDs(ctx context.Context, txID utxo.TransactionID, inputsMetadata *mempool.OutputsMetadata) (inheritedConflictIDs *advancedset.AdvancedSet[utxo.TransactionID]) {
-	parentConflictIDs := b.ledger.conflictDAG.UnconfirmedConflicts(inputsMetadata.ConflictIDs())
+	parentConflictIDs := b.ledger.conflictDAG.UnacceptedConflicts(inputsMetadata.ConflictIDs().Slice()...)
 
 	conflictingInputIDs, consumersToFork := b.determineConflictDetails(txID, inputsMetadata)
 	if conflictingInputIDs.Size() == 0 {
@@ -204,7 +204,7 @@ func (b *booker) updateConflictsAfterFork(ctx context.Context, txMetadata *mempo
 	newConflictIDs := txMetadata.ConflictIDs().Clone()
 	newConflictIDs.DeleteAll(previousParents)
 	newConflictIDs.Add(forkedConflictID)
-	newConflicts := b.ledger.conflictDAG.UnconfirmedConflicts(newConflictIDs)
+	newConflicts := b.ledger.conflictDAG.UnacceptedConflicts(newConflictIDs)
 
 	b.ledger.Storage().CachedOutputsMetadata(txMetadata.OutputIDs()).Consume(func(outputMetadata *mempool.OutputMetadata) {
 		outputMetadata.SetConflictIDs(newConflicts)

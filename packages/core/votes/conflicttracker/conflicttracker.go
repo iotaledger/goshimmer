@@ -68,6 +68,7 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) AddSupp
 
 	// We need to make sure that the voter supports all the conflict's parents.
 	if !c.voterSupportsAllConflicts(voterID, parentConflictIDs) {
+		// TODO: should we dislike? or at least remove a previous vote from the same issuer if the previous one liked all the parents?
 		return
 	}
 
