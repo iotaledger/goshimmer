@@ -160,20 +160,23 @@ func (b *booker) forkTransaction(ctx context.Context, txID utxo.TransactionID, o
 		conflictingInputs := b.ledger.Utils().ResolveInputs(tx.Inputs()).Intersect(outputsSpentByConflictingTx)
 		parentConflicts := txMetadata.ConflictIDs()
 
-		err := b.ledger.conflictDAG.CreateConflict(txID, parentConflicts.Slice(), conflictingInputs.Slice(), weight.New(b.ledger.sybilProtectionWeights).WithAcceptanceState(acceptanceState(confirmationState)))
-		if err != nil {
+		if err := b.ledger.conflictDAG.CreateConflict(
+			txID,
+			parentConflicts.Slice(),
+			conflictingInputs.Slice(),
+			weight.New(b.ledger.sybilProtectionWeights).WithAcceptanceState(acceptanceState(confirmationState)),
+		); err != nil {
+			defer b.ledger.mutex.Unlock(txID)
+
 			if errors.Is(err, newconflictdag.ErrConflictExists) {
-				joiningErr := b.ledger.conflictDAG.JoinConflictSets(txID, conflictingInputs.Slice()...)
-				if joiningErr != nil {
-					// TODO: handle that case when eviction is done
-					panic(err)
+				if joiningErr := b.ledger.conflictDAG.JoinConflictSets(txID, conflictingInputs.Slice()...); joiningErr != nil {
+					panic(joiningErr) // TODO: handle that case when eviction is done
 				}
-				b.ledger.mutex.Unlock(txID)
+
 				return
-			} else {
-				// TODO: handle the errors somehow when eviction is implemented
-				panic(err)
 			}
+
+			panic(err) // TODO: handle that case when eviction is done
 		}
 
 		b.ledger.Events().TransactionForked.Trigger(&mempool.TransactionForkedEvent{
@@ -209,11 +212,10 @@ func (b *booker) propagateForkedConflictToFutureCone(ctx context.Context, output
 // updateConflictsAfterFork updates the ConflictIDs of a Transaction after a fork.
 func (b *booker) updateConflictsAfterFork(ctx context.Context, txMetadata *mempool.TransactionMetadata, forkedConflictID utxo.TransactionID, previousParents *advancedset.AdvancedSet[utxo.TransactionID]) (updated bool) {
 	if txMetadata.IsConflicting() {
-
 		if err := b.ledger.conflictDAG.UpdateConflictParents(txMetadata.ID(), forkedConflictID, previousParents.Slice()...); err != nil {
-			// TODO: handle the error when implementing conflictdag eviction
-			panic(err)
+			panic(err) // TODO: handle that case when eviction is done
 		}
+
 		return false
 	}
 
