@@ -48,6 +48,7 @@ type RealitiesLedger struct {
 	// sybilProtectionWeights
 	sybilProtectionWeights *sybilprotection.Weights
 
+	// workerPool is a reference to the workerPool that is used by this RealitiesLedger.
 	workerPool *workerpool.WorkerPool
 
 	// dataFlow is a RealitiesLedger component that defines the data flow (how the different commands are chained together)

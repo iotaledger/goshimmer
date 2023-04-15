@@ -135,7 +135,7 @@ func (u *Utils) ReferencedTransactions(tx utxo.Transaction) (transactionIDs utxo
 	return transactionIDs
 }
 
-// TransactionConfirmationState returns the AcceptanceState of the Transaction with the given TransactionID.
+// TransactionConfirmationState returns the ConfirmationState of the Transaction with the given TransactionID.
 func (u *Utils) TransactionConfirmationState(txID utxo.TransactionID) (confirmationState confirmation.State) {
 	u.ledger.storage.CachedTransactionMetadata(txID).Consume(func(txMetadata *mempool.TransactionMetadata) {
 		confirmationState = txMetadata.ConfirmationState()
@@ -143,7 +143,7 @@ func (u *Utils) TransactionConfirmationState(txID utxo.TransactionID) (confirmat
 	return
 }
 
-// OutputConfirmationState returns the AcceptanceState of the Output.
+// OutputConfirmationState returns the ConfirmationState of the Output.
 func (u *Utils) OutputConfirmationState(outputID utxo.OutputID) (confirmationState confirmation.State) {
 	u.ledger.storage.CachedOutputMetadata(outputID).Consume(func(outputMetadata *mempool.OutputMetadata) {
 		confirmationState = outputMetadata.ConfirmationState()
