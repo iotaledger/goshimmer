@@ -8,8 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/database"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag"
+	conflictdag "github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm"
@@ -44,7 +43,7 @@ type RealitiesLedger struct {
 	utils *Utils
 
 	// conflictDAG is a reference to the conflictDAG that is used by this RealitiesLedger.
-	conflictDAG *newconflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID, models.BlockVotePower]
+	conflictDAG *conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID, models.BlockVotePower]
 
 	// sybilProtectionWeights
 	sybilProtectionWeights *sybilprotection.Weights
@@ -85,7 +84,7 @@ type RealitiesLedger struct {
 	optsConsumerCacheTime time.Duration
 
 	// optConflictDAG contains the optionsLedger for the conflictDAG.
-	optConflictDAG []options.Option[conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID]]
+	optConflictDAG []options.Option[conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID, models.BlockVotePower]]
 
 	// mutex is a DAGMutex that is used to make the RealitiesLedger thread safe.
 	mutex *syncutils.DAGMutex[utxo.TransactionID]
@@ -129,7 +128,7 @@ func (l *RealitiesLedger) Initialize(workerPool *workerpool.WorkerPool, storage 
 	l.chainStorage = storage
 	l.workerPool = workerPool
 
-	l.conflictDAG = newconflictdag.New[utxo.TransactionID, utxo.OutputID, models.BlockVotePower](acceptance.ThresholdProvider(sybilProtection.Validators().TotalWeight))
+	l.conflictDAG = conflictdag.New[utxo.TransactionID, utxo.OutputID, models.BlockVotePower](acceptance.ThresholdProvider(sybilProtection.Validators().TotalWeight))
 	l.events.ConflictDAG.LinkTo(l.conflictDAG.Events)
 
 	l.sybilProtectionWeights = sybilProtection.Weights()
@@ -141,9 +140,7 @@ func (l *RealitiesLedger) Initialize(workerPool *workerpool.WorkerPool, storage 
 	asyncOpt := event.WithWorkerPool(l.workerPool)
 
 	// TODO: revisit whether we should make the process of setting conflict and transaction as accepted/rejected atomic
-	l.conflictDAG.Events.ConflictAccepted.Hook(func(conflictID utxo.TransactionID) {
-		l.propagateAcceptanceToIncludedTransactions(conflictID)
-	}, asyncOpt)
+	l.conflictDAG.Events.ConflictAccepted.Hook(l.propagateAcceptanceToIncludedTransactions, asyncOpt)
 	l.conflictDAG.Events.ConflictRejected.Hook(l.propagatedRejectionToTransactions, asyncOpt)
 	l.events.TransactionBooked.Hook(func(event *mempool.TransactionBookedEvent) {
 		l.processConsumingTransactions(event.Outputs.IDs())
@@ -159,7 +156,7 @@ func (l *RealitiesLedger) Events() *mempool.Events {
 	return l.events
 }
 
-func (l *RealitiesLedger) ConflictDAG() *newconflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID, models.BlockVotePower] {
+func (l *RealitiesLedger) ConflictDAG() conflictdag.Interface[utxo.TransactionID, utxo.OutputID, models.BlockVotePower] {
 	return l.conflictDAG
 }
 
@@ -456,7 +453,7 @@ func WithConsumerCacheTime(consumerCacheTime time.Duration) (option options.Opti
 }
 
 // WithConflictDAGOptions is an Option for the RealitiesLedger that allows to configure the optionsLedger for the ConflictDAG.
-func WithConflictDAGOptions(conflictDAGOptions ...options.Option[conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID]]) (option options.Option[RealitiesLedger]) {
+func WithConflictDAGOptions(conflictDAGOptions ...options.Option[conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID, models.BlockVotePower]]) (option options.Option[RealitiesLedger]) {
 	return func(options *RealitiesLedger) {
 		options.optConflictDAG = conflictDAGOptions
 	}
