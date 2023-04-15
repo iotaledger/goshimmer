@@ -6,6 +6,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/cerrors"
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/acceptance"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/ds/set"
@@ -164,4 +165,15 @@ func (u *Utils) ConfirmedConsumer(outputID utxo.OutputID) (consumerID utxo.Trans
 		})
 	})
 	return
+}
+
+func acceptanceState(state confirmation.State) acceptance.State {
+	if state.IsAccepted() || state.IsConfirmed() {
+		return acceptance.Accepted
+	}
+	if state.IsRejected() {
+		return acceptance.Rejected
+	}
+
+	return acceptance.Pending
 }

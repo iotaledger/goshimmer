@@ -99,14 +99,13 @@ func (b *booker) inheritConflictIDs(ctx context.Context, txID utxo.TransactionID
 		return parentConflictIDs
 	}
 
-	acceptanceState := acceptance.Pending
-	for it := consumersToFork.Iterator(); it.HasNext(); {
-		if b.forkTransaction(ctx, it.Next(), conflictingInputIDs).IsAccepted() {
-			acceptanceState = acceptance.Rejected
-		}
-	}
+	var anyConflictAccepted bool
+	_ = consumersToFork.ForEach(func(conflict utxo.TransactionID) (err error) {
+		anyConflictAccepted = b.forkTransaction(ctx, conflict, conflictingInputIDs).IsAccepted() || anyConflictAccepted
+		return nil
+	})
 
-	if err := b.ledger.conflictDAG.CreateConflict(txID, parentConflictIDs.Slice(), conflictingInputIDs.Slice(), weight.New(b.ledger.sybilProtectionWeights).WithAcceptanceState(acceptanceState)); err != nil {
+	if err := b.ledger.conflictDAG.CreateConflict(txID, parentConflictIDs.Slice(), conflictingInputIDs.Slice(), weight.New(b.ledger.sybilProtectionWeights).WithAcceptanceState(lo.Cond(anyConflictAccepted, acceptance.Rejected, acceptance.Pending))); err != nil {
 		// TODO: replace with better error handling that depends on type of error
 		panic(err)
 	}
@@ -152,16 +151,16 @@ func (b *booker) determineConflictDetails(txID utxo.TransactionID, inputsMetadat
 }
 
 // forkTransaction forks an existing Transaction and returns the confirmation state of the resulting Branch.
-func (b *booker) forkTransaction(ctx context.Context, txID utxo.TransactionID, outputsSpentByConflictingTx utxo.OutputIDs) (acceptanceState confirmation.State) {
+func (b *booker) forkTransaction(ctx context.Context, txID utxo.TransactionID, outputsSpentByConflictingTx utxo.OutputIDs) (confirmationState confirmation.State) {
 	b.ledger.Utils().WithTransactionAndMetadata(txID, func(tx utxo.Transaction, txMetadata *mempool.TransactionMetadata) {
 		b.ledger.mutex.Lock(txID)
 
-		acceptanceState = txMetadata.ConfirmationState()
+		confirmationState = txMetadata.ConfirmationState()
 
 		conflictingInputs := b.ledger.Utils().ResolveInputs(tx.Inputs()).Intersect(outputsSpentByConflictingTx)
 		parentConflicts := txMetadata.ConflictIDs()
 
-		err := b.ledger.conflictDAG.CreateConflict(txID, parentConflicts.Slice(), conflictingInputs.Slice(), weight.New(b.ledger.sybilProtectionWeights).WithAcceptanceState(acceptanceFromOldState(acceptanceState)))
+		err := b.ledger.conflictDAG.CreateConflict(txID, parentConflicts.Slice(), conflictingInputs.Slice(), weight.New(b.ledger.sybilProtectionWeights).WithAcceptanceState(acceptanceState(confirmationState)))
 		if err != nil {
 			if errors.Is(err, newconflictdag.ErrConflictExists) {
 				joiningErr := b.ledger.conflictDAG.JoinConflictSets(txID, conflictingInputs.Slice()...)
@@ -185,23 +184,12 @@ func (b *booker) forkTransaction(ctx context.Context, txID utxo.TransactionID, o
 		b.updateConflictsAfterFork(ctx, txMetadata, txID, parentConflicts)
 		b.ledger.mutex.Unlock(txID)
 
-		if !acceptanceState.IsAccepted() {
+		if !confirmationState.IsAccepted() {
 			b.propagateForkedConflictToFutureCone(ctx, txMetadata.OutputIDs(), txID, parentConflicts)
 		}
 	})
 
-	return acceptanceState
-}
-
-func acceptanceFromOldState(state confirmation.State) acceptance.State {
-	if state.IsAccepted() || state.IsConfirmed() {
-		return acceptance.Accepted
-	}
-	if state.IsRejected() {
-		return acceptance.Rejected
-	}
-
-	return acceptance.Pending
+	return confirmationState
 }
 
 // propagateForkedConflictToFutureCone propagates a newly introduced Conflict to its future cone.
