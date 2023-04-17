@@ -11,11 +11,11 @@ require (
 	github.com/iotaledger/hive.go/crypto v0.0.0-20230406084657-747278ebc1f6
 	github.com/iotaledger/hive.go/ds v0.0.0-20230406084657-747278ebc1f6
 	github.com/iotaledger/hive.go/lo v0.0.0-20230406084657-747278ebc1f6
-	github.com/iotaledger/hive.go/runtime v0.0.0-20230406084657-747278ebc1f6
+	github.com/iotaledger/hive.go/runtime v0.0.0-20230406134647-9662ec76fb21
 	github.com/mr-tron/base58 v1.2.0
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.8.2
-	golang.org/x/crypto v0.7.0
+	golang.org/x/crypto v0.8.0
 	golang.org/x/sync v0.1.0
 )
 
@@ -71,7 +71,7 @@ require (
 	github.com/iotaledger/hive.go/core v1.0.0-rc.3.0.20230401135606-70e06cde28d5 // indirect
 	github.com/iotaledger/hive.go/kvstore v0.0.0-20230406084657-747278ebc1f6 // indirect
 	github.com/iotaledger/hive.go/logger v0.0.0-20230406084657-747278ebc1f6 // indirect
-	github.com/iotaledger/hive.go/objectstorage v0.0.0-20230406084657-747278ebc1f6 // indirect
+	github.com/iotaledger/hive.go/objectstorage v0.0.0-20230407095435-9db1c6a0bf74 // indirect
 	github.com/iotaledger/hive.go/serializer/v2 v2.0.0-rc.1.0.20230406084657-747278ebc1f6 // indirect
 	github.com/iotaledger/hive.go/stringify v0.0.0-20230406084657-747278ebc1f6 // indirect
 	github.com/ipfs/go-cid v0.3.2 // indirect
@@ -169,7 +169,7 @@ require (
 	go.uber.org/zap v1.24.0 // indirect
 	golang.org/x/exp v0.0.0-20230310171629-522b1b587ee0 // indirect
 	golang.org/x/mod v0.8.0 // indirect
-	golang.org/x/net v0.8.0 // indirect
+	golang.org/x/net v0.9.0 // indirect
 	golang.org/x/sys v0.7.0 // indirect
 	golang.org/x/text v0.9.0 // indirect
 	golang.org/x/time v0.3.0 // indirect

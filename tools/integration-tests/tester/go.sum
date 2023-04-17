@@ -384,10 +384,10 @@ github.com/iotaledger/hive.go/lo v0.0.0-20230406084657-747278ebc1f6 h1:d9BKW4v97
 github.com/iotaledger/hive.go/lo v0.0.0-20230406084657-747278ebc1f6/go.mod h1:uSutXkQsFJQwrSeDNQVSQjB59XRLVKpJhr1afi8nd0g=
 github.com/iotaledger/hive.go/logger v0.0.0-20230406084657-747278ebc1f6 h1:MRb7Jqf0MIb50Dgp1kjMYHCqXd4j9SaQ+JtcJzG/d2M=
 github.com/iotaledger/hive.go/logger v0.0.0-20230406084657-747278ebc1f6/go.mod h1:ULSVRCrvhv5lNP/08p4V+zJ3mwlQmB+OjIvw1fU3RA8=
-github.com/iotaledger/hive.go/objectstorage v0.0.0-20230406084657-747278ebc1f6 h1:qaQhyBscq7qvX8wjaYSZ8xnXJ6/9dv/X/nqG3rQFwIE=
-github.com/iotaledger/hive.go/objectstorage v0.0.0-20230406084657-747278ebc1f6/go.mod h1:cz1XaNr8kq92rEcdUtvEB/246G63u5IxamZyWwlAy0s=
-github.com/iotaledger/hive.go/runtime v0.0.0-20230406084657-747278ebc1f6 h1:wS/f2K2qM0A86AKv6VyLk/I6ljaqwuPlDN/hxvLtIhM=
-github.com/iotaledger/hive.go/runtime v0.0.0-20230406084657-747278ebc1f6/go.mod h1:4Xmdd62NtiHvoYEMN/6FNvgdFXam/jssFFBD/SIFGiU=
+github.com/iotaledger/hive.go/objectstorage v0.0.0-20230407095435-9db1c6a0bf74 h1:pxD8It1qQp0yV4LIDmJ0dpCpmhjPa2ui3gevPs/4Krk=
+github.com/iotaledger/hive.go/objectstorage v0.0.0-20230407095435-9db1c6a0bf74/go.mod h1:ac1CBZQpPsll4/AxXpVuPyrWGe5cvVPW1Odwt9DB7Qg=
+github.com/iotaledger/hive.go/runtime v0.0.0-20230406134647-9662ec76fb21 h1:mecpWSEm2wrEejEXfOaeLfwnc7mf5VPrmEndRpx6aQo=
+github.com/iotaledger/hive.go/runtime v0.0.0-20230406134647-9662ec76fb21/go.mod h1:4Xmdd62NtiHvoYEMN/6FNvgdFXam/jssFFBD/SIFGiU=
 github.com/iotaledger/hive.go/serializer/v2 v2.0.0-rc.1.0.20230406084657-747278ebc1f6 h1:zS8iXD57n3vQvxyzKdL0Yab9t3RYgVmNKwZaMfvwWPQ=
 github.com/iotaledger/hive.go/serializer/v2 v2.0.0-rc.1.0.20230406084657-747278ebc1f6/go.mod h1:qOdUpN96qvcebn/2kWj1qs/3xjaFwVStM9o7jTx4OgI=
 github.com/iotaledger/hive.go/stringify v0.0.0-20230406084657-747278ebc1f6 h1:dH07qXCSD83NbsZ5AzI+qgbyN7rQiuqQwlinGjF1TSQ=
@@ -913,8 +913,8 @@ golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9/go.mod h1:LzIPMQfyMNhhGPh
 golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83/go.mod h1:jdWPYTVW3xRLrWPugEBEK3UY2ZEsg3UU495nc5E+M+I=
 golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2/go.mod h1:T9bdIzuCu7OtxOm1hfPfRQxPLYneinmdGuTeoZ9dtd4=
 golang.org/x/crypto v0.0.0-20210921155107-089bfa567519/go.mod h1:GvvjBRRGRdwPK5ydBHafDWAxML/pGHZbMvKqRZ5+Abc=
-golang.org/x/crypto v0.7.0 h1:AvwMYaRytfdeVt3u6mLaxYtErKYjxA2OXjJ1HHq6t3A=
-golang.org/x/crypto v0.7.0/go.mod h1:pYwdfH91IfpZVANVyUOhSIPZaFoJGxTFbZhFTx+dXZU=
+golang.org/x/crypto v0.8.0 h1:pd9TJtTueMTVQXzk8E2XESSMQDj/U7OUu0PqJqPXQjQ=
+golang.org/x/crypto v0.8.0/go.mod h1:mRqEX+O9/h5TFCrQhkgjo2yKi0yYA+9ecGkdQoHrywE=
 golang.org/x/exp v0.0.0-20190121172915-509febef88a4/go.mod h1:CJ0aWSM057203Lf6IL+f9T1iT9GByDxfZKAQTCR3kQA=
 golang.org/x/exp v0.0.0-20230310171629-522b1b587ee0 h1:LGJsf5LRplCck6jUCH3dBL2dmycNruWNF5xugkSlfXw=
 golang.org/x/exp v0.0.0-20230310171629-522b1b587ee0/go.mod h1:CxIveKay+FTh1D0yPZemJVgC/95VzuuOLq5Qi4xnoYc=
@@ -966,8 +966,8 @@ golang.org/x/net v0.0.0-20210405180319-a5a99cb37ef4/go.mod h1:p54w0d4576C0XHj96b
 golang.org/x/net v0.0.0-20210410081132-afb366fc7cd1/go.mod h1:9tjilg8BloeKEkVJvy7fQ90B1CfIiPueXVOjqfkSzI8=
 golang.org/x/net v0.0.0-20210726213435-c6fcb2dbf985/go.mod h1:9nx3DQGgdP8bBQD5qxJ1jj9UTztislL4KSBs9R2vV5Y=
 golang.org/x/net v0.0.0-20211008194852-3b03d305991f/go.mod h1:9nx3DQGgdP8bBQD5qxJ1jj9UTztislL4KSBs9R2vV5Y=
-golang.org/x/net v0.8.0 h1:Zrh2ngAOFYneWTAIAPethzeaQLuHwhuBkuV6ZiRnUaQ=
-golang.org/x/net v0.8.0/go.mod h1:QVkue5JL9kW//ek3r6jTKnTFis1tRmNAW2P1shuFdJc=
+golang.org/x/net v0.9.0 h1:aWJ/m6xSmxWBx+V0XRHTlrYrPG56jKsLdTFmsSsCzOM=
+golang.org/x/net v0.9.0/go.mod h1:d48xBJpPfHeWQsugry2m+kC02ZBRGRgulfHnEXEuWns=
 golang.org/x/oauth2 v0.0.0-20180821212333-d2e6202438be/go.mod h1:N/0e6XlmueqKjAGxoOufVs8QHGRruUQn6yWY3a++T0U=
 golang.org/x/oauth2 v0.0.0-20181017192945-9dcd33a902f4/go.mod h1:N/0e6XlmueqKjAGxoOufVs8QHGRruUQn6yWY3a++T0U=
 golang.org/x/oauth2 v0.0.0-20181203162652-d668ce993890/go.mod h1:N/0e6XlmueqKjAGxoOufVs8QHGRruUQn6yWY3a++T0U=
