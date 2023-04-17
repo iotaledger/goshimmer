@@ -2,7 +2,6 @@ package protocol
 
 import (
 	"fmt"
-	"sync"
 
 	"github.com/pkg/errors"
 
@@ -44,6 +43,7 @@ import (
 	"github.com/iotaledger/hive.go/runtime/event"
 	"github.com/iotaledger/hive.go/runtime/module"
 	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
@@ -60,7 +60,7 @@ type Protocol struct {
 	dispatcher      network.Endpoint
 	networkProtocol *network.Protocol
 
-	activeEngineMutex sync.RWMutex
+	activeEngineMutex syncutils.RWMutexFake
 	mainEngine        *engine.Engine
 	candidateEngine   *engine.Engine
 
@@ -300,6 +300,11 @@ func (p *Protocol) initTipManager() {
 		p.TipManager.EvictTSCCache(index)
 	}, event.WithWorkerPool(wp))
 	p.Events.Engine.Consensus.BlockGadget.BlockAccepted.Hook(func(block *blockgadget.Block) {
+		// If we accept a block weakly that means that it might not have a strong future cone. If we remove its parents
+		// from the tippool, a portion of the tangle might loose (strong) connection to the tips.
+		if !block.IsStronglyAccepted() {
+			return
+		}
 		p.TipManager.RemoveStrongParents(block.ModelsBlock)
 	}, event.WithWorkerPool(wp))
 }
@@ -371,6 +376,9 @@ func (p *Protocol) switchEngines() {
 
 func (p *Protocol) ProcessBlock(block *models.Block, src identity.ID) error {
 	mainEngine := p.MainEngineInstance()
+
+	mainEngine.ProcessingMutex.Lock()
+	defer mainEngine.ProcessingMutex.Unlock()
 
 	isSolid, chain := p.chainManager.ProcessCommitmentFromSource(block.Commitment(), src)
 	if !isSolid {

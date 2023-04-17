@@ -1,10 +1,9 @@
 package conflictdag
 
 import (
-	"sync"
-
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 // region Conflict /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -19,7 +18,7 @@ type Conflict[ConflictIDType, ResourceIDType comparable] struct {
 
 	confirmationState confirmation.State
 
-	m sync.RWMutex
+	m syncutils.RWMutexFake
 }
 
 func NewConflict[ConflictIDType comparable, ResourceIDType comparable](id ConflictIDType, parents *advancedset.AdvancedSet[ConflictIDType], conflictSets *advancedset.AdvancedSet[*ConflictSet[ConflictIDType, ResourceIDType]], confirmationState confirmation.State) (c *Conflict[ConflictIDType, ResourceIDType]) {
@@ -144,7 +143,7 @@ type ConflictSet[ConflictIDType, ResourceIDType comparable] struct {
 	id        ResourceIDType
 	conflicts *advancedset.AdvancedSet[*Conflict[ConflictIDType, ResourceIDType]]
 
-	m sync.RWMutex
+	m syncutils.RWMutexFake
 }
 
 func NewConflictSet[ConflictIDType comparable, ResourceIDType comparable](id ResourceIDType) (c *ConflictSet[ConflictIDType, ResourceIDType]) {

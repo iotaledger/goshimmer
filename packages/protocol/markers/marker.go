@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
-	"sync"
 
 	"github.com/iotaledger/hive.go/ds/thresholdmap"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 	"github.com/iotaledger/hive.go/serializer/v2/marshalutil"
 	"github.com/iotaledger/hive.go/stringify"
 )
@@ -61,7 +61,7 @@ type Markers struct {
 	markers      map[SequenceID]Index
 	highestIndex Index
 	lowestIndex  Index
-	mutex        sync.RWMutex
+	mutex        syncutils.RWMutexFake
 }
 
 // NewMarkers creates a new collection of Markers.
@@ -295,7 +295,7 @@ func (m *Markers) String() string {
 // reference a given Marker in a Sequence.
 type ReferencingMarkers struct {
 	referencingIndexesBySequence map[SequenceID]*thresholdmap.ThresholdMap[uint64, Index] `serix:"0,lengthPrefixType=uint32"`
-	sync.RWMutex
+	syncutils.RWMutexFake
 }
 
 // NewReferencingMarkers is the constructor for the ReferencingMarkers.
@@ -412,7 +412,7 @@ func (r *ReferencingMarkers) String() (humanReadableReferencingMarkers string) {
 // of its parent Sequences in the Sequence DAG.
 type ReferencedMarkers struct {
 	referencedIndexesBySequence map[SequenceID]*thresholdmap.ThresholdMap[uint64, Index] `serix:"0,lengthPrefixType=uint32"`
-	sync.RWMutex
+	syncutils.RWMutexFake
 }
 
 // NewReferencedMarkers is the constructor for the ReferencedMarkers.

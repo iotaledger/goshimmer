@@ -2,7 +2,8 @@ package markers
 
 import (
 	"fmt"
-	"sync"
+
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 // region StructureDetails /////////////////////////////////////////////////////////////////////////////////////////////
@@ -15,7 +16,7 @@ type StructureDetails struct {
 	isPastMarker  bool
 	pastMarkers   *Markers
 
-	sync.RWMutex
+	syncutils.RWMutexFake
 }
 
 // NewStructureDetails creates an empty StructureDetails object.

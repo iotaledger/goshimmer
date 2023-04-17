@@ -1,12 +1,11 @@
 package sybilprotection
 
 import (
-	"sync"
-
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 type WeightedSet struct {
@@ -16,7 +15,7 @@ type WeightedSet struct {
 	weightUpdatesDetach *event.Hook[func(*WeightsBatch)]
 	members             *advancedset.AdvancedSet[identity.ID]
 	totalWeight         int64
-	totalWeightMutex    sync.RWMutex
+	totalWeightMutex    syncutils.RWMutexFake
 }
 
 func NewWeightedSet(weights *Weights, optMembers ...identity.ID) *WeightedSet {

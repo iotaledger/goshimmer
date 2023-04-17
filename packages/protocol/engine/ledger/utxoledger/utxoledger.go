@@ -2,7 +2,6 @@ package utxoledger
 
 import (
 	"io"
-	"sync"
 
 	"github.com/pkg/errors"
 
@@ -14,6 +13,7 @@ import (
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/module"
 	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 // UTXOLedger represents a ledger using the realities based mempool.
@@ -23,7 +23,7 @@ type UTXOLedger struct {
 	memPool        mempool.MemPool
 	unspentOutputs *UnspentOutputs
 	stateDiffs     *StateDiffs
-	mutex          sync.RWMutex
+	mutex          syncutils.RWMutexFake
 
 	optsMemPoolProvider module.Provider[*engine.Engine, mempool.MemPool]
 

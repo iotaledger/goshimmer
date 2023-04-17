@@ -3,7 +3,6 @@ package markerbooker
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	"github.com/pkg/errors"
 	"golang.org/x/xerrors"
@@ -21,14 +20,13 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markerbooker/markermanager"
 	"github.com/iotaledger/goshimmer/packages/protocol/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/causalorder"
+	"github.com/iotaledger/hive.go/core/causalordersync"
 	"github.com/iotaledger/hive.go/core/memstorage"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/ds/walker"
 	"github.com/iotaledger/hive.go/lo"
-	"github.com/iotaledger/hive.go/runtime/event"
 	"github.com/iotaledger/hive.go/runtime/module"
 	"github.com/iotaledger/hive.go/runtime/options"
 	"github.com/iotaledger/hive.go/runtime/syncutils"
@@ -48,13 +46,13 @@ type Booker struct {
 	sequenceTracker *sequencetracker.SequenceTracker[models.BlockVotePower]
 	slotTracker     *slottracker.SlotTracker
 
-	bookingOrder          *causalorder.CausalOrder[models.BlockID, *booker.Block]
+	bookingOrder          *causalordersync.CausalOrder[models.BlockID, *booker.Block]
 	attachments           *attachments
 	blocks                *memstorage.SlotStorage[models.BlockID, *booker.Block]
 	markerManager         *markermanager.MarkerManager[models.BlockID, *booker.Block]
 	bookingMutex          *syncutils.DAGMutex[models.BlockID]
 	sequenceMutex         *syncutils.DAGMutex[markers.SequenceID]
-	evictionMutex         sync.RWMutex
+	evictionMutex         syncutils.RWMutexFake
 	sequenceEvictionMutex *syncutils.StarvingMutex
 
 	optsMarkerManager []options.Option[markermanager.MarkerManager[models.BlockID, *booker.Block]]
@@ -79,7 +77,7 @@ func NewProvider(opts ...options.Option[Booker]) module.Provider[*engine.Engine,
 			}
 
 			b.EvictSlotTracker(index)
-		}, event.WithWorkerPool(e.Workers.CreatePool("Eviction", 1))) // Using just 1 worker to avoid contention
+		} /*, event.WithWorkerPool(e.Workers.CreatePool("Eviction", 1))*/) // Using just 1 worker to avoid contention
 
 		e.HookConstructed(func() {
 			b.Initialize(e.Tangle.BlockDAG())
@@ -114,14 +112,14 @@ func New(workers *workerpool.Group, evictionState *eviction.State, memPool mempo
 		b.markerManager = markermanager.NewMarkerManager(b.optsMarkerManager...)
 		b.sequenceTracker = sequencetracker.NewSequenceTracker[models.BlockVotePower](validators, b.markerManager.SequenceManager.Sequence, b.optsSequenceCutoffCallback)
 		b.slotTracker = slottracker.NewSlotTracker(b.optsSlotCutoffCallback)
-		b.bookingOrder = causalorder.New(
+		b.bookingOrder = causalordersync.New(
 			workers.CreatePool("BookingOrder", 2),
 			b.Block,
 			(*booker.Block).IsBooked,
 			b.book,
 			b.markInvalid,
 			(*booker.Block).Parents,
-			causalorder.WithReferenceValidator[models.BlockID](isReferenceValid),
+			causalordersync.WithReferenceValidator[models.BlockID](isReferenceValid),
 		)
 
 		b.evictionState.Events.SlotEvicted.Hook(b.evict)
@@ -161,11 +159,11 @@ func (b *Booker) Initialize(blockDAG blockdag.BlockDAG) {
 				b.bookingOrder.Queue(block)
 			}
 		}
-	}, event.WithWorkerPool(b.workers.CreatePool("Booker", 2)))
+	} /*, event.WithWorkerPool(b.workers.CreatePool("Booker", 2))*/)
 
 	b.events.SequenceEvicted.Hook(func(sequenceID markers.SequenceID) {
 		b.EvictSequence(sequenceID)
-	}, event.WithWorkerPool(b.workers.CreatePool("VirtualVoting Sequence Eviction", 1)))
+	} /*, event.WithWorkerPool(b.workers.CreatePool("VirtualVoting Sequence Eviction", 1))*/)
 
 	b.TriggerInitialized()
 }
@@ -184,26 +182,21 @@ func (b *Booker) SequenceManager() *markers.SequenceManager {
 	return b.markerManager.SequenceManager
 }
 
-// Queue checks if payload is solid and then adds the block to a Booker's CausalOrder.
+// Queue adds a new Block to the booking queue.
 func (b *Booker) Queue(block *booker.Block) (wasQueued bool, err error) {
-	if wasQueued, err = b.queue(block); wasQueued {
-		b.bookingOrder.Queue(block)
-	}
-
-	return
-}
-
-func (b *Booker) queue(block *booker.Block) (wasQueued bool, err error) {
-	b.evictionMutex.RLock()
-	defer b.evictionMutex.RUnlock()
-
-	if b.evictionState.InEvictedSlot(block.ID()) {
+	if !b.storeNewBlock(block) {
 		return false, nil
 	}
 
-	b.blocks.Get(block.ID().Index(), true).Set(block.ID(), block)
+	if transaction, isTransaction := block.Payload().(utxo.Transaction); isTransaction {
+		if err := b.MemPool.StoreAndProcessTransaction(models.BlockIDToContext(context.Background(), block.ID()), transaction); err != nil {
+			return false, lo.Cond(errors.Is(err, mempool.ErrTransactionUnsolid), nil, err)
+		}
+	}
 
-	return b.isPayloadSolid(block)
+	b.bookingOrder.Queue(block)
+
+	return true, nil
 }
 
 // Block retrieves a Block with metadata from the in-memory storage of the Booker.
@@ -306,8 +299,8 @@ func (b *Booker) BlockFloor(marker markers.Marker) (floorMarker markers.Marker, 
 
 // MarkerVotersTotalWeight retrieves Validators supporting a given marker.
 func (b *Booker) MarkerVotersTotalWeight(marker markers.Marker) (totalWeight int64) {
-	b.sequenceEvictionMutex.RLock()
-	defer b.sequenceEvictionMutex.RUnlock()
+	//b.sequenceEvictionMutex.RLock()
+	//defer b.sequenceEvictionMutex.RUnlock()
 
 	_ = b.sequenceTracker.Voters(marker).ForEach(func(id identity.ID) error {
 		if weight, exists := b.validators.Get(id); exists {
@@ -322,8 +315,8 @@ func (b *Booker) MarkerVotersTotalWeight(marker markers.Marker) (totalWeight int
 
 // SlotVotersTotalWeight retrieves the total weight of the Validators voting for a given slot.
 func (b *Booker) SlotVotersTotalWeight(slotIndex slot.Index) (totalWeight int64) {
-	b.sequenceEvictionMutex.RLock()
-	defer b.sequenceEvictionMutex.RUnlock()
+	//b.sequenceEvictionMutex.RLock()
+	//defer b.sequenceEvictionMutex.RUnlock()
 
 	_ = b.slotTracker.Voters(slotIndex).ForEach(func(id identity.ID) error {
 		if weight, exists := b.validators.Get(id); exists {
@@ -352,6 +345,22 @@ func (b *Booker) GetAllAttachments(txID utxo.TransactionID) (attachments *advanc
 	return b.attachments.GetAttachmentBlocks(txID)
 }
 
+// storeNewBlock tries to store a new Block in the in-memory storage of the Booker and returns if the Block was stored.
+func (b *Booker) storeNewBlock(block *booker.Block) bool {
+	b.evictionMutex.RLock()
+	defer b.evictionMutex.RUnlock()
+
+	if b.evictionState.InEvictedSlot(block.ID()) || !b.blocks.Get(block.ID().Index(), true).Set(block.ID(), block) {
+		return false
+	}
+
+	if transaction, isTransaction := block.Payload().(utxo.Transaction); isTransaction && b.attachments.Store(transaction.ID(), block) {
+		b.events.AttachmentCreated.Trigger(block)
+	}
+
+	return true
+}
+
 func (b *Booker) ProcessForkedMarker(marker markers.Marker, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) error {
 	b.sequenceEvictionMutex.RLock()
 	defer b.sequenceEvictionMutex.RUnlock()
@@ -369,15 +378,15 @@ func (b *Booker) ProcessForkedMarker(marker markers.Marker, forkedConflictID utx
 }
 
 func (b *Booker) EvictSequence(sequenceID markers.SequenceID) {
-	b.evictionMutex.Lock()
-	defer b.evictionMutex.Unlock()
+	b.sequenceEvictionMutex.Lock()
+	defer b.sequenceEvictionMutex.Unlock()
 
 	b.sequenceTracker.EvictSequence(sequenceID)
 }
 
 func (b *Booker) EvictSlotTracker(slotIndex slot.Index) {
-	b.evictionMutex.Lock()
-	defer b.evictionMutex.Unlock()
+	b.sequenceEvictionMutex.Lock()
+	defer b.sequenceEvictionMutex.Unlock()
 
 	b.slotTracker.EvictSlot(slotIndex)
 }
@@ -393,25 +402,6 @@ func (b *Booker) evict(slotIndex slot.Index) {
 	b.blocks.Evict(slotIndex)
 }
 
-func (b *Booker) isPayloadSolid(block *booker.Block) (isPayloadSolid bool, err error) {
-	tx, isTx := block.Transaction()
-	if !isTx {
-		return true, nil
-	}
-
-	if b.attachments.Store(tx.ID(), block) {
-		b.events.AttachmentCreated.Trigger(block)
-	}
-
-	if err = b.MemPool.StoreAndProcessTransaction(
-		models.BlockIDToContext(context.Background(), block.ID()), tx,
-	); errors.Is(err, mempool.ErrTransactionUnsolid) {
-		return false, nil
-	}
-
-	return err == nil, err
-}
-
 // block retrieves the Block with given id from the mem-storage.
 func (b *Booker) block(id models.BlockID) (block *booker.Block, exists bool) {
 	if b.evictionState.IsRootBlock(id) {
@@ -420,6 +410,7 @@ func (b *Booker) block(id models.BlockID) (block *booker.Block, exists bool) {
 
 	storage := b.blocks.Get(id.Index(), false)
 	if storage == nil {
+		fmt.Println("block already evicted", id)
 		return nil, false
 	}
 
@@ -629,7 +620,7 @@ func (b *Booker) collectWeakParentsConflictIDs(block *booker.Block) (transaction
 	transactionConflictIDs = utxo.NewTransactionIDs()
 
 	block.ForEachParentByType(models.WeakParentType, func(parentBlockID models.BlockID) bool {
-		parentBlock, exists := b.Block(parentBlockID)
+		parentBlock, exists := b.block(parentBlockID)
 		if !exists {
 			panic(fmt.Sprintf("parent %s does not exist", parentBlockID))
 		}
@@ -648,7 +639,7 @@ func (b *Booker) collectShallowLikedParentsConflictIDs(block *booker.Block) (col
 	collectedDislikedConflictIDs = utxo.NewTransactionIDs()
 
 	block.ForEachParentByType(models.ShallowLikeParentType, func(parentBlockID models.BlockID) bool {
-		parentBlock, exists := b.Block(parentBlockID)
+		parentBlock, exists := b.block(parentBlockID)
 		if !exists {
 			panic(fmt.Sprintf("parent %s does not exist", parentBlockID))
 		}

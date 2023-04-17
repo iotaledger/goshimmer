@@ -123,6 +123,9 @@ func TestTipManager_TimeSinceConfirmation_Unconfirmed(t *testing.T) {
 				),
 			),
 		),
+		WithSlotNotarizationOptions(
+			slotnotarization.WithMinCommittableSlotAge(20*6),
+		),
 		WithEngineOptions(
 			engine.WithBootstrapThreshold(time.Since(genesisTime.Add(-time.Hour))),
 		),

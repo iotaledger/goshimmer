@@ -1,8 +1,6 @@
 package slotnotarization
 
 import (
-	"sync"
-
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
@@ -16,6 +14,7 @@ import (
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/event"
 	"github.com/iotaledger/hive.go/serializer/v2"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 // SlotMutations is an in-memory data structure that enables the collection of mutations for uncommitted slots.
@@ -33,7 +32,7 @@ type SlotMutations struct {
 	// latestCommittedIndex stores the index of the latest committed slot.
 	latestCommittedIndex slot.Index
 
-	evictionMutex sync.RWMutex
+	evictionMutex syncutils.RWMutexFake
 
 	// lastCommittedSlotCumulativeWeight stores the cumulative weight of the last committed slot
 	lastCommittedSlotCumulativeWeight uint64

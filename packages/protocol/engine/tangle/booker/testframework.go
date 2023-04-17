@@ -66,7 +66,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, instance Booke
 func (t *TestFramework) Block(alias string) (block *Block) {
 	block, ok := t.Instance.Block(t.BlockDAG.Block(alias).ID())
 	if !ok {
-		panic(fmt.Sprintf("Block alias %s not registered", alias))
+		panic(fmt.Sprintf("Block %s not found in Booker instance", alias))
 	}
 
 	return block

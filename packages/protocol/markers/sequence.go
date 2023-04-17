@@ -3,12 +3,12 @@ package markers
 import (
 	"context"
 	"strconv"
-	"sync"
 
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 	"github.com/iotaledger/hive.go/serializer/v2/marshalutil"
 	"github.com/iotaledger/hive.go/serializer/v2/serix"
 )
@@ -69,7 +69,7 @@ type Sequence struct {
 	lowestIndex        Index
 	highestIndex       Index
 
-	sync.RWMutex
+	syncutils.RWMutexFake
 }
 
 // NewSequence creates a new Sequence from the given details.

@@ -2,7 +2,6 @@ package retainer
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
@@ -14,6 +13,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/objectstorage/generic/model"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 	"github.com/iotaledger/hive.go/serializer/v2/serix"
 )
 
@@ -29,7 +29,7 @@ type cachedMetadata struct {
 	Acceptance    *blockWithTime[*blockgadget.Block]
 	Confirmation  *blockWithTime[*blockgadget.Block]
 
-	sync.RWMutex
+	syncutils.RWMutexFake
 }
 
 func newCachedMetadata() *cachedMetadata {

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/binary"
 	"io"
-	"sync"
 
 	"github.com/pkg/errors"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/runtime/module"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 	"github.com/iotaledger/hive.go/serializer/v2/serix"
 	"github.com/iotaledger/hive.go/stringify"
 )
@@ -21,7 +21,7 @@ import (
 
 type Settings struct {
 	*settingsModel
-	mutex sync.RWMutex
+	mutex syncutils.RWMutexFake
 
 	slotTimeProvider *slot.TimeProvider
 

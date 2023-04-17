@@ -19,6 +19,7 @@ import (
 	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/runtime/module"
 	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 type UnspentOutputs struct {
@@ -26,7 +27,7 @@ type UnspentOutputs struct {
 
 	memPool               mempool.MemPool
 	consumers             map[ledger.UnspentOutputsSubscriber]types.Empty
-	consumersMutex        sync.RWMutex
+	consumersMutex        syncutils.RWMutexFake
 	batchConsumers        map[ledger.UnspentOutputsSubscriber]types.Empty
 	batchCreatedOutputIDs utxo.OutputIDs
 	batchSpentOutputIDs   utxo.OutputIDs

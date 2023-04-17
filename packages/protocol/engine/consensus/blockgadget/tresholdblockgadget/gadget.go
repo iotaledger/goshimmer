@@ -15,15 +15,15 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-	"github.com/iotaledger/hive.go/core/causalorder"
+	"github.com/iotaledger/hive.go/core/causalordersync"
 	"github.com/iotaledger/hive.go/core/memstorage"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/ds/shrinkingmap"
 	"github.com/iotaledger/hive.go/ds/walker"
 	"github.com/iotaledger/hive.go/lo"
-	"github.com/iotaledger/hive.go/runtime/event"
 	"github.com/iotaledger/hive.go/runtime/module"
 	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
@@ -38,7 +38,7 @@ type Gadget struct {
 
 	blocks           *memstorage.SlotStorage[models.BlockID, *blockgadget.Block]
 	evictionState    *eviction.State
-	evictionMutex    sync.RWMutex
+	evictionMutex    syncutils.RWMutexFake
 	slotTimeProvider *slot.TimeProvider
 
 	workers             *workerpool.Group
@@ -48,11 +48,11 @@ type Gadget struct {
 	lastAcceptedMarker              *shrinkingmap.ShrinkingMap[markers.SequenceID, markers.Index]
 	lastAcceptedMarkerMutex         sync.Mutex
 	optsMarkerAcceptanceThreshold   float64
-	acceptanceOrder                 *causalorder.CausalOrder[models.BlockID, *blockgadget.Block]
+	acceptanceOrder                 *causalordersync.CausalOrder[models.BlockID, *blockgadget.Block]
 	lastConfirmedMarker             *shrinkingmap.ShrinkingMap[markers.SequenceID, markers.Index]
 	lastConfirmedMarkerMutex        sync.Mutex
 	optsMarkerConfirmationThreshold float64
-	confirmationOrder               *causalorder.CausalOrder[models.BlockID, *blockgadget.Block]
+	confirmationOrder               *causalordersync.CausalOrder[models.BlockID, *blockgadget.Block]
 
 	optsConflictAcceptanceThreshold float64
 
@@ -96,16 +96,16 @@ func (g *Gadget) Initialize(workers *workerpool.Group, booker booker.Booker, blo
 	g.validators = validators
 	g.totalWeightCallback = totalWeightCallback
 
-	wp := g.workers.CreatePool("Gadget", 2)
+	// wp := g.workers.CreatePool("Gadget", 2)
 
 	g.booker.Events().SequenceTracker.VotersUpdated.Hook(func(evt *sequencetracker.VoterUpdatedEvent) {
 		g.RefreshSequence(evt.SequenceID, evt.NewMaxSupportedIndex, evt.PrevMaxSupportedIndex)
-	}, event.WithWorkerPool(wp))
+	} /*, event.WithWorkerPool(wp)*/)
 
-	g.booker.Events().SequenceEvicted.Hook(g.evictSequence, event.WithWorkerPool(wp))
+	g.booker.Events().SequenceEvicted.Hook(g.evictSequence /*, event.WithWorkerPool(wp)*/)
 
-	g.acceptanceOrder = causalorder.New(g.workers.CreatePool("AcceptanceOrder", 2), g.GetOrRegisterBlock, (*blockgadget.Block).IsStronglyAccepted, lo.Bind(false, g.markAsAccepted), g.acceptanceFailed, (*blockgadget.Block).StrongParents)
-	g.confirmationOrder = causalorder.New(g.workers.CreatePool("ConfirmationOrder", 2), func(id models.BlockID) (entity *blockgadget.Block, exists bool) {
+	g.acceptanceOrder = causalordersync.New(g.workers.CreatePool("AcceptanceOrder", 2), g.GetOrRegisterBlock, (*blockgadget.Block).IsStronglyAccepted, lo.Bind(false, g.markAsAccepted), g.acceptanceFailed, (*blockgadget.Block).StrongParents)
+	g.confirmationOrder = causalordersync.New(g.workers.CreatePool("ConfirmationOrder", 2), func(id models.BlockID) (entity *blockgadget.Block, exists bool) {
 		g.evictionMutex.RLock()
 		defer g.evictionMutex.RUnlock()
 
@@ -116,7 +116,7 @@ func (g *Gadget) Initialize(workers *workerpool.Group, booker booker.Booker, blo
 		return g.getOrRegisterBlock(id)
 	}, (*blockgadget.Block).IsStronglyConfirmed, lo.Bind(false, g.markAsConfirmed), g.confirmationFailed, (*blockgadget.Block).StrongParents)
 
-	g.evictionState.Events.SlotEvicted.Hook(g.EvictUntil, event.WithWorkerPool(g.workers.CreatePool("Eviction", 1)))
+	g.evictionState.Events.SlotEvicted.Hook(g.EvictUntil /*, event.WithWorkerPool(g.workers.CreatePool("Eviction", 1))*/)
 
 	g.TriggerConstructed()
 	g.TriggerInitialized()
@@ -213,7 +213,7 @@ func (g *Gadget) GetOrRegisterBlock(blockID models.BlockID) (block *blockgadget.
 func (g *Gadget) RefreshSequence(sequenceID markers.SequenceID, newMaxSupportedIndex, prevMaxSupportedIndex markers.Index) {
 	g.evictionMutex.RLock()
 
-	var acceptedBlocks, confirmedBlocks []*blockgadget.Block
+	var acceptedBlocks, confirmedBlocks, individuallyAcceptedBlocks, individuallyConfirmedBlocks []*blockgadget.Block
 
 	totalWeight := g.totalWeightCallback()
 
@@ -227,14 +227,24 @@ func (g *Gadget) RefreshSequence(sequenceID markers.SequenceID, newMaxSupportedI
 			break
 		}
 
-		blocksToAccept, blocksToConfirm := g.tryConfirmOrAccept(totalWeight, marker)
+		blocksToAccept, blocksToConfirm, individualToAccept, individualToConfirm := g.tryConfirmOrAccept(totalWeight, marker)
 		acceptedBlocks = append(acceptedBlocks, blocksToAccept...)
 		confirmedBlocks = append(confirmedBlocks, blocksToConfirm...)
+		individuallyAcceptedBlocks = append(individuallyAcceptedBlocks, individualToAccept...)
+		individuallyConfirmedBlocks = append(individuallyConfirmedBlocks, individualToConfirm...)
 
 		markerIndex = marker.Index()
 	}
 
 	g.evictionMutex.RUnlock()
+
+	for _, block := range individuallyAcceptedBlocks {
+		_ = g.markAsAccepted(block, true)
+	}
+
+	for _, block := range individuallyConfirmedBlocks {
+		_ = g.markAsConfirmed(block, true)
+	}
 
 	// EVICTION
 	for _, block := range acceptedBlocks {
@@ -249,7 +259,7 @@ func (g *Gadget) RefreshSequence(sequenceID markers.SequenceID, newMaxSupportedI
 // if the marker has accumulated enough witness weight to be both accepted and confirmed.
 // Acceptance and Confirmation use the same threshold if confirmation is possible.
 // If there is not enough online weight to achieve confirmation, then acceptance condition is evaluated based on total active weight.
-func (g *Gadget) tryConfirmOrAccept(totalWeight int64, marker markers.Marker) (blocksToAccept, blocksToConfirm []*blockgadget.Block) {
+func (g *Gadget) tryConfirmOrAccept(totalWeight int64, marker markers.Marker) (blocksToAccept, blocksToConfirm, individualToAccept, individualToConfirm []*blockgadget.Block) {
 	markerTotalWeight := g.booker.MarkerVotersTotalWeight(marker)
 
 	// check if enough weight is online to confirm based on total weight
@@ -295,7 +305,7 @@ func (g *Gadget) block(id models.BlockID) (block *blockgadget.Block, exists bool
 	return storage.Get(id)
 }
 
-func (g *Gadget) propagateAcceptanceConfirmation(marker markers.Marker, confirmed bool) (blocksToAccept, blocksToConfirm []*blockgadget.Block) {
+func (g *Gadget) propagateAcceptanceConfirmation(marker markers.Marker, confirmed bool) (blocksToAccept, blocksToConfirm, individualToAccept, individualToConfirm []*blockgadget.Block) {
 	bookerBlock, blockExists := g.booker.BlockFromMarker(marker)
 	if !blockExists {
 		return
@@ -345,16 +355,16 @@ func (g *Gadget) propagateAcceptanceConfirmation(marker markers.Marker, confirme
 			if parentExists {
 				// ignore the error, as it can only occur if parentBlock belongs to evictedEpoch, and here it will not affect
 				// acceptance or confirmation monotonicity
-				_ = g.markAsAccepted(parentBlock, true)
+				individualToAccept = append(individualToAccept, parentBlock)
 
 				if confirmed {
-					_ = g.markAsConfirmed(parentBlock, true)
+					individualToConfirm = append(individualToConfirm, parentBlock)
 				}
 			}
 		}
 	}
 
-	return blocksToAccept, blocksToConfirm
+	return blocksToAccept, blocksToConfirm, individualToAccept, individualToConfirm
 }
 
 func (g *Gadget) markAsAccepted(block *blockgadget.Block, weakly bool) (err error) {

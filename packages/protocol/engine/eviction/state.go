@@ -16,6 +16,7 @@ import (
 	"github.com/iotaledger/hive.go/ds/ringbuffer"
 	"github.com/iotaledger/hive.go/ds/shrinkingmap"
 	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 // State represents the state of the eviction and keeps track of the root blocks.
@@ -26,7 +27,7 @@ type State struct {
 	latestRootBlocks *ringbuffer.RingBuffer[models.BlockID]
 	storage          *storage.Storage
 	lastEvictedSlot  slot.Index
-	evictionMutex    sync.RWMutex
+	evictionMutex    syncutils.RWMutexFake
 	triggerMutex     sync.Mutex
 
 	optsRootBlocksEvictionDelay slot.Index

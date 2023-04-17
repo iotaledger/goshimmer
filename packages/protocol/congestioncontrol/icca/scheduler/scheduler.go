@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math"
 	"math/big"
-	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -20,6 +19,7 @@ import (
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/ds/shrinkingmap"
 	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 const (
@@ -40,12 +40,12 @@ type Scheduler struct {
 	slotTimeProvider *slot.TimeProvider
 
 	blocks        *memstorage.SlotStorage[models.BlockID, *Block]
-	bufferMutex   sync.RWMutex
+	bufferMutex   syncutils.RWMutexFake
 	buffer        *BufferQueue
-	deficitsMutex sync.RWMutex
+	deficitsMutex syncutils.RWMutexFake
 	deficits      *shrinkingmap.ShrinkingMap[identity.ID, *big.Rat]
 	evictionState *eviction.State
-	evictionMutex sync.RWMutex
+	evictionMutex syncutils.RWMutexFake
 
 	totalAccessManaRetrieveFunc func() int64
 	accessManaMapRetrieverFunc  func() map[identity.ID]int64

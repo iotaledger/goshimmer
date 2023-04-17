@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
-	"sync"
 
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
@@ -13,6 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/ds/orderedmap"
 	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 	"github.com/iotaledger/hive.go/serializer/v2"
 	"github.com/iotaledger/hive.go/serializer/v2/byteutils"
 	"github.com/iotaledger/hive.go/serializer/v2/serix"
@@ -186,7 +186,7 @@ var (
 	_outputIDAliases = make(map[OutputID]string)
 
 	// _outputIDAliasesMutex is the mutex that is used to synchronize access to the previous map.
-	_outputIDAliasesMutex = sync.RWMutex{}
+	_outputIDAliasesMutex = syncutils.RWMutexFake{}
 )
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

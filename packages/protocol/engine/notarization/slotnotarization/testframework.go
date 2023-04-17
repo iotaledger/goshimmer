@@ -1,7 +1,6 @@
 package slotnotarization
 
 import (
-	"sync"
 	"testing"
 	"time"
 
@@ -16,6 +15,7 @@ import (
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 type TestFramework struct {
@@ -29,7 +29,7 @@ type TestFramework struct {
 	blocksByID        map[string]*models.Block
 	slotEntityCounter map[slot.Index]int
 
-	sync.RWMutex
+	syncutils.RWMutexFake
 }
 
 func NewTestFramework(test *testing.T, slotTimeProvider *slot.TimeProvider) *TestFramework {

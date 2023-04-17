@@ -19,6 +19,7 @@ import (
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/runtime/debug"
 	"github.com/iotaledger/hive.go/runtime/module"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 // region TestFramework //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -138,7 +139,7 @@ type MockBlockGadget struct {
 	AcceptedBlocks  models.BlockIDs
 	AcceptedMarkers *markers.Markers
 
-	mutex sync.RWMutex
+	mutex syncutils.RWMutexFake
 
 	module.Module
 }

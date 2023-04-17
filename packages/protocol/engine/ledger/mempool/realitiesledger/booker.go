@@ -182,8 +182,15 @@ func (b *booker) forkTransaction(ctx context.Context, txID utxo.TransactionID, o
 			ParentConflicts: parentConflicts,
 		})
 
-		b.updateConflictsAfterFork(ctx, txMetadata, txID, parentConflicts)
+		b.updateConflictsAfterFork(txMetadata, txID, parentConflicts)
 		b.ledger.mutex.Unlock(txID)
+
+		b.ledger.Events().TransactionConflictIDUpdated.Trigger(&mempool.TransactionConflictIDUpdatedEvent{
+			TransactionID:      txMetadata.ID(),
+			AddedConflictID:    txID,
+			RemovedConflictIDs: parentConflicts,
+			Context:            ctx,
+		})
 
 		if !confirmationState.IsAccepted() {
 			b.propagateForkedConflictToFutureCone(ctx, txMetadata.OutputIDs(), txID, parentConflicts)
@@ -197,18 +204,25 @@ func (b *booker) forkTransaction(ctx context.Context, txID utxo.TransactionID, o
 func (b *booker) propagateForkedConflictToFutureCone(ctx context.Context, outputIDs utxo.OutputIDs, forkedConflictID utxo.TransactionID, previousParentConflicts *advancedset.AdvancedSet[utxo.TransactionID]) {
 	b.ledger.Utils().WalkConsumingTransactionMetadata(outputIDs, func(consumingTxMetadata *mempool.TransactionMetadata, walker *walker.Walker[utxo.OutputID]) {
 		b.ledger.mutex.Lock(consumingTxMetadata.ID())
-		defer b.ledger.mutex.Unlock(consumingTxMetadata.ID())
-
-		if !b.updateConflictsAfterFork(ctx, consumingTxMetadata, forkedConflictID, previousParentConflicts) {
+		if !b.updateConflictsAfterFork(consumingTxMetadata, forkedConflictID, previousParentConflicts) {
+			b.ledger.mutex.Unlock(consumingTxMetadata.ID())
 			return
 		}
+		b.ledger.mutex.Unlock(consumingTxMetadata.ID())
+
+		b.ledger.Events().TransactionConflictIDUpdated.Trigger(&mempool.TransactionConflictIDUpdatedEvent{
+			TransactionID:      consumingTxMetadata.ID(),
+			AddedConflictID:    forkedConflictID,
+			RemovedConflictIDs: previousParentConflicts,
+			Context:            ctx,
+		})
 
 		walker.PushAll(consumingTxMetadata.OutputIDs().Slice()...)
 	})
 }
 
 // updateConflictsAfterFork updates the ConflictIDs of a Transaction after a fork.
-func (b *booker) updateConflictsAfterFork(ctx context.Context, txMetadata *mempool.TransactionMetadata, forkedConflictID utxo.TransactionID, previousParents *advancedset.AdvancedSet[utxo.TransactionID]) (updated bool) {
+func (b *booker) updateConflictsAfterFork(txMetadata *mempool.TransactionMetadata, forkedConflictID utxo.TransactionID, previousParents *advancedset.AdvancedSet[utxo.TransactionID]) (updated bool) {
 	if txMetadata.IsConflicting() {
 		if err := b.ledger.conflictDAG.UpdateConflictParents(txMetadata.ID(), forkedConflictID, previousParents); err != nil {
 			panic(err) // TODO: handle that case when eviction is done
@@ -231,13 +245,6 @@ func (b *booker) updateConflictsAfterFork(ctx context.Context, txMetadata *mempo
 	})
 
 	txMetadata.SetConflictIDs(newConflicts)
-
-	b.ledger.Events().TransactionConflictIDUpdated.Trigger(&mempool.TransactionConflictIDUpdatedEvent{
-		TransactionID:      txMetadata.ID(),
-		AddedConflictID:    forkedConflictID,
-		RemovedConflictIDs: previousParents,
-		Context:            ctx,
-	})
 
 	return true
 }
