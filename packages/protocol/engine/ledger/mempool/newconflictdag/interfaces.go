@@ -10,23 +10,23 @@ import (
 )
 
 type Interface[ConflictID, ResourceID IDType, VotePower constraints.Comparable[VotePower]] interface {
-	CreateConflict(id ConflictID, parentIDs []ConflictID, resourceIDs []ResourceID, initialWeight *weight.Weight) error
+	CreateConflict(id ConflictID, parentIDs *advancedset.AdvancedSet[ConflictID], resourceIDs *advancedset.AdvancedSet[ResourceID], initialWeight *weight.Weight) error
 	ReadConsistent(callback func(conflictDAG ReadLockedConflictDAG[ConflictID, ResourceID, VotePower]) error) error
-	JoinConflictSets(conflictID ConflictID, resourceIDs ...ResourceID) error
-	UpdateConflictParents(conflictID ConflictID, addedParentID ConflictID, removedParentIDs ...ConflictID) error
+	JoinConflictSets(conflictID ConflictID, resourceIDs *advancedset.AdvancedSet[ResourceID]) error
+	UpdateConflictParents(conflictID ConflictID, addedParentID ConflictID, removedParentIDs *advancedset.AdvancedSet[ConflictID]) error
 	FutureCone(conflictIDs *advancedset.AdvancedSet[ConflictID]) (futureCone *advancedset.AdvancedSet[ConflictID])
 	ConflictingConflicts(conflictID ConflictID) (conflictingConflicts *advancedset.AdvancedSet[ConflictID], exists bool)
-	CastVotes(vote *vote.Vote[VotePower], conflictIDs ...ConflictID) error
-	AcceptanceState(conflictIDs ...ConflictID) acceptance.State
-	UnacceptedConflicts(conflictIDs ...ConflictID) *advancedset.AdvancedSet[ConflictID]
-	AllConflictsSupported(issuerID identity.ID, conflictIDs ...ConflictID) bool
+	CastVotes(vote *vote.Vote[VotePower], conflictIDs *advancedset.AdvancedSet[ConflictID]) error
+	AcceptanceState(conflictIDs *advancedset.AdvancedSet[ConflictID]) acceptance.State
+	UnacceptedConflicts(conflictIDs *advancedset.AdvancedSet[ConflictID]) *advancedset.AdvancedSet[ConflictID]
+	AllConflictsSupported(issuerID identity.ID, conflictIDs *advancedset.AdvancedSet[ConflictID]) bool
 	EvictConflict(conflictID ConflictID) error
 }
 
 type ReadLockedConflictDAG[ConflictID, ResourceID IDType, VotePower constraints.Comparable[VotePower]] interface {
-	LikedInstead(conflictIDs ...ConflictID) *advancedset.AdvancedSet[ConflictID]
+	LikedInstead(conflictIDs *advancedset.AdvancedSet[ConflictID]) *advancedset.AdvancedSet[ConflictID]
 	FutureCone(conflictIDs *advancedset.AdvancedSet[ConflictID]) (futureCone *advancedset.AdvancedSet[ConflictID])
 	ConflictingConflicts(conflictID ConflictID) (conflictingConflicts *advancedset.AdvancedSet[ConflictID], exists bool)
-	AcceptanceState(conflictIDs ...ConflictID) acceptance.State
-	UnacceptedConflicts(conflictIDs ...ConflictID) *advancedset.AdvancedSet[ConflictID]
+	AcceptanceState(conflictIDs *advancedset.AdvancedSet[ConflictID]) acceptance.State
+	UnacceptedConflicts(conflictIDs *advancedset.AdvancedSet[ConflictID]) *advancedset.AdvancedSet[ConflictID]
 }

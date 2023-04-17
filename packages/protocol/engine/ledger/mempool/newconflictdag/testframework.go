@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/weight"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
+	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/options"
@@ -58,17 +59,19 @@ func (t *TestFramework) CreateConflict(alias string, parentIDs []string, resourc
 	return t.conflictsByAlias[alias], nil
 }
 
-func (t *TestFramework) ConflictIDs(aliases ...string) (conflictIDs []TestID) {
+func (t *TestFramework) ConflictIDs(aliases ...string) *advancedset.AdvancedSet[TestID] {
+	conflictIDs := advancedset.New[TestID]()
 	for _, alias := range aliases {
-		conflictIDs = append(conflictIDs, NewTestID(alias))
+		conflictIDs.Add(NewTestID(alias))
 	}
 
 	return conflictIDs
 }
 
-func (t *TestFramework) ConflictSetIDs(aliases ...string) (conflictSetIDs []TestID) {
+func (t *TestFramework) ConflictSetIDs(aliases ...string) *advancedset.AdvancedSet[TestID] {
+	conflictSetIDs := advancedset.New[TestID]()
 	for _, alias := range aliases {
-		conflictSetIDs = append(conflictSetIDs, NewTestID(alias))
+		conflictSetIDs.Add(NewTestID(alias))
 	}
 
 	return conflictSetIDs
@@ -97,17 +100,17 @@ func (t *TestFramework) Weight() *weight.Weight {
 }
 
 func (t *TestFramework) UpdateConflictParents(conflictAlias string, addedParentID string, removedParentIDs ...string) error {
-	return t.ConflictDAG.UpdateConflictParents(NewTestID(conflictAlias), NewTestID(addedParentID), t.ConflictIDs(removedParentIDs...)...)
+	return t.ConflictDAG.UpdateConflictParents(NewTestID(conflictAlias), NewTestID(addedParentID), t.ConflictIDs(removedParentIDs...))
 }
 
 func (t *TestFramework) JoinConflictSets(conflictAlias string, resourceAliases ...string) error {
-	return t.ConflictDAG.JoinConflictSets(NewTestID(conflictAlias), t.ConflictSetIDs(resourceAliases...)...)
+	return t.ConflictDAG.JoinConflictSets(NewTestID(conflictAlias), t.ConflictSetIDs(resourceAliases...))
 }
 
 func (t *TestFramework) LikedInstead(conflictAliases ...string) []*Conflict[TestID, TestID, vote.MockedPower] {
 	result := make([]*Conflict[TestID, TestID, vote.MockedPower], 0)
 	_ = t.ConflictDAG.ReadConsistent(func(ReadLockedConflictDAG[TestID, TestID, vote.MockedPower]) error {
-		for _, likedInsteadID := range t.ConflictDAG.LikedInstead(t.ConflictIDs(conflictAliases...)...).Slice() {
+		for _, likedInsteadID := range t.ConflictDAG.LikedInstead(t.ConflictIDs(conflictAliases...)).Slice() {
 			result = append(result, lo.Return1(t.ConflictDAG.conflictsByID.Get(likedInsteadID)))
 		}
 
@@ -118,7 +121,7 @@ func (t *TestFramework) LikedInstead(conflictAliases ...string) []*Conflict[Test
 }
 
 func (t *TestFramework) CastVotes(vote *vote.Vote[vote.MockedPower], conflictAliases ...string) error {
-	return t.ConflictDAG.CastVotes(vote, t.ConflictIDs(conflictAliases...)...)
+	return t.ConflictDAG.CastVotes(vote, t.ConflictIDs(conflictAliases...))
 }
 
 func WithWeights(weights *sybilprotection.Weights) options.Option[TestFramework] {
@@ -138,6 +141,15 @@ func NewTestID(alias string) TestID {
 	testID.RegisterAlias(alias)
 
 	return TestID{testID}
+}
+
+func NewTestIDs(aliases ...string) *advancedset.AdvancedSet[TestID] {
+	result := advancedset.New[TestID]()
+	for _, alias := range aliases {
+		result.Add(NewTestID(alias))
+	}
+
+	return result
 }
 
 func (id TestID) String() string {

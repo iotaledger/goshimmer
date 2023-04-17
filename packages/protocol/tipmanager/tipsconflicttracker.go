@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/ds/shrinkingmap"
 	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/runtime/event"
@@ -59,7 +60,7 @@ func (c *TipsConflictTracker) AddTip(block *scheduler.Block, blockConflictIDs ut
 	for it := blockConflictIDs.Iterator(); it.HasNext(); {
 		conflict := it.Next()
 
-		if !c.engine.Ledger.MemPool().ConflictDAG().AcceptanceState(conflict).IsPending() {
+		if !c.engine.Ledger.MemPool().ConflictDAG().AcceptanceState(advancedset.New(conflict)).IsPending() {
 			continue
 		}
 
@@ -92,7 +93,7 @@ func (c *TipsConflictTracker) RemoveTip(block *scheduler.Block) {
 			continue
 		}
 
-		if !c.engine.Ledger.MemPool().ConflictDAG().AcceptanceState(conflictID).IsPending() {
+		if !c.engine.Ledger.MemPool().ConflictDAG().AcceptanceState(advancedset.New(conflictID)).IsPending() {
 			continue
 		}
 
@@ -112,13 +113,13 @@ func (c *TipsConflictTracker) MissingConflicts(amount int, conflictDAG newconfli
 	for _, conflictID := range c.censoredConflicts.Keys() {
 		// TODO: this should not be necessary if ConflictAccepted/ConflictRejected events are fired appropriately
 		// If the conflict is not pending anymore or it clashes with a conflict we already introduced, we can remove it from the censored conflicts.
-		if !c.engine.Ledger.MemPool().ConflictDAG().AcceptanceState(conflictID).IsPending() {
+		if !c.engine.Ledger.MemPool().ConflictDAG().AcceptanceState(advancedset.New(conflictID)).IsPending() {
 			c.censoredConflicts.Delete(conflictID)
 			continue
 		}
 
 		// We want to reintroduce only the pending conflict that is liked.
-		if !conflictDAG.LikedInstead(conflictID).IsEmpty() {
+		if !conflictDAG.LikedInstead(advancedset.New(conflictID)).IsEmpty() {
 			c.censoredConflicts.Delete(conflictID)
 		}
 

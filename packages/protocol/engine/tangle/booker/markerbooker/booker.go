@@ -358,8 +358,8 @@ func (b *Booker) ProcessForkedMarker(marker markers.Marker, forkedConflictID utx
 
 	// take everything in future cone because it was not conflicting before and move to new conflict.
 	for voterID, votePower := range b.sequenceTracker.VotersWithPower(marker) {
-		if b.MemPool.ConflictDAG().AllConflictsSupported(voterID, parentConflictIDs.Slice()...) {
-			if err := b.MemPool.ConflictDAG().CastVotes(vote.NewVote(voterID, votePower), forkedConflictID); err != nil {
+		if b.MemPool.ConflictDAG().AllConflictsSupported(voterID, parentConflictIDs) {
+			if err := b.MemPool.ConflictDAG().CastVotes(vote.NewVote(voterID, votePower), advancedset.New(forkedConflictID)); err != nil {
 				return xerrors.Errorf("failed to cast vote during marker forking conflict %s on marker %s: %w", forkedConflictID, marker, err)
 			}
 		}
@@ -464,7 +464,7 @@ func (b *Booker) book(block *booker.Block) (inheritingErr error) {
 
 	votePower := models.NewBlockVotePower(block.ID(), block.IssuingTime())
 
-	if err := b.MemPool.ConflictDAG().CastVotes(vote.NewVote[models.BlockVotePower](block.IssuerID(), votePower), inheritedConflictIDs.Slice()...); err != nil {
+	if err := b.MemPool.ConflictDAG().CastVotes(vote.NewVote[models.BlockVotePower](block.IssuerID(), votePower), inheritedConflictIDs); err != nil {
 		fmt.Println("block is subjectively invalid", block.ID(), err)
 		block.SetSubjectivelyInvalid(true)
 	} else {
@@ -569,8 +569,8 @@ func (b *Booker) determineBookingConflictIDs(block *booker.Block) (parentsPastMa
 		inheritedConflictIDs.DeleteAll(b.MemPool.Utils().ConflictIDsInFutureCone(selfDislikedConflictIDs))
 	}
 
-	unconfirmedParentsPast := b.MemPool.ConflictDAG().UnacceptedConflicts(parentsPastMarkersConflictIDs.Slice()...)
-	unconfirmedInherited := b.MemPool.ConflictDAG().UnacceptedConflicts(inheritedConflictIDs.Slice()...)
+	unconfirmedParentsPast := b.MemPool.ConflictDAG().UnacceptedConflicts(parentsPastMarkersConflictIDs)
+	unconfirmedInherited := b.MemPool.ConflictDAG().UnacceptedConflicts(inheritedConflictIDs)
 
 	return unconfirmedParentsPast, unconfirmedInherited, nil
 }
@@ -779,8 +779,8 @@ func (b *Booker) propagateToBlock(block *booker.Block, addedConflictID utxo.Tran
 
 	// Do not apply votes of subjectively invalid blocks on forking. Votes of subjectively invalid blocks are also not counted
 	// when booking.
-	if !block.IsSubjectivelyInvalid() && b.MemPool.ConflictDAG().AllConflictsSupported(block.IssuerID(), removedConflictIDs.Slice()...) {
-		if err = b.MemPool.ConflictDAG().CastVotes(vote.NewVote(block.IssuerID(), models.NewBlockVotePower(block.ID(), block.IssuingTime())), addedConflictID); err != nil {
+	if !block.IsSubjectivelyInvalid() && b.MemPool.ConflictDAG().AllConflictsSupported(block.IssuerID(), removedConflictIDs) {
+		if err = b.MemPool.ConflictDAG().CastVotes(vote.NewVote(block.IssuerID(), models.NewBlockVotePower(block.ID(), block.IssuingTime())), advancedset.New(addedConflictID)); err != nil {
 			return false, xerrors.Errorf("failed to cast vote during forking conflict %s on block %s: %w", addedConflictID, block.ID(), err)
 		}
 	}

@@ -1,7 +1,6 @@
 package newconflictdag
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -27,7 +26,6 @@ func TestConflictDAG_UpdateConflictParents(t *testing.T) {
 	conflict3, err3 := tf.CreateConflict("conflict3", []string{"conflict1", "conflict2"}, []string{"resource1", "resource2"}, tf.Weight().SetCumulativeWeight(5))
 	require.NoError(t, err3)
 
-	fmt.Println(conflict1.Children)
 	require.Equal(t, 1, conflict1.Children.Size())
 	require.True(t, conflict1.Children.Has(conflict3))
 
@@ -72,10 +70,10 @@ func TestConflictDAG_JoinConflictSets(t *testing.T) {
 	conflict2.setAcceptanceState(acceptance.Rejected)
 
 	// test to modify non-existing conflict
-	require.ErrorIs(t, tf.ConflictDAG.JoinConflictSets(NewTestID("conflict3"), NewTestID("resource2")), ErrEntityEvicted)
+	require.ErrorIs(t, tf.ConflictDAG.JoinConflictSets(NewTestID("conflict3"), NewTestIDs("resource2")), ErrEntityEvicted)
 
 	// test to modify conflict with non-existing resource
-	require.ErrorIs(t, tf.ConflictDAG.JoinConflictSets(NewTestID("conflict2"), NewTestID("resource2")), ErrEntityEvicted)
+	require.ErrorIs(t, tf.ConflictDAG.JoinConflictSets(NewTestID("conflict2"), NewTestIDs("resource2")), ErrEntityEvicted)
 
 	_, err3 := tf.CreateConflict("conflict3", []string{}, []string{"resource2"}, tf.Weight().SetCumulativeWeight(1))
 	require.NoError(t, err3)

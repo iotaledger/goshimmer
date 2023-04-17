@@ -75,7 +75,7 @@ func (b *booker) bookTransaction(ctx context.Context, tx utxo.Transaction, txMet
 
 	b.storeOutputs(outputs, conflictIDs, consensusPledgeID, accessPledgeID)
 
-	if b.ledger.conflictDAG.AcceptanceState(conflictIDs.Slice()...).IsRejected() {
+	if b.ledger.conflictDAG.AcceptanceState(conflictIDs).IsRejected() {
 		b.ledger.triggerRejectedEvent(txMetadata)
 	}
 
@@ -92,7 +92,7 @@ func (b *booker) bookTransaction(ctx context.Context, tx utxo.Transaction, txMet
 
 // inheritedConflictIDs determines the ConflictIDs that a Transaction should inherit when being booked.
 func (b *booker) inheritConflictIDs(ctx context.Context, txID utxo.TransactionID, inputsMetadata *mempool.OutputsMetadata) (inheritedConflictIDs *advancedset.AdvancedSet[utxo.TransactionID]) {
-	parentConflictIDs := b.ledger.conflictDAG.UnacceptedConflicts(inputsMetadata.ConflictIDs().Slice()...)
+	parentConflictIDs := b.ledger.conflictDAG.UnacceptedConflicts(inputsMetadata.ConflictIDs())
 
 	conflictingInputIDs, consumersToFork := b.determineConflictDetails(txID, inputsMetadata)
 	if conflictingInputIDs.Size() == 0 {
@@ -105,7 +105,7 @@ func (b *booker) inheritConflictIDs(ctx context.Context, txID utxo.TransactionID
 		return nil
 	})
 
-	if err := b.ledger.conflictDAG.CreateConflict(txID, parentConflictIDs.Slice(), conflictingInputIDs.Slice(), weight.New(b.ledger.sybilProtectionWeights).WithAcceptanceState(lo.Cond(anyConflictAccepted, acceptance.Rejected, acceptance.Pending))); err != nil {
+	if err := b.ledger.conflictDAG.CreateConflict(txID, parentConflictIDs, conflictingInputIDs, weight.New(b.ledger.sybilProtectionWeights).WithAcceptanceState(lo.Cond(anyConflictAccepted, acceptance.Rejected, acceptance.Pending))); err != nil {
 		panic(err) // TODO: handle that case when eviction is done
 	}
 
@@ -160,14 +160,14 @@ func (b *booker) forkTransaction(ctx context.Context, txID utxo.TransactionID, o
 
 		if err := b.ledger.conflictDAG.CreateConflict(
 			txID,
-			parentConflicts.Slice(),
-			conflictingInputs.Slice(),
+			parentConflicts,
+			conflictingInputs,
 			weight.New(b.ledger.sybilProtectionWeights).WithAcceptanceState(acceptanceState(confirmationState)),
 		); err != nil {
 			defer b.ledger.mutex.Unlock(txID)
 
 			if errors.Is(err, newconflictdag.ErrConflictExists) {
-				if joiningErr := b.ledger.conflictDAG.JoinConflictSets(txID, conflictingInputs.Slice()...); joiningErr != nil {
+				if joiningErr := b.ledger.conflictDAG.JoinConflictSets(txID, conflictingInputs); joiningErr != nil {
 					panic(joiningErr) // TODO: handle that case when eviction is done
 				}
 
@@ -210,7 +210,7 @@ func (b *booker) propagateForkedConflictToFutureCone(ctx context.Context, output
 // updateConflictsAfterFork updates the ConflictIDs of a Transaction after a fork.
 func (b *booker) updateConflictsAfterFork(ctx context.Context, txMetadata *mempool.TransactionMetadata, forkedConflictID utxo.TransactionID, previousParents *advancedset.AdvancedSet[utxo.TransactionID]) (updated bool) {
 	if txMetadata.IsConflicting() {
-		if err := b.ledger.conflictDAG.UpdateConflictParents(txMetadata.ID(), forkedConflictID, previousParents.Slice()...); err != nil {
+		if err := b.ledger.conflictDAG.UpdateConflictParents(txMetadata.ID(), forkedConflictID, previousParents); err != nil {
 			panic(err) // TODO: handle that case when eviction is done
 		}
 
@@ -224,7 +224,7 @@ func (b *booker) updateConflictsAfterFork(ctx context.Context, txMetadata *mempo
 	newConflictIDs := txMetadata.ConflictIDs().Clone()
 	newConflictIDs.DeleteAll(previousParents)
 	newConflictIDs.Add(forkedConflictID)
-	newConflicts := b.ledger.conflictDAG.UnacceptedConflicts(newConflictIDs.Slice()...)
+	newConflicts := b.ledger.conflictDAG.UnacceptedConflicts(newConflictIDs)
 
 	b.ledger.Storage().CachedOutputsMetadata(txMetadata.OutputIDs()).Consume(func(outputMetadata *mempool.OutputMetadata) {
 		outputMetadata.SetConflictIDs(newConflicts)

@@ -84,7 +84,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, engine *Engine
 	)
 	t.MemPool = t.Tangle.MemPool
 	t.BlockDAG = t.Tangle.BlockDAG
-	t.VirtualVoting = t.Tangle.VirtualVoting
+
 	return t
 }
 

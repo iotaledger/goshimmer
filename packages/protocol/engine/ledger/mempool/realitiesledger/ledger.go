@@ -255,7 +255,7 @@ func (l *RealitiesLedger) triggerAcceptedEvent(txMetadata *mempool.TransactionMe
 	l.mutex.Lock(txMetadata.ID())
 	defer l.mutex.Unlock(txMetadata.ID())
 
-	if !l.conflictDAG.AcceptanceState(txMetadata.ConflictIDs().Slice()...).IsAccepted() {
+	if !l.conflictDAG.AcceptanceState(txMetadata.ConflictIDs()).IsAccepted() {
 		return false
 	}
 

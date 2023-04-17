@@ -13,6 +13,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/lo"
 )
 
@@ -253,7 +254,7 @@ func (r *ReferenceProvider) addedReferencesForConflicts(conflictIDs utxo.Transac
 func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, excludedConflictIDs utxo.TransactionIDs, conflictDAG newconflictdag.ReadLockedConflictDAG[utxo.TransactionID, utxo.OutputID, models.BlockVotePower]) (adjust bool, attachmentID models.BlockID, err error) {
 	engineInstance := r.protocol.Engine()
 
-	likedConflictID := conflictDAG.LikedInstead(conflictID)
+	likedConflictID := conflictDAG.LikedInstead(advancedset.New(conflictID))
 	if likedConflictID.IsEmpty() {
 		return false, models.EmptyBlockID, nil
 	}
@@ -307,7 +308,7 @@ func (r *ReferenceProvider) payloadLiked(blockID models.BlockID, conflictDAG new
 	}
 
 	for conflicts := engineInstance.Tangle.Booker().TransactionConflictIDs(block).Iterator(); conflicts.HasNext(); {
-		if !conflictDAG.LikedInstead(conflicts.Next()).IsEmpty() {
+		if !conflictDAG.LikedInstead(advancedset.New(conflicts.Next())).IsEmpty() {
 			return false
 		}
 	}

@@ -91,7 +91,7 @@ type Conflict[ConflictID, ResourceID IDType, VotePower constraints.Comparable[Vo
 }
 
 // NewConflict creates a new Conflict.
-func NewConflict[ConflictID, ResourceID IDType, VotePower constraints.Comparable[VotePower]](id ConflictID, parents []*Conflict[ConflictID, ResourceID, VotePower], conflictSets []*ConflictSet[ConflictID, ResourceID, VotePower], initialWeight *weight.Weight, pendingTasksCounter *syncutils.Counter, acceptanceThresholdProvider func() int64) *Conflict[ConflictID, ResourceID, VotePower] {
+func NewConflict[ConflictID, ResourceID IDType, VotePower constraints.Comparable[VotePower]](id ConflictID, parents *advancedset.AdvancedSet[*Conflict[ConflictID, ResourceID, VotePower]], conflictSets *advancedset.AdvancedSet[*ConflictSet[ConflictID, ResourceID, VotePower]], initialWeight *weight.Weight, pendingTasksCounter *syncutils.Counter, acceptanceThresholdProvider func() int64) *Conflict[ConflictID, ResourceID, VotePower] {
 	c := &Conflict[ConflictID, ResourceID, VotePower]{
 		ID:                      id,
 		Parents:                 advancedset.New[*Conflict[ConflictID, ResourceID, VotePower]](),
@@ -112,11 +112,13 @@ func NewConflict[ConflictID, ResourceID IDType, VotePower constraints.Comparable
 
 	c.preferredInstead = c
 
-	for _, parent := range parents {
+	_ = parents.ForEach(func(parent *Conflict[ConflictID, ResourceID, VotePower]) (err error) {
 		if c.Parents.Add(parent) {
 			parent.registerChild(c)
 		}
-	}
+
+		return nil
+	})
 
 	c.unhookAcceptanceMonitoring = c.Weight.Validators.OnTotalWeightUpdated.Hook(func(updatedWeight int64) {
 		if c.IsPending() && updatedWeight >= c.acceptanceThreshold() {
@@ -130,7 +132,7 @@ func NewConflict[ConflictID, ResourceID IDType, VotePower constraints.Comparable
 	}
 
 	c.ConflictingConflicts = NewSortedConflicts[ConflictID, ResourceID, VotePower](c, pendingTasksCounter)
-	c.JoinConflictSets(conflictSets...)
+	c.JoinConflictSets(conflictSets.Slice()...)
 
 	return c
 }

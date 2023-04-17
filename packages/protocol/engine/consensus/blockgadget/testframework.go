@@ -14,7 +14,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/slot"
@@ -26,13 +25,12 @@ import (
 // region TestFramework //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type TestFramework struct {
-	test          *testing.T
-	Gadget        Gadget
-	Tangle        *tangle.TestFramework
-	VirtualVoting *booker.VirtualVotingTestFramework
-	MemPool       *mempool.TestFramework
-	BlockDAG      *blockdag.TestFramework
-	Votes         *votes.TestFramework
+	test     *testing.T
+	Gadget   Gadget
+	Tangle   *tangle.TestFramework
+	MemPool  *mempool.TestFramework
+	BlockDAG *blockdag.TestFramework
+	Votes    *votes.TestFramework
 
 	acceptedBlocks    uint32
 	confirmedBlocks   uint32
@@ -42,13 +40,12 @@ type TestFramework struct {
 
 func NewTestFramework(test *testing.T, gadget Gadget, tangleTF *tangle.TestFramework) *TestFramework {
 	t := &TestFramework{
-		test:          test,
-		Gadget:        gadget,
-		Tangle:        tangleTF,
-		VirtualVoting: tangleTF.VirtualVoting,
-		MemPool:       tangleTF.MemPool,
-		BlockDAG:      tangleTF.BlockDAG,
-		Votes:         tangleTF.Votes,
+		test:     test,
+		Gadget:   gadget,
+		Tangle:   tangleTF,
+		MemPool:  tangleTF.MemPool,
+		BlockDAG: tangleTF.BlockDAG,
+		Votes:    tangleTF.Votes,
 	}
 
 	t.setupEvents()
@@ -72,14 +69,14 @@ func (t *TestFramework) setupEvents() {
 		atomic.AddUint32(&(t.confirmedBlocks), 1)
 	})
 
-	t.Tangle.VirtualVoting.ConflictDAG.Instance.Events.ConflictAccepted.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	t.Tangle.Booker.ConflictDAG.Instance.Events.ConflictAccepted.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		if debug.GetEnabled() {
 			t.test.Logf("CONFLICT ACCEPTED: %s", conflict.ID())
 		}
 		atomic.AddUint32(&(t.conflictsAccepted), 1)
 	})
 
-	t.Tangle.VirtualVoting.ConflictDAG.Instance.Events.ConflictRejected.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	t.Tangle.Booker.ConflictDAG.Instance.Events.ConflictRejected.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		if debug.GetEnabled() {
 			t.test.Logf("CONFLICT REJECTED: %s", conflict.ID())
 		}
@@ -127,7 +124,7 @@ func (t *TestFramework) ValidateAcceptedMarker(expectedConflictIDs map[markers.M
 
 func (t *TestFramework) ValidateConflictAcceptance(expectedConflictIDs map[string]confirmation.State) {
 	for conflictIDAlias, conflictExpectedState := range expectedConflictIDs {
-		actualMarkerAccepted := t.Tangle.VirtualVoting.ConflictDAG.Instance.ConfirmationState(advancedset.New(t.Tangle.MemPool.Transaction(conflictIDAlias).ID()))
+		actualMarkerAccepted := t.Tangle.Booker.ConflictDAG.Instance.ConfirmationState(advancedset.New(t.Tangle.MemPool.Transaction(conflictIDAlias).ID()))
 		require.Equal(t.test, conflictExpectedState, actualMarkerAccepted, "%s should be accepted=%s but is %s", conflictIDAlias, conflictExpectedState, actualMarkerAccepted)
 	}
 }
