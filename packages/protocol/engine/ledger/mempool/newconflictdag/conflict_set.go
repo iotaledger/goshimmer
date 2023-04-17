@@ -31,17 +31,15 @@ func NewConflictSet[ConflictID, ResourceID IDType, VotePower constraints.Compara
 }
 
 // Add adds a Conflict to the ConflictSet and returns all other members of the set.
-func (c *ConflictSet[ConflictID, ResourceID, VotePower]) Add(addedConflict *Conflict[ConflictID, ResourceID, VotePower]) (otherMembers []*Conflict[ConflictID, ResourceID, VotePower]) {
+func (c *ConflictSet[ConflictID, ResourceID, VotePower]) Add(addedConflict *Conflict[ConflictID, ResourceID, VotePower]) (otherMembers *advancedset.AdvancedSet[*Conflict[ConflictID, ResourceID, VotePower]]) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	otherMembers = c.members.Slice()
-
-	if !c.members.Add(addedConflict) {
-		return nil
+	if otherMembers = c.members.Clone(); c.members.Add(addedConflict) {
+		return otherMembers
 	}
 
-	return otherMembers
+	return nil
 }
 
 // Remove removes a Conflict from the ConflictSet and returns all remaining members of the set.

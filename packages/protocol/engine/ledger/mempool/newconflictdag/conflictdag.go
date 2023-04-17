@@ -113,7 +113,7 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) ReadConsistent(callback
 
 // JoinConflictSets adds the Conflict to the given ConflictSets and returns true if the conflict membership was modified during this operation.
 func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) JoinConflictSets(conflictID ConflictID, resourceIDs *advancedset.AdvancedSet[ResourceID]) error {
-	joinedConflictSets, err := func() ([]ResourceID, error) {
+	joinedConflictSets, err := func() (*advancedset.AdvancedSet[ResourceID], error) {
 		c.mutex.RLock()
 		defer c.mutex.RUnlock()
 
@@ -127,7 +127,7 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) JoinConflictSets(confli
 			return nil, xerrors.Errorf("failed to join conflict sets: %w", err)
 		}
 
-		joinedConflictSets, err := currentConflict.JoinConflictSets(conflictSets.Slice()...)
+		joinedConflictSets, err := currentConflict.JoinConflictSets(conflictSets)
 		if err != nil {
 			return nil, xerrors.Errorf("failed to join conflict sets: %w", err)
 		}
@@ -138,7 +138,7 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) JoinConflictSets(confli
 		return err
 	}
 
-	if len(joinedConflictSets) > 0 {
+	if !joinedConflictSets.IsEmpty() {
 		c.Events.ConflictingResourcesAdded.Trigger(conflictID, joinedConflictSets)
 	}
 
@@ -172,14 +172,14 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) UpdateConflictParents(c
 			return false, xerrors.Errorf("failed to update conflict parents: %w", err)
 		}
 
-		return currentConflict.UpdateParents(addedParent, removedParents.Slice()...), nil
+		return currentConflict.UpdateParents(addedParent, removedParents), nil
 	}()
 	if err != nil {
 		return err
 	}
 
 	if updated {
-		c.Events.ConflictParentsUpdated.Trigger(conflictID, addedParentID, removedParentIDs.Slice())
+		c.Events.ConflictParentsUpdated.Trigger(conflictID, addedParentID, removedParentIDs)
 	}
 
 	return nil
@@ -188,14 +188,12 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) UpdateConflictParents(c
 // LikedInstead returns the ConflictIDs of the Conflicts that are liked instead of the Conflicts.
 func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) LikedInstead(conflictIDs *advancedset.AdvancedSet[ConflictID]) *advancedset.AdvancedSet[ConflictID] {
 	likedInstead := advancedset.New[ConflictID]()
-	_ = conflictIDs.ForEach(func(conflictID ConflictID) (err error) {
+	conflictIDs.Range(func(conflictID ConflictID) {
 		if currentConflict, exists := c.conflictsByID.Get(conflictID); exists {
 			if likedConflict := heaviestConflict(currentConflict.LikedInstead()); likedConflict != nil {
 				likedInstead.Add(likedConflict.ID)
 			}
 		}
-
-		return nil
 	})
 
 	return likedInstead
@@ -219,9 +217,8 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) ConflictingConflicts(co
 	}
 
 	conflictingConflicts = advancedset.New[ConflictID]()
-	_ = conflict.ConflictingConflicts.ForEach(func(conflictingConflict *Conflict[ConflictID, ResourceID, VotePower]) error {
+	conflict.ConflictingConflicts.Range(func(conflictingConflict *Conflict[ConflictID, ResourceID, VotePower]) {
 		conflictingConflicts.Add(conflictingConflict.ID)
-		return nil
 	})
 
 	return conflictingConflicts, true
@@ -292,12 +289,10 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) UnacceptedConflicts(con
 	// }
 
 	pendingConflictIDs := advancedset.New[ConflictID]()
-	_ = conflictIDs.ForEach(func(currentConflictID ConflictID) (err error) {
+	conflictIDs.Range(func(currentConflictID ConflictID) {
 		if conflict, exists := c.conflictsByID.Get(currentConflictID); exists && !conflict.IsAccepted() {
 			pendingConflictIDs.Add(currentConflictID)
 		}
-
-		return nil
 	})
 
 	return pendingConflictIDs

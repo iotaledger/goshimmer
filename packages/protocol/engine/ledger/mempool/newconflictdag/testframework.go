@@ -109,10 +109,10 @@ func (t *TestFramework) JoinConflictSets(conflictAlias string, resourceAliases .
 
 func (t *TestFramework) LikedInstead(conflictAliases ...string) []*Conflict[TestID, TestID, vote.MockedPower] {
 	result := make([]*Conflict[TestID, TestID, vote.MockedPower], 0)
-	_ = t.ConflictDAG.ReadConsistent(func(ReadLockedConflictDAG[TestID, TestID, vote.MockedPower]) error {
-		for _, likedInsteadID := range t.ConflictDAG.LikedInstead(t.ConflictIDs(conflictAliases...)).Slice() {
+	_ = t.ConflictDAG.ReadConsistent(func(conflictDAG ReadLockedConflictDAG[TestID, TestID, vote.MockedPower]) error {
+		conflictDAG.LikedInstead(t.ConflictIDs(conflictAliases...)).Range(func(likedInsteadID TestID) {
 			result = append(result, lo.Return1(t.ConflictDAG.conflictsByID.Get(likedInsteadID)))
-		}
+		})
 
 		return nil
 	})

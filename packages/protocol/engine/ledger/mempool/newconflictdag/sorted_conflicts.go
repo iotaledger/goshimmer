@@ -153,6 +153,21 @@ func (s *SortedConflicts[ConflictID, ResourceID, VotePower]) ForEach(callback fu
 	return nil
 }
 
+// Range iterates over all Conflicts of the SortedConflicts and calls the given callback for each of them (without
+// manual error handling).
+func (s *SortedConflicts[ConflictID, ResourceID, VotePower]) Range(callback func(*Conflict[ConflictID, ResourceID, VotePower]), optIncludeOwner ...bool) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	for currentMember := s.heaviestMember; currentMember != nil; currentMember = currentMember.lighterMember {
+		if !lo.First(optIncludeOwner) && currentMember == s.owner {
+			continue
+		}
+
+		callback(currentMember.Conflict)
+	}
+}
+
 // Remove removes the Conflict with the given ID from the SortedConflicts.
 func (s *SortedConflicts[ConflictID, ResourceID, VotePower]) Remove(id ConflictID) bool {
 	s.mutex.Lock()
@@ -195,9 +210,8 @@ func (s *SortedConflicts[ConflictID, ResourceID, VotePower]) String() string {
 		stringify.NewStructField("heaviestPreferredMember", s.heaviestPreferredMember.ID),
 	)
 
-	_ = s.ForEach(func(conflict *Conflict[ConflictID, ResourceID, VotePower]) error {
+	s.Range(func(conflict *Conflict[ConflictID, ResourceID, VotePower]) {
 		structBuilder.AddField(stringify.NewStructField(conflict.ID.String(), conflict))
-		return nil
 	}, true)
 
 	return structBuilder.String()

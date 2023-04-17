@@ -112,12 +112,10 @@ func NewConflict[ConflictID, ResourceID IDType, VotePower constraints.Comparable
 
 	c.preferredInstead = c
 
-	_ = parents.ForEach(func(parent *Conflict[ConflictID, ResourceID, VotePower]) (err error) {
+	parents.Range(func(parent *Conflict[ConflictID, ResourceID, VotePower]) {
 		if c.Parents.Add(parent) {
 			parent.registerChild(c)
 		}
-
-		return nil
 	})
 
 	c.unhookAcceptanceMonitoring = c.Weight.Validators.OnTotalWeightUpdated.Hook(func(updatedWeight int64) {
@@ -132,13 +130,13 @@ func NewConflict[ConflictID, ResourceID IDType, VotePower constraints.Comparable
 	}
 
 	c.ConflictingConflicts = NewSortedConflicts[ConflictID, ResourceID, VotePower](c, pendingTasksCounter)
-	c.JoinConflictSets(conflictSets.Slice()...)
+	c.JoinConflictSets(conflictSets)
 
 	return c
 }
 
 // JoinConflictSets registers the Conflict with the given ConflictSets.
-func (c *Conflict[ConflictID, ResourceID, VotePower]) JoinConflictSets(conflictSets ...*ConflictSet[ConflictID, ResourceID, VotePower]) (joinedConflictSets []ResourceID, err error) {
+func (c *Conflict[ConflictID, ResourceID, VotePower]) JoinConflictSets(conflictSets *advancedset.AdvancedSet[*ConflictSet[ConflictID, ResourceID, VotePower]]) (joinedConflictSets *advancedset.AdvancedSet[ResourceID], err error) {
 	if c.evicted.Load() {
 		return nil, xerrors.Errorf("tried to join conflict sets of evicted conflict: %w", ErrEntityEvicted)
 	}
@@ -154,19 +152,19 @@ func (c *Conflict[ConflictID, ResourceID, VotePower]) JoinConflictSets(conflictS
 		}
 	}
 
-	joinedConflictSets = make([]ResourceID, 0)
-	for _, conflictSet := range conflictSets {
+	joinedConflictSets = advancedset.New[ResourceID]()
+	conflictSets.Range(func(conflictSet *ConflictSet[ConflictID, ResourceID, VotePower]) {
 		if c.ConflictSets.Add(conflictSet) {
 			if otherConflicts := conflictSet.Add(c); otherConflicts != nil {
-				for _, otherConflict := range otherConflicts {
+				otherConflicts.Range(func(otherConflict *Conflict[ConflictID, ResourceID, VotePower]) {
 					registerConflictingConflict(c, otherConflict)
 					registerConflictingConflict(otherConflict, c)
-				}
+				})
 
-				joinedConflictSets = append(joinedConflictSets, conflictSet.ID)
+				joinedConflictSets.Add(conflictSet.ID)
 			}
 		}
-	}
+	})
 
 	return joinedConflictSets, nil
 }
@@ -180,13 +178,13 @@ func (c *Conflict[ConflictID, ResourceID, VotePower]) removeParent(parent *Confl
 }
 
 // UpdateParents updates the parents of the Conflict.
-func (c *Conflict[ConflictID, ResourceID, VotePower]) UpdateParents(addedParent *Conflict[ConflictID, ResourceID, VotePower], removedParents ...*Conflict[ConflictID, ResourceID, VotePower]) (updated bool) {
+func (c *Conflict[ConflictID, ResourceID, VotePower]) UpdateParents(addedParent *Conflict[ConflictID, ResourceID, VotePower], removedParents *advancedset.AdvancedSet[*Conflict[ConflictID, ResourceID, VotePower]]) (updated bool) {
 	c.structureMutex.Lock()
 	defer c.structureMutex.Unlock()
 
-	for _, removedParent := range removedParents {
+	removedParents.Range(func(removedParent *Conflict[ConflictID, ResourceID, VotePower]) {
 		updated = c.removeParent(removedParent) || updated
-	}
+	})
 
 	if c.Parents.Add(addedParent) {
 		addedParent.registerChild(c)
@@ -293,13 +291,11 @@ func (c *Conflict[ConflictID, ResourceID, VotePower]) Evict() (evictedConflicts 
 		return nil, xerrors.Errorf("tried to evict pending conflict with %s: %w", c.ID, ErrFatal)
 	case acceptance.Accepted:
 		// remove evicted conflict from parents of children (merge to master)
-		_ = c.Children.ForEach(func(childConflict *Conflict[ConflictID, ResourceID, VotePower]) (err error) {
+		c.Children.Range(func(childConflict *Conflict[ConflictID, ResourceID, VotePower]) {
 			childConflict.structureMutex.Lock()
 			defer childConflict.structureMutex.Unlock()
 
 			childConflict.removeParent(c)
-
-			return nil
 		})
 	case acceptance.Rejected:
 		// evict the entire future cone of rejected conflicts
@@ -320,14 +316,14 @@ func (c *Conflict[ConflictID, ResourceID, VotePower]) Evict() (evictedConflicts 
 	c.structureMutex.Lock()
 	defer c.structureMutex.Unlock()
 
-	for _, parentConflict := range c.Parents.Slice() {
+	c.Parents.Range(func(parentConflict *Conflict[ConflictID, ResourceID, VotePower]) {
 		parentConflict.unregisterChild(c)
-	}
+	})
 	c.Parents.Clear()
 
-	for _, conflictSet := range c.ConflictSets.Slice() {
+	c.ConflictSets.Range(func(conflictSet *ConflictSet[ConflictID, ResourceID, VotePower]) {
 		conflictSet.Remove(c)
-	}
+	})
 	c.ConflictSets.Clear()
 
 	for _, conflict := range c.ConflictingConflicts.Shutdown() {
@@ -520,9 +516,9 @@ func (c *Conflict[ConflictID, ResourceID, VotePower]) setAcceptanceState(newStat
 
 	// propagate acceptance to parents first
 	if newState.IsAccepted() {
-		for _, parent := range c.Parents.Slice() {
+		c.Parents.Range(func(parent *Conflict[ConflictID, ResourceID, VotePower]) {
 			parent.setAcceptanceState(acceptance.Accepted)
-		}
+		})
 	}
 
 	c.AcceptanceStateUpdated.Trigger(previousState, newState)

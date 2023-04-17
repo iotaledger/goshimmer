@@ -466,12 +466,10 @@ func assertCorrectOrder(t *testing.T, conflicts ...TestConflict) {
 	for _, conflict := range conflicts {
 		if !unPreferredConflicts.Has(conflict) {
 			preferredConflicts.Add(conflict)
-			_ = conflict.ConflictingConflicts.ForEach(func(conflictingConflict *Conflict[utxo.OutputID, utxo.OutputID, vote.MockedPower]) error {
+			conflict.ConflictingConflicts.Range(func(conflictingConflict *Conflict[utxo.OutputID, utxo.OutputID, vote.MockedPower]) {
 				if conflict != conflictingConflict {
 					unPreferredConflicts.Add(conflictingConflict)
 				}
-
-				return nil
 			}, true)
 		}
 	}
