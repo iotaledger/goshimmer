@@ -2,6 +2,7 @@ package newconflictdag
 
 import (
 	"bytes"
+	"fmt"
 	"sync"
 
 	"go.uber.org/atomic"
@@ -119,13 +120,15 @@ func NewConflict[ConflictID, ResourceID IDType, VotePower constraints.Comparable
 	})
 
 	c.unhookAcceptanceMonitoring = c.Weight.Validators.OnTotalWeightUpdated.Hook(func(updatedWeight int64) {
-		if c.IsPending() && updatedWeight >= c.acceptanceThreshold() {
+		if threshold := c.acceptanceThreshold(); c.IsPending() && updatedWeight >= threshold {
+			fmt.Println("accepted conflict", c.ID, "updatedWeight", updatedWeight, "threshold", threshold)
 			c.setAcceptanceState(acceptance.Accepted)
 		}
 	}).Unhook
 
 	// in case the initial weight is enough to accept the conflict, accept it immediately
-	if initialWeight.Value().ValidatorsWeight() >= c.acceptanceThreshold() {
+	if threshold := c.acceptanceThreshold(); initialWeight.Value().ValidatorsWeight() >= threshold {
+		fmt.Println("accepted conflict during creation", c.ID, "initialWeight.Value().ValidatorsWeight()", initialWeight.Value().ValidatorsWeight(), "threshold", threshold)
 		c.setAcceptanceState(acceptance.Accepted)
 	}
 
@@ -147,6 +150,7 @@ func (c *Conflict[ConflictID, ResourceID, VotePower]) JoinConflictSets(conflictS
 
 		if c.ConflictingConflicts.Add(conflict) {
 			if conflict.IsAccepted() {
+				fmt.Println("rejected conflict when joining conflictset", c.ID)
 				c.setAcceptanceState(acceptance.Rejected)
 			}
 		}

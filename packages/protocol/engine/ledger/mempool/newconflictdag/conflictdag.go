@@ -40,6 +40,9 @@ type ConflictDAG[ConflictID, ResourceID IDType, VotePower constraints.Comparable
 
 	// mutex is used to synchronize access to the ConflictDAG.
 	mutex sync.RWMutex
+
+	// votingMutex is used to synchronize voting for different identities.
+	votingMutex *syncutils.DAGMutex[identity.ID]
 }
 
 // New creates a new ConflictDAG.
@@ -52,6 +55,7 @@ func New[ConflictID, ResourceID IDType, VotePower constraints.Comparable[VotePow
 		conflictUnhooks:             shrinkingmap.New[ConflictID, func()](),
 		conflictSetsByID:            shrinkingmap.New[ResourceID, *ConflictSet[ConflictID, ResourceID, VotePower]](),
 		pendingTasks:                syncutils.NewCounter(),
+		votingMutex:                 syncutils.NewDAGMutex[identity.ID](),
 	}
 }
 
@@ -328,7 +332,8 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) ConflictWeight(conflict
 func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) CastVotes(vote *vote.Vote[VotePower], conflictIDs *advancedset.AdvancedSet[ConflictID]) error {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
-	// TODO: introduce a DAG mutex to lock per identity when casting a vote
+	c.votingMutex.Lock(vote.Voter)
+	defer c.votingMutex.Unlock(vote.Voter)
 
 	supportedConflicts, revokedConflicts, err := c.determineVotes(conflictIDs)
 	if err != nil {

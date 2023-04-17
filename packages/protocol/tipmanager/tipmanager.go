@@ -96,14 +96,14 @@ func (t *TipManager) AddTip(block *scheduler.Block) {
 
 func (t *TipManager) AddTipNonMonotonic(block *scheduler.Block) {
 	if block.IsSubjectivelyInvalid() {
-		fmt.Println(">> not adding subjectively invalid tip")
+		fmt.Println(">> not adding subjectively invalid tip", block.ID())
 		return
 	}
 
 	// Do not add a tip booked on a reject branch, we won't use it as a tip and it will otherwise remove parent tips.
 	blockConflictIDs := t.engine.Tangle.Booker().BlockConflicts(block.Block)
 	if t.engine.Ledger.MemPool().ConflictDAG().AcceptanceState(blockConflictIDs).IsRejected() {
-		fmt.Println(">> adding rejected tip")
+		fmt.Println(">> adding rejected tip", block.ID())
 		// return
 	}
 
