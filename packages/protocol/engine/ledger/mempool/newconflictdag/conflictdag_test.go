@@ -122,17 +122,11 @@ func TestConflictDAG_CastVotes(t *testing.T) {
 	conflict4, err4 := tf.CreateConflict("conflict4", []string{"conflict1"}, []string{"resource2"}, tf.Weight().SetCumulativeWeight(1))
 	require.NoError(t, err4)
 
-	require.NoError(t, tf.CastVotes(vote.NewVote(nodesByIdentity["nodeID1"], vote.MockedPower{
-		VotePower: 10,
-	}), "conflict2"))
+	require.NoError(t, tf.CastVotes(vote.NewVote(nodesByIdentity["nodeID1"], vote.MockedPower(10)), "conflict2"))
 
-	require.NoError(t, tf.CastVotes(vote.NewVote(nodesByIdentity["nodeID2"], vote.MockedPower{
-		VotePower: 10,
-	}), "conflict2"))
+	require.NoError(t, tf.CastVotes(vote.NewVote(nodesByIdentity["nodeID2"], vote.MockedPower(10)), "conflict2"))
 
-	require.NoError(t, tf.CastVotes(vote.NewVote(nodesByIdentity["nodeID3"], vote.MockedPower{
-		VotePower: 10,
-	}), "conflict2"))
+	require.NoError(t, tf.CastVotes(vote.NewVote(nodesByIdentity["nodeID3"], vote.MockedPower(10)), "conflict2"))
 
 	require.Contains(t, tf.LikedInstead("conflict1"), conflict2)
 
@@ -141,9 +135,7 @@ func TestConflictDAG_CastVotes(t *testing.T) {
 	require.True(t, conflict3.IsRejected())
 	require.True(t, conflict4.IsRejected())
 
-	require.Error(t, tf.CastVotes(vote.NewVote(nodesByIdentity["nodeID3"], vote.MockedPower{
-		VotePower: 10,
-	}), "conflict1", "conflict2"))
+	require.Error(t, tf.CastVotes(vote.NewVote(nodesByIdentity["nodeID3"], vote.MockedPower(10)), "conflict1", "conflict2"))
 }
 
 func TestConflictDAG_CreateAcceptedConflict(t *testing.T) {
@@ -229,14 +221,14 @@ func TestConflictDAG_CastVotes2(t *testing.T) {
 	require.NoError(t, err4)
 
 	// casting a vote from non-relevant validator before any relevant validators increases cumulative weight
-	require.NoError(t, tf.CastVotes(vote.NewVote(nodesByIdentity["nodeID4"], vote.MockedPower{VotePower: 1}), "conflict3"))
+	require.NoError(t, tf.CastVotes(vote.NewVote(nodesByIdentity["nodeID4"], vote.MockedPower(1)), "conflict3"))
 	tf.ConflictDAG.pendingTasks.WaitIsZero()
 
 	require.EqualValues(t, 1, conflict3.Weight.Value().CumulativeWeight())
 	require.EqualValues(t, 6, conflict1.Weight.Value().CumulativeWeight())
 
 	// casting a vote from a validator updates the validator weight
-	require.NoError(t, tf.CastVotes(vote.NewVote(nodesByIdentity["nodeID1"], vote.MockedPower{VotePower: 10}), "conflict4"))
+	require.NoError(t, tf.CastVotes(vote.NewVote(nodesByIdentity["nodeID1"], vote.MockedPower(10)), "conflict4"))
 	tf.ConflictDAG.pendingTasks.WaitIsZero()
 
 	require.EqualValues(t, 10, conflict1.Weight.Value().ValidatorsWeight())
@@ -244,7 +236,7 @@ func TestConflictDAG_CastVotes2(t *testing.T) {
 	require.EqualValues(t, 10, conflict4.Weight.Value().ValidatorsWeight())
 
 	// casting a vote from non-relevant validator after processing a vote from relevant validator doesn't increase cumulative weight
-	require.NoError(t, tf.CastVotes(vote.NewVote(nodesByIdentity["nodeID4"], vote.MockedPower{VotePower: 1}), "conflict3"))
+	require.NoError(t, tf.CastVotes(vote.NewVote(nodesByIdentity["nodeID4"], vote.MockedPower(1)), "conflict3"))
 	tf.ConflictDAG.pendingTasks.WaitIsZero()
 
 	require.EqualValues(t, 10, conflict1.Weight.Value().ValidatorsWeight())
@@ -253,7 +245,7 @@ func TestConflictDAG_CastVotes2(t *testing.T) {
 	require.EqualValues(t, 6, conflict1.Weight.Value().CumulativeWeight())
 
 	// casting vote with lower vote power doesn't change the weights of conflicts
-	require.NoError(t, tf.CastVotes(vote.NewVote(nodesByIdentity["nodeID1"], vote.MockedPower{VotePower: 5}), "conflict3"))
+	require.NoError(t, tf.CastVotes(vote.NewVote(nodesByIdentity["nodeID1"], vote.MockedPower(5)), "conflict3"))
 	tf.ConflictDAG.pendingTasks.WaitIsZero()
 
 	require.EqualValues(t, 10, conflict1.Weight.Value().ValidatorsWeight())
@@ -261,7 +253,7 @@ func TestConflictDAG_CastVotes2(t *testing.T) {
 	require.EqualValues(t, 10, conflict4.Weight.Value().ValidatorsWeight())
 
 	// casting a vote with higher power doesn't change weights
-	require.NoError(t, tf.CastVotes(vote.NewVote(nodesByIdentity["nodeID1"], vote.MockedPower{VotePower: 11}), "conflict4"))
+	require.NoError(t, tf.CastVotes(vote.NewVote(nodesByIdentity["nodeID1"], vote.MockedPower(11)), "conflict4"))
 	tf.ConflictDAG.pendingTasks.WaitIsZero()
 
 	require.EqualValues(t, 10, conflict1.Weight.Value().ValidatorsWeight())
@@ -269,7 +261,7 @@ func TestConflictDAG_CastVotes2(t *testing.T) {
 	require.EqualValues(t, 10, conflict4.Weight.Value().ValidatorsWeight())
 
 	// casting a vote with higher power on a different conflict changes the weights
-	require.NoError(t, tf.CastVotes(vote.NewVote(nodesByIdentity["nodeID1"], vote.MockedPower{VotePower: 12}), "conflict3"))
+	require.NoError(t, tf.CastVotes(vote.NewVote(nodesByIdentity["nodeID1"], vote.MockedPower(12)), "conflict3"))
 	tf.ConflictDAG.pendingTasks.WaitIsZero()
 	require.True(t, conflict4.IsPending())
 	require.True(t, conflict1.IsPending())
@@ -313,17 +305,11 @@ func TestConflictDAG_CastVotes1(t *testing.T) {
 	conflict4, err4 := tf.CreateConflict("conflict4", []string{"conflict1"}, []string{"resource2"}, tf.Weight().SetCumulativeWeight(1))
 	require.NoError(t, err4)
 
-	require.NoError(t, tf.CastVotes(vote.NewVote(nodesByIdentity["nodeID1"], vote.MockedPower{
-		VotePower: 10,
-	}), "conflict3"))
+	require.NoError(t, tf.CastVotes(vote.NewVote(nodesByIdentity["nodeID1"], vote.MockedPower(10)), "conflict3"))
 
-	require.NoError(t, tf.CastVotes(vote.NewVote(nodesByIdentity["nodeID2"], vote.MockedPower{
-		VotePower: 10,
-	}), "conflict3"))
+	require.NoError(t, tf.CastVotes(vote.NewVote(nodesByIdentity["nodeID2"], vote.MockedPower(10)), "conflict3"))
 
-	require.NoError(t, tf.CastVotes(vote.NewVote(nodesByIdentity["nodeID3"], vote.MockedPower{
-		VotePower: 10,
-	}), "conflict3"))
+	require.NoError(t, tf.CastVotes(vote.NewVote(nodesByIdentity["nodeID3"], vote.MockedPower(10)), "conflict3"))
 
 	require.Equal(t, 0, len(tf.LikedInstead("conflict1")))
 
