@@ -1,15 +1,16 @@
 package vote
 
-type MockedPower struct {
-	VotePower int
-}
+// MockedPower is a mocked power implementation that is used for testing.
+type MockedPower int
 
-func (p MockedPower) Compare(other MockedPower) int {
-	if p.VotePower-other.VotePower < 0 {
+// Compare compares the MockedPower to another MockedPower.
+func (m MockedPower) Compare(other MockedPower) int {
+	switch {
+	case m < other:
 		return -1
-	} else if p.VotePower-other.VotePower > 0 {
+	case m > other:
 		return 1
-	} else {
+	default:
 		return 0
 	}
 }
