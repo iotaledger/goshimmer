@@ -202,8 +202,6 @@ func (b *booker) propagateForkedConflictToFutureCone(ctx context.Context, output
 
 		walker.PushAll(consumingTxMetadata.OutputIDs().Slice()...)
 	})
-
-	//
 }
 
 // updateConflictsAfterFork updates the ConflictIDs of a Transaction after a fork.

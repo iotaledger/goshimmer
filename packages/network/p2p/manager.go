@@ -2,6 +2,7 @@ package p2p
 
 import (
 	"context"
+	"go.uber.org/atomic"
 
 	"github.com/libp2p/go-libp2p/core/host"
 	libp2ppeer "github.com/libp2p/go-libp2p/core/peer"
@@ -57,8 +58,7 @@ type Manager struct {
 	log                 *logger.Logger
 	neighborGroupEvents map[NeighborsGroup]*NeighborGroupEvents
 
-	stopMutex syncutils.RWMutexFake
-	isStopped bool
+	isStopped atomic.Bool
 
 	neighbors      map[identity.ID]*Neighbor
 	neighborsMutex syncutils.RWMutexFake
@@ -85,12 +85,9 @@ func NewManager(libp2pHost host.Host, local *peer.Local, log *logger.Logger) *Ma
 
 // Stop stops the manager and closes all established connections.
 func (m *Manager) Stop() {
-	m.stopMutex.Lock()
-	if m.isStopped {
+	if m.isStopped.Swap(true) {
 		return
 	}
-	m.isStopped = true
-	m.stopMutex.Unlock()
 
 	m.dropAllNeighbors()
 }
@@ -248,11 +245,9 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 	if p.ID() == m.local.ID() {
 		return errors.WithStack(ErrLoopbackNeighbor)
 	}
-	m.stopMutex.RLock()
-	if m.isStopped {
+	if m.isStopped.Load() {
 		return ErrNotRunning
 	}
-	m.stopMutex.RUnlock()
 
 	if m.neighborExists(p.ID()) {
 		return errors.WithStack(ErrDuplicateNeighbor)

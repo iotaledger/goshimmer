@@ -141,8 +141,8 @@ func (b *BlockDAG) Attach(data *models.Block) (block *blockdag.Block, wasAttache
 	if block, wasAttached, err = b.attach(data); wasAttached {
 		b.events.BlockAttached.Trigger(block)
 
-		//b.solidifierMutex.Lock()
-		//defer b.solidifierMutex.Unlock()
+		//b.solidifierMutex.RLock()
+		//defer b.solidifierMutex.RUnlock()
 
 		b.solidifier.Queue(block)
 	}
@@ -202,8 +202,8 @@ func (b *BlockDAG) SetOrphaned(block *blockdag.Block, orphaned bool) (updated bo
 }
 
 func (b *BlockDAG) PromoteFutureBlocksUntil(index slot.Index) {
-	//b.solidifierMutex.Lock()
-	//defer b.solidifierMutex.Unlock()
+	//b.solidifierMutex.RLock()
+	//defer b.solidifierMutex.RUnlock()
 	//b.futureBlocksMutex.Lock()
 	//defer b.futureBlocksMutex.Unlock()
 
