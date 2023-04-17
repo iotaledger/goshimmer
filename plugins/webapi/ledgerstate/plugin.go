@@ -3,6 +3,7 @@ package ledgerstate
 import (
 	"context"
 	"fmt"
+	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"golang.org/x/xerrors"
 	"net/http"
 	"sync"
@@ -265,7 +266,7 @@ func GetConflict(c echo.Context) (err error) {
 	}
 
 	conflictDAG := deps.Protocol.Engine().Ledger.MemPool().ConflictDAG()
-	acceptanceState := deps.Protocol.Engine().Ledger.MemPool().ConflictDAG().AcceptanceState(utxo.NewTransactionIDs(conflictID))
+	confirmationState := confirmation.StateFromAcceptanceState(deps.Protocol.Engine().Ledger.MemPool().ConflictDAG().AcceptanceState(utxo.NewTransactionIDs(conflictID)))
 	conflictParents, exists := conflictDAG.ConflictParents(conflictID)
 	if !exists {
 		return xerrors.Errorf("conflict %s does not exist when retrieving parents", conflictID)
@@ -276,7 +277,7 @@ func GetConflict(c echo.Context) (err error) {
 		return xerrors.Errorf("conflict %s does not exist when retrieving conflict sets", conflictID)
 	}
 
-	return c.JSON(http.StatusOK, jsonmodels.NewConflictWeight(conflictID, conflictParents, conflictSets, acceptanceState, conflictDAG.ConflictWeight(conflictID)))
+	return c.JSON(http.StatusOK, jsonmodels.NewConflictWeight(conflictID, conflictParents, conflictSets, confirmationState, conflictDAG.ConflictWeight(conflictID)))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

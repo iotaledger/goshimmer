@@ -2,7 +2,6 @@ package jsonmodels
 
 import (
 	"encoding/json"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/acceptance"
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"time"
 
@@ -524,15 +523,15 @@ func NewConsumer(consumer *mempool.Consumer) *Consumer {
 
 // ConflictWeight represents the JSON model of a ledger.Conflict.
 type ConflictWeight struct {
-	ID              string           `json:"id"`
-	Parents         []string         `json:"parents"`
-	ConflictIDs     []string         `json:"conflictIDs,omitempty"`
-	AcceptanceState acceptance.State `json:"confirmationState"`
-	ApprovalWeight  int64            `json:"approvalWeight"`
+	ID                string             `json:"id"`
+	Parents           []string           `json:"parents"`
+	ConflictIDs       []string           `json:"conflictIDs,omitempty"`
+	ConfirmationState confirmation.State `json:"confirmationState"`
+	ApprovalWeight    int64              `json:"approvalWeight"`
 }
 
 // NewConflictWeight returns a Conflict from the given ledger.Conflict.
-func NewConflictWeight(conflictID utxo.TransactionID, conflictParentsIDs *advancedset.AdvancedSet[utxo.TransactionID], conflictSets *advancedset.AdvancedSet[utxo.OutputID], acceptanceState acceptance.State, aw int64) ConflictWeight {
+func NewConflictWeight(conflictID utxo.TransactionID, conflictParentsIDs *advancedset.AdvancedSet[utxo.TransactionID], conflictSets *advancedset.AdvancedSet[utxo.OutputID], confirmationState confirmation.State, aw int64) ConflictWeight {
 	return ConflictWeight{
 		ID: conflictID.Base58(),
 		Parents: func() []string {
@@ -551,8 +550,8 @@ func NewConflictWeight(conflictID utxo.TransactionID, conflictParentsIDs *advanc
 
 			return conflictIDs
 		}(),
-		AcceptanceState: acceptanceState,
-		ApprovalWeight:  aw,
+		ConfirmationState: confirmationState,
+		ApprovalWeight:    aw,
 	}
 }
 
