@@ -121,6 +121,8 @@ func (c *TipsConflictTracker) MissingConflicts(amount int, conflictDAG newconfli
 		// We want to reintroduce only the pending conflict that is liked.
 		if !conflictDAG.LikedInstead(advancedset.New(conflictID)).IsEmpty() {
 			c.censoredConflicts.Delete(conflictID)
+
+			continue
 		}
 
 		if missingConflicts.Add(conflictID) && missingConflicts.Size() == amount {
