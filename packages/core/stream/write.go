@@ -6,7 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/hive.go/constraints"
+	"github.com/iotaledger/hive.go/serializer/v2"
 )
 
 // Write writes a generic basic type from the stream.
@@ -16,7 +16,7 @@ func Write[T any](writer io.WriteSeeker, value T) (err error) {
 
 // WriteSerializable writes a serializable type to the stream (if the serialized field is of fixed size, we can provide
 // the length to omit additional information about the length of the serializable).
-func WriteSerializable[T constraints.Serializable](writer io.WriteSeeker, target T, optFixedSize ...int) (err error) {
+func WriteSerializable[T serializer.Byter](writer io.WriteSeeker, target T, optFixedSize ...int) (err error) {
 	serializedBytes, err := target.Bytes()
 	if err != nil {
 		return errors.Wrap(err, "failed to serialize target")

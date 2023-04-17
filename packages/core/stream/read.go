@@ -6,7 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/hive.go/constraints"
+	"github.com/iotaledger/hive.go/serializer/v2"
 )
 
 // Read reads a generic basic type from the stream.
@@ -16,7 +16,7 @@ func Read[T any](reader io.ReadSeeker) (result T, err error) {
 
 // ReadSerializable reads a serializable type from the stream (if the serialized field is of fixed size, we can provide
 // the length to omit additional information about the length of the serializable).
-func ReadSerializable[T any, TPtr constraints.MarshalablePtr[T]](reader io.ReadSeeker, target TPtr, optFixedSize ...int) (err error) {
+func ReadSerializable[T any, TPtr serializer.MarshalablePtr[T]](reader io.ReadSeeker, target TPtr, optFixedSize ...int) (err error) {
 	var readBytes []byte
 	if len(optFixedSize) == 0 {
 		if readBytes, err = ReadBlob(reader); err != nil {
