@@ -9,7 +9,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/node"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
 	"github.com/iotaledger/hive.go/app/daemon"
@@ -113,8 +112,7 @@ func runConflictLiveFeed(plugin *node.Plugin) {
 	}
 }
 
-func onConflictCreated(c *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-	conflictID := c.ID()
+func onConflictCreated(conflictID utxo.TransactionID) {
 	b := &conflict{
 		ConflictID:  conflictID,
 		UpdatedTime: time.Now(),
@@ -133,9 +131,12 @@ func onConflictCreated(c *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID
 	mu.Lock()
 	defer mu.Unlock()
 
-	b.ConflictSetIDs = utxo.NewOutputIDs(lo.Map(c.ConflictSets().Slice(), func(cs *conflictdag.ConflictSet[utxo.TransactionID, utxo.OutputID]) utxo.OutputID {
-		return cs.ID()
-	})...)
+	conflictSetIDs, conflictExists := deps.Protocol.Engine().Ledger.MemPool().ConflictDAG().ConflictSets(conflictID)
+	if !conflictExists {
+		return
+	}
+
+	b.ConflictSetIDs = conflictSetIDs
 
 	for it := b.ConflictSetIDs.Iterator(); it.HasNext(); {
 		conflictSetID := it.Next()
@@ -151,12 +152,12 @@ func onConflictCreated(c *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID
 		}
 
 		// update all existing conflicts with a possible new conflictSet membership
-		cs, exists := deps.Protocol.Engine().Ledger.MemPool().ConflictDAG().ConflictSet(conflictSetID)
-		if !exists {
+		conflictSetMemberIDs, conflictSetExists := deps.Protocol.Engine().Ledger.MemPool().ConflictDAG().ConflictSetMembers(conflictSetID)
+		if !conflictSetExists {
 			continue
 		}
-		_ = cs.Conflicts().ForEach(func(element *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) (err error) {
-			conflicts.addConflictMember(element.ID(), conflictSetID)
+		_ = conflictSetMemberIDs.ForEach(func(memberID utxo.TransactionID) (err error) {
+			conflicts.addConflictMember(memberID, conflictSetID)
 			return nil
 		})
 	}
@@ -164,11 +165,11 @@ func onConflictCreated(c *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID
 	conflicts.addConflict(b)
 }
 
-func onConflictAccepted(c *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+func onConflictAccepted(conflictID utxo.TransactionID) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	b, exists := conflicts.conflict(c.ID())
+	b, exists := conflicts.conflict(conflictID)
 	if !exists {
 		// log.Warnf("conflict %s did not yet exist", c.ID())
 		return
@@ -190,11 +191,11 @@ func onConflictAccepted(c *conflictdag.Conflict[utxo.TransactionID, utxo.OutputI
 	}
 }
 
-func onConflictRejected(c *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+func onConflictRejected(conflictID utxo.TransactionID) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	b, exists := conflicts.conflict(c.ID())
+	b, exists := conflicts.conflict(conflictID)
 	if !exists {
 		// log.Warnf("conflict %s did not yet exist", c.ID())
 		return
