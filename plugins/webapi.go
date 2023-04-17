@@ -38,5 +38,4 @@ var WebAPI = node.Plugins(
 	ratesetter.Plugin,
 	scheduler.Plugin,
 	metrics.Plugin,
-	// spamming.Plugin,
 )

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
-	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
 	"go.uber.org/dig"
 
@@ -26,7 +25,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/app/daemon"
-	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/runtime/event"
@@ -138,8 +136,6 @@ func run(*node.Plugin) {
 	deps.Server.GET("ledgerstate/transactions/:transactionID/metadata", GetTransactionMetadata)
 	deps.Server.GET("ledgerstate/transactions/:transactionID/attachments", GetTransactionAttachments)
 	deps.Server.POST("ledgerstate/transactions", PostTransaction)
-	// deps.Server.POST("ledgerstate/transactions/structure", PostTransactionStructure)
-	// deps.Server.POST("ledgerstate/transactions/serialization", SerializeTransactionEssence)
 }
 
 func worker(ctx context.Context) {
@@ -525,99 +521,6 @@ func PostTransaction(c echo.Context) error {
 	}
 
 	return verifyAndIssueTransaction(c, tx)
-}
-
-// PostTransactionStructure sends a transaction.
-func PostTransactionStructure(c echo.Context) error {
-	var request jsonmodels.PostTransactionStructureRequest
-	if err := c.Bind(&request); err != nil {
-		return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{Error: err.Error()})
-	}
-
-	essenceBytes, err := base58.Decode(request.Essence)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{Error: err.Error()})
-	}
-	essence, _, err := devnetvm.TransactionEssenceFromBytes(essenceBytes)
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{Error: err.Error()})
-	}
-
-	var unlockblocks devnetvm.UnlockBlocks
-	for _, obj := range request.UnlockBlocks {
-		ub, err := obj.ToUnlockBlock()
-		if err != nil {
-			return c.JSON(http.StatusBadRequest, &jsonmodels.TransactionEssenceSerializeResponse{Error: err.Error()})
-		}
-		unlockblocks = append(unlockblocks, ub)
-	}
-
-	tx := devnetvm.NewTransaction(essence, unlockblocks)
-
-	return verifyAndIssueTransaction(c, tx)
-}
-
-// SerializeTransactionEssence serialize a transaction essence.
-func SerializeTransactionEssence(c echo.Context) error {
-	var request jsonmodels.TransactionEssenceSerializeRequest
-	var err error
-	if err = c.Bind(&request); err != nil {
-		return c.JSON(http.StatusBadRequest, &jsonmodels.TransactionEssenceSerializeResponse{Error: err.Error()})
-	}
-
-	// parse timestamp
-	var issuingTime = time.Unix(request.Timestamp, 0)
-
-	// parse access/consensus mana pledge IDs.
-	var accessManaPledgeID identity.ID
-	var consensusManaPledgeID identity.ID
-	if request.AccessManaPledgeID != "" {
-		accessManaPledgeID, err = identity.DecodeIDBase58(request.AccessManaPledgeID)
-		if err != nil {
-			return c.JSON(http.StatusBadRequest, jsonmodels.TransactionEssenceSerializeResponse{Error: "Invalid access mana node ID"})
-		}
-	}
-
-	if request.ConsensusManaPledgeID != "" {
-		consensusManaPledgeID, err = identity.DecodeIDBase58(request.ConsensusManaPledgeID)
-		if err != nil {
-			return c.JSON(http.StatusBadRequest, jsonmodels.TransactionEssenceSerializeResponse{Error: "Invalid consensus mana node ID"})
-		}
-	}
-
-	// parse inputs
-	var unspents []devnetvm.Input
-	for _, inputStr := range request.Inputs {
-		var o utxo.OutputID
-		if err = o.FromBase58(inputStr); err != nil {
-			return c.JSON(http.StatusBadRequest, &jsonmodels.TransactionEssenceSerializeResponse{Error: err.Error()})
-		}
-		unspents = append(unspents, devnetvm.NewUTXOInput(o))
-	}
-	inputs := devnetvm.NewInputs(unspents...)
-
-	// parse outputs
-	var outputs devnetvm.Outputs
-	for _, o := range request.Outputs {
-		fmt.Println(o)
-		ledgerOutput, err := o.ToLedgerstateOutput()
-		if err != nil {
-			return c.JSON(http.StatusBadRequest, &jsonmodels.TransactionEssenceSerializeResponse{Error: err.Error()})
-		}
-		outputs = append(outputs, ledgerOutput)
-	}
-
-	txEssenceBytes, err := devnetvm.NewTransactionEssence(0, issuingTime, accessManaPledgeID, consensusManaPledgeID, inputs, devnetvm.NewOutputs(outputs...)).Bytes()
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.TransactionEssenceSerializeResponse{Error: "Invalid consensus mana node ID"})
-	}
-	txEssenceBase58 := base58.Encode(txEssenceBytes)
-	var sortedInputs []string
-	for _, i := range inputs {
-		sortedInputs = append(sortedInputs, i.Base58())
-	}
-
-	return c.JSON(http.StatusOK, &jsonmodels.TransactionEssenceSerializeResponse{Bytes: txEssenceBase58, SortedInputs: sortedInputs})
 }
 
 func verifyAndIssueTransaction(c echo.Context, tx *devnetvm.Transaction) error {

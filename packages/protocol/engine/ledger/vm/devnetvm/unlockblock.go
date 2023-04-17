@@ -2,7 +2,6 @@ package devnetvm
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 
 	"github.com/pkg/errors"
@@ -61,19 +60,6 @@ func (a UnlockBlockType) String() string {
 		"ReferenceUnlockBlockType",
 		"AliasUnlockBlockType",
 	}[a]
-}
-
-// UnlockBlockTypeFromString returns the output type from a string.
-func UnlockBlockTypeFromString(ut string) (UnlockBlockType, error) {
-	res, ok := map[string]UnlockBlockType{
-		"SignatureUnlockBlockType": SignatureUnlockBlockType,
-		"ReferenceUnlockBlockType": ReferenceUnlockBlockType,
-		"AliasUnlockBlockType":     AliasUnlockBlockType,
-	}[ut]
-	if !ok {
-		return res, errors.New(fmt.Sprintf("unsupported unlockblock type: %s", ut))
-	}
-	return res, nil
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

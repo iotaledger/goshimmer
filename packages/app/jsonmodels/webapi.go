@@ -228,36 +228,6 @@ type PostTransactionResponse struct {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region PostTransactionStructure Req /////////////////////////////////////////////////////////////////////////////////////
-
-// PostTransactionStructureRequest holds the transaction object(bytes) to send.
-type PostTransactionStructureRequest struct {
-	Essence      string        `json:"essence"`
-	UnlockBlocks []UnlockBlock `json:"unlockblocks"`
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region TransactionEssenceSerializeRequest Req/Resp /////////////////////////////////////////////////////////////////////////////////////
-
-// TransactionEssenceSerializeRequest holds the transaction object(bytes) to send.
-type TransactionEssenceSerializeRequest struct {
-	Timestamp             int64     `json:"timestamp"`
-	AccessManaPledgeID    string    `json:"accessManaPledgeID"`
-	ConsensusManaPledgeID string    `json:"consensusManaPledgeID"`
-	Inputs                []string  `json:"inputs"`
-	Outputs               []*Output `json:"outputs"`
-}
-
-// TransactionEssenceSerializeResponse is the HTTP response from sending transaction.
-type TransactionEssenceSerializeResponse struct {
-	Bytes        string   `json:"bytes"`
-	SortedInputs []string `json:"sortedInputs"`
-	Error        string   `json:"error,omitempty"`
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // region ErrorResponse ////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ErrorResponse represents the JSON model of an error response from an API endpoint.
