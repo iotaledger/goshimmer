@@ -179,7 +179,7 @@ type Client interface {
 	GetUnspentOutputForAddress(addr devnetvm.Address) *jsonmodels.WalletOutput
 	// GetAddressUnspentOutputs gets the unspent outputs of an address.
 	GetAddressUnspentOutputs(address string) (outputIDs []utxo.OutputID, err error)
-	// GetTransactionConfirmationState returns the ConfirmationState of a given transaction ID.
+	// GetTransactionConfirmationState returns the AcceptanceState of a given transaction ID.
 	GetTransactionConfirmationState(txID string) confirmation.State
 	// GetOutput gets the output of a given outputID.
 	GetOutput(outputID utxo.OutputID) devnetvm.Output
@@ -312,7 +312,7 @@ func (c *WebClient) GetOutput(outputID utxo.OutputID) devnetvm.Output {
 	return output
 }
 
-// GetTransactionConfirmationState returns the ConfirmationState of a given transaction ID.
+// GetTransactionConfirmationState returns the AcceptanceState of a given transaction ID.
 func (c *WebClient) GetTransactionConfirmationState(txID string) confirmation.State {
 	resp, err := c.api.GetTransactionMetadata(txID)
 	if err != nil {

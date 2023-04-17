@@ -118,7 +118,7 @@ func (webConnector WebConnector) SendTransaction(tx *devnetvm.Transaction) (err 
 	return
 }
 
-// GetTransactionConfirmationState fetches the ConfirmationState of the transaction.
+// GetTransactionConfirmationState fetches the AcceptanceState of the transaction.
 func (webConnector WebConnector) GetTransactionConfirmationState(txID utxo.TransactionID) (confirmationState confirmation.State, err error) {
 	txmeta, err := webConnector.client.GetTransactionMetadata(txID.Base58())
 	if err != nil {

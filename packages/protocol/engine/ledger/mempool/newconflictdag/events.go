@@ -19,7 +19,7 @@ type Events[ConflictID, ResourceID comparable] struct {
 	ConflictingResourcesAdded *event.Event2[ConflictID, *advancedset.AdvancedSet[ResourceID]]
 
 	// ConflictParentsUpdated is triggered when the parents of a Conflict are updated.
-	ConflictParentsUpdated *event.Event3[ConflictID, ConflictID, *advancedset.AdvancedSet[ConflictID]]
+	ConflictParentsUpdated *event.Event2[ConflictID, *advancedset.AdvancedSet[ConflictID]]
 
 	// ConflictAccepted is an event that gets triggered whenever a Conflict is confirmed.
 	ConflictAccepted *event.Event1[ConflictID]
@@ -39,7 +39,7 @@ func NewEvents[ConflictID, ResourceID comparable](optsLinkTarget ...*Events[Conf
 			ConflictCreated:           event.New1[ConflictID](),
 			ConflictEvicted:           event.New1[ConflictID](),
 			ConflictingResourcesAdded: event.New2[ConflictID, *advancedset.AdvancedSet[ResourceID]](),
-			ConflictParentsUpdated:    event.New3[ConflictID, ConflictID, *advancedset.AdvancedSet[ConflictID]](),
+			ConflictParentsUpdated:    event.New2[ConflictID, *advancedset.AdvancedSet[ConflictID]](),
 			ConflictAccepted:          event.New1[ConflictID](),
 			ConflictRejected:          event.New1[ConflictID](),
 		}

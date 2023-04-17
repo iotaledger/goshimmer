@@ -55,3 +55,10 @@ func (c *ConflictSet[ConflictID, ResourceID, VotePower]) Remove(removedConflict 
 
 	return removed
 }
+
+func (c *ConflictSet[ConflictID, ResourceID, VotePower]) ForEach(callback func(parent *Conflict[ConflictID, ResourceID, VotePower]) error) error {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	return c.members.ForEach(callback)
+}

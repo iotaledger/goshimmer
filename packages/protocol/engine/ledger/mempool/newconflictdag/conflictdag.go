@@ -147,6 +147,8 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) JoinConflictSets(confli
 
 // UpdateConflictParents updates the parents of the given Conflict and returns an error if the operation failed.
 func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) UpdateConflictParents(conflictID ConflictID, addedParentID ConflictID, removedParentIDs *advancedset.AdvancedSet[ConflictID]) error {
+	newParents := advancedset.New[ConflictID]()
+
 	updated, err := func() (bool, error) {
 		c.mutex.RLock()
 		defer c.mutex.RUnlock()
@@ -172,14 +174,22 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) UpdateConflictParents(c
 			return false, xerrors.Errorf("failed to update conflict parents: %w", err)
 		}
 
-		return currentConflict.UpdateParents(addedParent, removedParents), nil
+		updated := currentConflict.UpdateParents(addedParent, removedParents)
+		if updated {
+			_ = currentConflict.Parents.ForEach(func(parentConflict *Conflict[ConflictID, ResourceID, VotePower]) (err error) {
+				newParents.Add(parentConflict.ID)
+				return nil
+			})
+		}
+
+		return updated, nil
 	}()
 	if err != nil {
 		return err
 	}
 
 	if updated {
-		c.Events.ConflictParentsUpdated.Trigger(conflictID, addedParentID, removedParentIDs)
+		c.Events.ConflictParentsUpdated.Trigger(conflictID, newParents)
 	}
 
 	return nil
@@ -230,6 +240,88 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) AllConflictsSupported(i
 
 		return lo.Cond(exists && lastVote.IsLiked(), nil, xerrors.Errorf("conflict with %s is not supported by %s", conflict.ID, issuerID))
 	}) != nil
+}
+
+func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) ConflictVoters(conflictID ConflictID) (conflictVoters map[identity.ID]int64) {
+	conflictVoters = make(map[identity.ID]int64)
+
+	conflict, exists := c.conflictsByID.Get(conflictID)
+	if exists {
+		_ = conflict.Weight.Validators.ForEachWeighted(func(id identity.ID, weight int64) error {
+			conflictVoters[id] = weight
+			return nil
+		})
+	}
+
+	return conflictVoters
+}
+
+func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) ConflictSets(conflictID ConflictID) (conflictSets *advancedset.AdvancedSet[ResourceID], exists bool) {
+	conflict, exists := c.conflictsByID.Get(conflictID)
+	if !exists {
+		return nil, false
+	}
+
+	conflictSets = advancedset.New[ResourceID]()
+	_ = conflict.ConflictSets.ForEach(func(conflictSet *ConflictSet[ConflictID, ResourceID, VotePower]) error {
+		conflictSets.Add(conflictSet.ID)
+		return nil
+	})
+
+	return conflictSets, true
+}
+
+func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) ConflictParents(conflictID ConflictID) (conflictParents *advancedset.AdvancedSet[ConflictID], exists bool) {
+	conflict, exists := c.conflictsByID.Get(conflictID)
+	if !exists {
+		return nil, false
+	}
+
+	conflictParents = advancedset.New[ConflictID]()
+	_ = conflict.Parents.ForEach(func(parent *Conflict[ConflictID, ResourceID, VotePower]) error {
+		conflictParents.Add(parent.ID)
+		return nil
+	})
+
+	return conflictParents, true
+}
+
+func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) ConflictChildren(conflictID ConflictID) (conflictChildren *advancedset.AdvancedSet[ConflictID], exists bool) {
+	conflict, exists := c.conflictsByID.Get(conflictID)
+	if !exists {
+		return nil, false
+	}
+
+	conflictChildren = advancedset.New[ConflictID]()
+	_ = conflict.Children.ForEach(func(parent *Conflict[ConflictID, ResourceID, VotePower]) error {
+		conflictChildren.Add(parent.ID)
+		return nil
+	})
+
+	return conflictChildren, true
+}
+
+func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) ConflictSetMembers(conflictSetID ResourceID) (conflicts *advancedset.AdvancedSet[ConflictID], exists bool) {
+	conflictSet, exists := c.conflictSetsByID.Get(conflictSetID)
+	if !exists {
+		return nil, false
+	}
+
+	conflicts = advancedset.New[ConflictID]()
+	_ = conflictSet.ForEach(func(parent *Conflict[ConflictID, ResourceID, VotePower]) error {
+		conflicts.Add(parent.ID)
+		return nil
+	})
+
+	return conflicts, true
+}
+
+func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) ConflictWeight(conflictID ConflictID) int64 {
+	if conflict, exists := c.conflictsByID.Get(conflictID); exists {
+		return conflict.Weight.Value().ValidatorsWeight()
+	}
+
+	return 0
 }
 
 // CastVotes applies the given votes to the ConflictDAG.

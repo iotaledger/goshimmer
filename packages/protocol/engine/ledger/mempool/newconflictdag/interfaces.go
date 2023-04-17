@@ -21,6 +21,13 @@ type Interface[ConflictID, ResourceID IDType, VotePower constraints.Comparable[V
 	UnacceptedConflicts(conflictIDs *advancedset.AdvancedSet[ConflictID]) *advancedset.AdvancedSet[ConflictID]
 	AllConflictsSupported(issuerID identity.ID, conflictIDs *advancedset.AdvancedSet[ConflictID]) bool
 	EvictConflict(conflictID ConflictID) error
+
+	ConflictSets(conflictID ConflictID) (conflictSetIDs *advancedset.AdvancedSet[ResourceID], exists bool)
+	ConflictParents(conflictID ConflictID) (conflictIDs *advancedset.AdvancedSet[ConflictID], exists bool)
+	ConflictSetMembers(conflictSetID ResourceID) (conflictIDs *advancedset.AdvancedSet[ConflictID], exists bool)
+	ConflictWeight(conflictID ConflictID) int64
+	ConflictChildren(conflictID ConflictID) (conflictIDs *advancedset.AdvancedSet[ConflictID], exists bool)
+	ConflictVoters(conflictID ConflictID) (voters map[identity.ID]int64)
 }
 
 type ReadLockedConflictDAG[ConflictID, ResourceID IDType, VotePower constraints.Comparable[VotePower]] interface {

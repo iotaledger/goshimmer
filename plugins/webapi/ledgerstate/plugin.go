@@ -3,6 +3,7 @@ package ledgerstate
 import (
 	"context"
 	"fmt"
+	"golang.org/x/xerrors"
 	"net/http"
 	"sync"
 	"time"
@@ -17,7 +18,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm/indexer"
@@ -25,7 +25,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/hive.go/app/daemon"
-	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/runtime/event"
 )
@@ -265,12 +264,19 @@ func GetConflict(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	conflict, exists := deps.Protocol.Engine().Ledger.MemPool().ConflictDAG().Conflict(conflictID)
+	conflictDAG := deps.Protocol.Engine().Ledger.MemPool().ConflictDAG()
+	acceptanceState := deps.Protocol.Engine().Ledger.MemPool().ConflictDAG().AcceptanceState(utxo.NewTransactionIDs(conflictID))
+	conflictParents, exists := conflictDAG.ConflictParents(conflictID)
 	if !exists {
-		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load Conflict with %s", conflictID)))
+		return xerrors.Errorf("conflict %s does not exist when retrieving parents", conflictID)
 	}
 
-	return c.JSON(http.StatusOK, jsonmodels.NewConflictWeight(conflict, conflict.ConfirmationState(), deps.Protocol.Engine().Tangle.Booker().VirtualVoting().ConflictVotersTotalWeight(conflictID)))
+	conflictSets, exists := conflictDAG.ConflictSets(conflictID)
+	if !exists {
+		return xerrors.Errorf("conflict %s does not exist when retrieving conflict sets", conflictID)
+	}
+
+	return c.JSON(http.StatusOK, jsonmodels.NewConflictWeight(conflictID, conflictParents, conflictSets, acceptanceState, conflictDAG.ConflictWeight(conflictID)))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -284,12 +290,12 @@ func GetConflictChildren(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	conflict, exists := deps.Protocol.Engine().Ledger.MemPool().ConflictDAG().Conflict(conflictID)
+	childrenConflictIDs, exists := deps.Protocol.Engine().Ledger.MemPool().ConflictDAG().ConflictChildren(conflictID)
 	if !exists {
 		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(fmt.Errorf("failed to load Conflict with %s", conflictID)))
 	}
 
-	return c.JSON(http.StatusOK, jsonmodels.NewGetConflictChildrenResponse(conflictID, conflict.Children()))
+	return c.JSON(http.StatusOK, jsonmodels.NewGetConflictChildrenResponse(conflictID, childrenConflictIDs))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -303,16 +309,22 @@ func GetConflictConflicts(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	conflict, exists := deps.Protocol.Engine().Ledger.MemPool().ConflictDAG().Conflict(conflictID)
+	conflictDAG := deps.Protocol.Engine().Ledger.MemPool().ConflictDAG()
+
+	conflictSetsIDs, exists := conflictDAG.ConflictSets(conflictID)
 	if !exists {
-		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load Conflict with %s", conflictID)))
+		return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load ConflictSets of %s", conflictID)))
 	}
+
 	conflictIDsPerConflictSet := make(map[utxo.OutputID][]utxo.TransactionID)
-	for it := conflict.ConflictSets().Iterator(); it.HasNext(); {
-		conflictSet := it.Next()
-		conflictIDsPerConflictSet[conflictSet.ID()] = lo.Map(conflictSet.Conflicts().Slice(), func(c *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) utxo.TransactionID {
-			return c.ID()
-		})
+	for it := conflictSetsIDs.Iterator(); it.HasNext(); {
+		conflictSetID := it.Next()
+		conflictSetMemberIDs, conflictSetExists := conflictDAG.ConflictSetMembers(conflictSetID)
+		if !conflictSetExists {
+			return c.JSON(http.StatusNotFound, jsonmodels.NewErrorResponse(errors.Errorf("failed to load ConflictSet of %s", conflictSetID)))
+		}
+
+		conflictIDsPerConflictSet[conflictSetID] = conflictSetMemberIDs.Slice()
 	}
 
 	return c.JSON(http.StatusOK, jsonmodels.NewGetConflictConflictsResponse(conflictID, conflictIDsPerConflictSet))
@@ -329,10 +341,7 @@ func GetConflictVoters(c echo.Context) (err error) {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
 	}
 
-	voters := deps.Protocol.Engine().Tangle.Booker().VirtualVoting().ConflictVoters(conflictID)
-	defer voters.Detach()
-
-	return c.JSON(http.StatusOK, jsonmodels.NewGetConflictVotersResponse(conflictID, voters))
+	return c.JSON(http.StatusOK, jsonmodels.NewGetConflictVotersResponse(conflictID, deps.Protocol.Engine().Ledger.MemPool().ConflictDAG().ConflictVoters(conflictID)))
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

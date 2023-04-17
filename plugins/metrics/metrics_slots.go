@@ -7,7 +7,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/app/collector"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
@@ -31,7 +30,6 @@ const (
 	createdConflicts          = "created_conflicts"
 	acceptedConflicts         = "accepted_conflicts"
 	rejectedConflicts         = "rejected_conflicts"
-	notConflictingConflicts   = "not_conflicting_conflicts"
 )
 
 var SlotMetrics = collector.NewCollection(slotNamespace,
@@ -45,7 +43,7 @@ var SlotMetrics = collector.NewCollection(slotNamespace,
 				deps.Collector.Increment(slotNamespace, totalBlocks, strconv.Itoa(eventSlot))
 
 				// need to initialize slot metrics with 0 to have consistent data for each slot
-				for _, metricName := range []string{acceptedBlocksInSlot, orphanedBlocks, invalidBlocks, subjectivelyInvalidBlocks, totalAttachments, orphanedAttachments, rejectedAttachments, acceptedAttachments, createdConflicts, acceptedConflicts, rejectedConflicts, notConflictingConflicts} {
+				for _, metricName := range []string{acceptedBlocksInSlot, orphanedBlocks, invalidBlocks, subjectivelyInvalidBlocks, totalAttachments, orphanedAttachments, rejectedAttachments, acceptedAttachments, createdConflicts, acceptedConflicts, rejectedConflicts} {
 					deps.Collector.Update(slotNamespace, metricName, map[string]float64{
 						strconv.Itoa(eventSlot): 0,
 					})
@@ -58,7 +56,7 @@ var SlotMetrics = collector.NewCollection(slotNamespace,
 				slotToEvict := int(details.Commitment.Index()) - metricEvictionOffset
 
 				// need to remove metrics for old slots, otherwise they would be stored in memory and always exposed to Prometheus, forever
-				for _, metricName := range []string{totalBlocks, acceptedBlocksInSlot, orphanedBlocks, invalidBlocks, subjectivelyInvalidBlocks, totalAttachments, orphanedAttachments, rejectedAttachments, acceptedAttachments, createdConflicts, acceptedConflicts, rejectedConflicts, notConflictingConflicts} {
+				for _, metricName := range []string{totalBlocks, acceptedBlocksInSlot, orphanedBlocks, invalidBlocks, subjectivelyInvalidBlocks, totalAttachments, orphanedAttachments, rejectedAttachments, acceptedAttachments, createdConflicts, acceptedConflicts, rejectedConflicts} {
 					deps.Collector.ResetMetricLabels(slotNamespace, metricName, map[string]string{
 						labelName: strconv.Itoa(slotToEvict),
 					})
@@ -172,8 +170,8 @@ var SlotMetrics = collector.NewCollection(slotNamespace,
 		collector.WithLabels(labelName),
 		collector.WithHelp("Number of conflicts created per slot."),
 		collector.WithInitFunc(func() {
-			deps.Protocol.Events.Engine.Ledger.MemPool.ConflictDAG.ConflictCreated.Hook(func(conflictCreated *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-				for it := deps.Protocol.Engine().Tangle.Booker().GetAllAttachments(conflictCreated.ID()).Iterator(); it.HasNext(); {
+			deps.Protocol.Events.Engine.Ledger.MemPool.ConflictDAG.ConflictCreated.Hook(func(conflictID utxo.TransactionID) {
+				for it := deps.Protocol.Engine().Tangle.Booker().GetAllAttachments(conflictID).Iterator(); it.HasNext(); {
 					deps.Collector.Increment(slotNamespace, createdConflicts, strconv.Itoa(int(it.Next().ID().Index())))
 				}
 			}, event.WithWorkerPool(Plugin.WorkerPool))
@@ -184,8 +182,8 @@ var SlotMetrics = collector.NewCollection(slotNamespace,
 		collector.WithLabels(labelName),
 		collector.WithHelp("Number of conflicts accepted per slot."),
 		collector.WithInitFunc(func() {
-			deps.Protocol.Events.Engine.Ledger.MemPool.ConflictDAG.ConflictAccepted.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-				for it := deps.Protocol.Engine().Tangle.Booker().GetAllAttachments(conflict.ID()).Iterator(); it.HasNext(); {
+			deps.Protocol.Events.Engine.Ledger.MemPool.ConflictDAG.ConflictAccepted.Hook(func(conflictID utxo.TransactionID) {
+				for it := deps.Protocol.Engine().Tangle.Booker().GetAllAttachments(conflictID).Iterator(); it.HasNext(); {
 					deps.Collector.Increment(slotNamespace, acceptedConflicts, strconv.Itoa(int(it.Next().ID().Index())))
 				}
 			}, event.WithWorkerPool(Plugin.WorkerPool))
@@ -196,21 +194,9 @@ var SlotMetrics = collector.NewCollection(slotNamespace,
 		collector.WithLabels(labelName),
 		collector.WithHelp("Number of conflicts rejected per slot."),
 		collector.WithInitFunc(func() {
-			deps.Protocol.Events.Engine.Ledger.MemPool.ConflictDAG.ConflictRejected.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-				for it := deps.Protocol.Engine().Tangle.Booker().GetAllAttachments(conflict.ID()).Iterator(); it.HasNext(); {
+			deps.Protocol.Events.Engine.Ledger.MemPool.ConflictDAG.ConflictRejected.Hook(func(conflictID utxo.TransactionID) {
+				for it := deps.Protocol.Engine().Tangle.Booker().GetAllAttachments(conflictID).Iterator(); it.HasNext(); {
 					deps.Collector.Increment(slotNamespace, rejectedConflicts, strconv.Itoa(int(it.Next().ID().Index())))
-				}
-			}, event.WithWorkerPool(Plugin.WorkerPool))
-		}),
-	)),
-	collector.WithMetric(collector.NewMetric(notConflictingConflicts,
-		collector.WithType(collector.CounterVec),
-		collector.WithLabels(labelName),
-		collector.WithHelp("Number of conflicts rejected per slot."),
-		collector.WithInitFunc(func() {
-			deps.Protocol.Events.Engine.Ledger.MemPool.ConflictDAG.ConflictNotConflicting.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-				for it := deps.Protocol.Engine().Tangle.Booker().GetAllAttachments(conflict.ID()).Iterator(); it.HasNext(); {
-					deps.Collector.Increment(slotNamespace, notConflictingConflicts, strconv.Itoa(int(it.Next().ID().Index())))
 				}
 			}, event.WithWorkerPool(Plugin.WorkerPool))
 		}),
