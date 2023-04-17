@@ -243,7 +243,7 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) AllConflictsSupported(i
 		lastVote, exists := conflict.LatestVotes.Get(issuerID)
 
 		return lo.Cond(exists && lastVote.IsLiked(), nil, xerrors.Errorf("conflict with %s is not supported by %s", conflict.ID, issuerID))
-	}) != nil
+	}) == nil
 }
 
 func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) ConflictVoters(conflictID ConflictID) (conflictVoters map[identity.ID]int64) {

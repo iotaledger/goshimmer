@@ -68,7 +68,7 @@ func (r *ReferenceProvider) References(payload payload.Payload, strongParents mo
 
 		// This should be liked anyway, or at least it should be corrected by shallow like if we spend.
 		// If a node spends something it doesn't like, then the payload is invalid as well.
-		weakReferences, likeInsteadReferences, err := r.referencesFromUnacceptedInputs(payload, excludedConflictIDs)
+		weakReferences, likeInsteadReferences, err := r.referencesFromUnacceptedInputs(payload, excludedConflictIDs, conflictDAG)
 		if err != nil {
 			return errors.Wrapf(err, "failed to create references for unnaccepted inputs")
 		}
@@ -117,7 +117,7 @@ func (r *ReferenceProvider) referencesToMissingConflicts(amount int, conflictDAG
 	return blockIDs
 }
 
-func (r *ReferenceProvider) referencesFromUnacceptedInputs(payload payload.Payload, excludedConflictIDs utxo.TransactionIDs) (weakParents models.BlockIDs, likeInsteadParents models.BlockIDs, err error) {
+func (r *ReferenceProvider) referencesFromUnacceptedInputs(payload payload.Payload, excludedConflictIDs utxo.TransactionIDs, conflictDAG newconflictdag.ReadLockedConflictDAG[utxo.TransactionID, utxo.OutputID, models.BlockVotePower]) (weakParents models.BlockIDs, likeInsteadParents models.BlockIDs, err error) {
 	weakParents = models.NewBlockIDs()
 	likeInsteadParents = models.NewBlockIDs()
 
@@ -159,7 +159,7 @@ func (r *ReferenceProvider) referencesFromUnacceptedInputs(payload payload.Paylo
 					continue
 				}
 
-				if adjust, referencedBlk, referenceErr := r.adjustOpinion(transactionConflictID, excludedConflictIDs, nil); referenceErr != nil {
+				if adjust, referencedBlk, referenceErr := r.adjustOpinion(transactionConflictID, excludedConflictIDs, conflictDAG); referenceErr != nil {
 					return nil, nil, errors.Wrapf(referenceErr, "failed to correct opinion for weak parent with unaccepted output %s", referencedTransactionID)
 				} else if adjust {
 					if referencedBlk != models.EmptyBlockID {

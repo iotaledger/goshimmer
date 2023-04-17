@@ -103,7 +103,7 @@ func (t *TipManager) AddTipNonMonotonic(block *scheduler.Block) {
 	// Do not add a tip booked on a reject branch, we won't use it as a tip and it will otherwise remove parent tips.
 	blockConflictIDs := t.engine.Tangle.Booker().BlockConflicts(block.Block)
 	if t.engine.Ledger.MemPool().ConflictDAG().AcceptanceState(blockConflictIDs).IsRejected() {
-		fmt.Println(">> adding rejected tip", block.ID())
+		//fmt.Println(">> adding rejected tip", block.ID())
 		// return
 	}
 
@@ -154,7 +154,9 @@ func (t *TipManager) removeStrongParents(block *models.Block) {
 // Tips returns count number of tips, maximum MaxParentsCount.
 func (t *TipManager) Tips(countParents int) (parents models.BlockIDs) {
 	currentEngine := t.currentEngine()
-
+	if currentEngine == nil {
+		return parents
+	}
 	currentEngine.ProcessingMutex.Lock()
 	defer currentEngine.ProcessingMutex.Unlock()
 
