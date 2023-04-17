@@ -6,13 +6,11 @@ import (
 	"fmt"
 	"testing"
 	"time"
-
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/types"
+	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/core/chainstorage"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/mana/manamodels"
@@ -75,24 +73,24 @@ var (
 			},
 		},
 	}
-	epochCreatedBalances    = []uint64{1, 1, 2, 2, 1}
-	epochSpentBalances      = []uint64{2, 2, 2, 1}
-	epochCreatedPledgeIDs   = []identity.ID{inputPledgeID1, inputPledgeID2, inputPledgeID2, inputPledgeID3, inputPledgeID3}
-	epochSpentPledgeIDs     = []identity.ID{inputPledgeID1, inputPledgeID1, inputPledgeID2, inputPledgeID3}
-	afterBookingEpochAmount = map[identity.ID]int64{
+	slotCreatedBalances    = []uint64{1, 1, 2, 2, 1}
+	slotSpentBalances      = []uint64{2, 2, 2, 1}
+	slotCreatedPledgeIDs   = []identity.ID{inputPledgeID1, inputPledgeID2, inputPledgeID2, inputPledgeID3, inputPledgeID3}
+	slotSpentPledgeIDs     = []identity.ID{inputPledgeID1, inputPledgeID1, inputPledgeID2, inputPledgeID3}
+	afterBookingSlotAmount = map[identity.ID]int64{
 		inputPledgeID1: 2.0,
 		inputPledgeID2: 4.0,
 		inputPledgeID3: 4.0,
 	}
 )
 
-func prepareEpochDiffs() (created []*chainstorage.OutputWithMetadata, spent []*chainstorage.OutputWithMetadata) {
-	for i, amount := range epochCreatedBalances {
-		outWithMeta := createOutputWithMetadata(amount, epochCreatedPledgeIDs[i])
+func prepareSlotDiffs() (created []*chainstorage.OutputWithMetadata, spent []*chainstorage.OutputWithMetadata) {
+	for i, amount := range slotCreatedBalances {
+		outWithMeta := createOutputWithMetadata(amount, slotCreatedPledgeIDs[i])
 		created = append(created, outWithMeta)
 	}
-	for i, amount := range epochSpentBalances {
-		outWithMeta := createOutputWithMetadata(amount, epochSpentPledgeIDs[i])
+	for i, amount := range slotSpentBalances {
+		outWithMeta := createOutputWithMetadata(amount, slotSpentPledgeIDs[i])
 		spent = append(spent, outWithMeta)
 	}
 
@@ -199,7 +197,7 @@ func TestTracker_BookTransaction(t *testing.T) {
 	assert.Empty(t, revokedIssuerIds)
 }
 
-func TestTracker_BookEpoch(t *testing.T) {
+func TestTracker_BookSlot(t *testing.T) {
 	tf := ledger.NewTestFramework(t)
 	tracker := New(tf.Ledger)
 	// hold information about which events triggered
@@ -215,7 +213,7 @@ func TestTracker_BookEpoch(t *testing.T) {
 	}
 
 	fmt.Println("all ids: ", inputPledgeID1.String(), ' ', inputPledgeID2.String(), ' ', inputPledgeID3.String())
-	created, spent := prepareEpochDiffs()
+	created, spent := prepareSlotDiffs()
 	// when an event triggers, add it to the log
 	tracker.Events.Updated.Hook(event.NewClosure(func(ev *UpdatedEvent) {
 		updateEvents = append(updateEvents, ev)
@@ -234,7 +232,7 @@ func TestTracker_BookEpoch(t *testing.T) {
 	bmv.SetMana(inputPledgeID3, manamodels.NewManaBase(beforeBookingAmount[inputPledgeID3]))
 	tracker.baseManaVectors[manamodels.ConsensusMana] = bmv
 
-	tracker.BookEpoch(created, spent)
+	tracker.BookSlot(created, spent)
 
 	// update triggered for the 3 issuers that mana was revoked from, and once for the pledged
 	assert.Equal(t, 9, len(updateEvents))
@@ -250,7 +248,7 @@ func TestTracker_BookEpoch(t *testing.T) {
 		// has the right type
 		assert.Equal(t, manamodels.ConsensusMana, ev.ManaType)
 		// base mana values are expected
-		assert.Equal(t, afterBookingEpochAmount[ev.IssuerID], ev.NewMana.BaseValue(), "incorrect mana amount for %s", ev.IssuerID)
+		assert.Equal(t, afterBookingSlotAmount[ev.IssuerID], ev.NewMana.BaseValue(), "incorrect mana amount for %s", ev.IssuerID)
 		assert.Contains(t, issuerIds, ev.IssuerID)
 	}
 
@@ -260,21 +258,21 @@ func TestTracker_BookEpoch(t *testing.T) {
 	afterEventsAmount[inputPledgeID3] = beforeBookingAmount[inputPledgeID3]
 
 	for i, ev := range revokeEvents {
-		afterEventsAmount[epochSpentPledgeIDs[i]] -= ev.Amount
+		afterEventsAmount[slotSpentPledgeIDs[i]] -= ev.Amount
 		assert.Equal(t, manamodels.ConsensusMana, ev.ManaType)
 		assert.Contains(t, issuerIds, ev.IssuerID)
 	}
 	for i, ev := range pledgeEvents {
-		afterEventsAmount[epochCreatedPledgeIDs[i]] += ev.Amount
+		afterEventsAmount[slotCreatedPledgeIDs[i]] += ev.Amount
 		assert.Equal(t, manamodels.ConsensusMana, ev.ManaType)
 		assert.Contains(t, issuerIds, ev.IssuerID)
 	}
 	// make sure pledge and revoke events balance changes are as expected
-	for id := range afterBookingEpochAmount {
-		assert.Equal(t, afterEventsAmount[id], afterBookingEpochAmount[id])
+	for id := range afterBookingSlotAmount {
+		assert.Equal(t, afterEventsAmount[id], afterBookingSlotAmount[id])
 		m, _, err := bmv.GetMana(id)
 		require.NoError(t, err)
-		assert.Equal(t, afterBookingEpochAmount[id], m)
+		assert.Equal(t, afterBookingSlotAmount[id], m)
 	}
 }
 

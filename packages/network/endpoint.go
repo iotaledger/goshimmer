@@ -1,8 +1,9 @@
 package network
 
 import (
-	"github.com/iotaledger/hive.go/core/identity"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/iotaledger/hive.go/crypto/identity"
 )
 
 type Endpoint interface {

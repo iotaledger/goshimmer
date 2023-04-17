@@ -1,22 +1,21 @@
 package filter
 
 import (
-	"github.com/iotaledger/hive.go/core/generics/event"
-
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/runtime/event"
 )
 
 type Events struct {
-	BlockFiltered *event.Linkable[*BlockFilteredEvent]
-	BlockAllowed  *event.Linkable[*models.Block]
+	BlockFiltered *event.Event1[*BlockFilteredEvent]
+	BlockAllowed  *event.Event1[*models.Block]
 
-	event.LinkableCollection[Events, *Events]
+	event.Group[Events, *Events]
 }
 
-var NewEvents = event.LinkableConstructor(func() *Events {
+var NewEvents = event.CreateGroupConstructor(func() *Events {
 	return &Events{
-		BlockFiltered: event.NewLinkable[*BlockFilteredEvent](),
-		BlockAllowed:  event.NewLinkable[*models.Block](),
+		BlockFiltered: event.New1[*BlockFilteredEvent](),
+		BlockAllowed:  event.New1[*models.Block](),
 	}
 })
 

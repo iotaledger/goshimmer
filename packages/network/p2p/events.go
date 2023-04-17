@@ -1,23 +1,23 @@
 package p2p
 
 import (
-	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/runtime/event"
 )
 
 // NeighborGroupEvents is a collection of events specific for a particular neighbors group, e.g "manual" or "auto".
 type NeighborGroupEvents struct {
 	// Fired when a neighbor connection has been established.
-	NeighborAdded *event.Event[*NeighborAddedEvent]
+	NeighborAdded *event.Event1[*NeighborAddedEvent]
 
 	// Fired when a neighbor has been removed.
-	NeighborRemoved *event.Event[*NeighborRemovedEvent]
+	NeighborRemoved *event.Event1[*NeighborRemovedEvent]
 }
 
 // NewNeighborGroupEvents returns a new instance of NeighborGroupEvents.
 func NewNeighborGroupEvents() *NeighborGroupEvents {
 	return &NeighborGroupEvents{
-		NeighborAdded:   event.New[*NeighborAddedEvent](),
-		NeighborRemoved: event.New[*NeighborRemovedEvent](),
+		NeighborAdded:   event.New1[*NeighborAddedEvent](),
+		NeighborRemoved: event.New1[*NeighborRemovedEvent](),
 	}
 }
 

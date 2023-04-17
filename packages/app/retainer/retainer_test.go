@@ -8,16 +8,20 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/database"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization/slotnotarization"
+	"github.com/iotaledger/goshimmer/packages/protocol/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/ds/types"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
+	"github.com/iotaledger/hive.go/serializer/v2/serix"
 )
 
 func TestRetainer_BlockMetadata_Serialization(t *testing.T) {
@@ -32,6 +36,20 @@ func TestRetainer_BlockMetadata_Serialization(t *testing.T) {
 	require.Equal(t, len(serializedBytes), decodedBytes)
 
 	validateDeserialized(t, meta, metaDeserialized)
+}
+
+func TestRetainer_Commitment_Serialization(t *testing.T) {
+	cd := createCommitmentDetails()
+
+	serializedBytes, err := cd.Bytes()
+	require.NoError(t, err)
+
+	cdDeserialized := newCommitmentDetails()
+	decodedBytes, err := cdDeserialized.FromBytes(serializedBytes)
+	require.NoError(t, err)
+	require.Equal(t, len(serializedBytes), decodedBytes)
+
+	validateDeserializedCommitmentDetails(t, cd, cdDeserialized)
 }
 
 func TestRetainer_BlockMetadata_JSON(t *testing.T) {
@@ -60,19 +78,22 @@ func TestRetainer_BlockMetadata_JSON_optional(t *testing.T) {
 }
 
 func TestRetainer_BlockMetadata_NonEvicted(t *testing.T) {
-	protocolTF := protocol.NewTestFramework(t)
-	protocolTF.Protocol.Run()
+	workers := workerpool.NewGroup(t.Name())
+	tf := protocol.NewTestFramework(t, workers.CreateGroup("ProtocolTestFramework"), new(devnetvm.VM))
+	tf.Instance.Run()
 
-	retainer := NewRetainer(protocolTF.Protocol, database.NewManager(0))
+	retainer := NewRetainer(workers.CreateGroup("Retainer"), tf.Instance, database.NewManager(0))
+
 	t.Cleanup(func() {
 		retainer.Shutdown()
 	})
 
-	tangleTF := tangle.NewTestFramework(t, tangle.WithTangle(protocolTF.Protocol.Engine().Tangle))
-	b := tangleTF.CreateBlock("A")
-	tangleTF.IssueBlocks("A")
-	protocolTF.WaitUntilAllTasksProcessed()
-	block, exists := protocolTF.Protocol.CongestionControl.Block(b.ID())
+	b := tf.Engine.BlockDAG.CreateBlock("A")
+	tf.Engine.BlockDAG.IssueBlocks("A")
+
+	workers.WaitChildren()
+
+	block, exists := tf.Instance.CongestionControl.Block(b.ID())
 	require.True(t, exists)
 	var meta *BlockMetadata
 	require.Eventuallyf(t, func() (exists bool) {
@@ -100,7 +121,7 @@ func TestRetainer_BlockMetadata_NonEvicted(t *testing.T) {
 	require.EqualValues(t, pastMarkers, block.StructureDetails().PastMarkers())
 	require.Equal(t, meta.M.AddedConflictIDs, block.AddedConflictIDs())
 	require.Equal(t, meta.M.SubtractedConflictIDs, block.SubtractedConflictIDs())
-	require.Equal(t, meta.M.ConflictIDs, protocolTF.Protocol.Engine().Tangle.BlockConflicts(block.Block.Block))
+	require.Equal(t, meta.M.ConflictIDs, tf.Instance.Engine().Tangle.Booker().BlockConflicts(block.Block))
 
 	require.Equal(t, meta.M.Tracked, true)
 	require.Equal(t, meta.M.SubjectivelyInvalid, block.IsSubjectivelyInvalid())
@@ -111,23 +132,27 @@ func TestRetainer_BlockMetadata_NonEvicted(t *testing.T) {
 }
 
 func TestRetainer_BlockMetadata_Evicted(t *testing.T) {
-	protocolTF := protocol.NewTestFramework(t)
-	protocolTF.Protocol.Run()
+	workers := workerpool.NewGroup(t.Name())
+	tf := protocol.NewTestFramework(t, workers.CreateGroup("ProtocolTestFramework"), new(devnetvm.VM))
+	tf.Instance.Run()
 
-	retainer := NewRetainer(protocolTF.Protocol, database.NewManager(0))
+	retainer := NewRetainer(workers.CreateGroup("Retainer"), tf.Instance, database.NewManager(0))
+
 	t.Cleanup(func() {
 		retainer.Shutdown()
 	})
 
-	tangleTF := tangle.NewTestFramework(t, tangle.WithTangle(protocolTF.Protocol.Engine().Tangle))
-	b := tangleTF.CreateBlock("A", models.WithIssuingTime(time.Unix(epoch.GenesisTime, 0).Add(70*time.Second)))
-	tangleTF.IssueBlocks("A")
-	protocolTF.WaitUntilAllTasksProcessed()
-	block, exists := protocolTF.Protocol.CongestionControl.Block(b.ID())
+	b := tf.Engine.BlockDAG.CreateBlock("A", models.WithIssuingTime(tf.Instance.SlotTimeProvider().GenesisTime().Add(70*time.Second)))
+	tf.Engine.BlockDAG.IssueBlocks("A")
+
+	workers.WaitChildren()
+
+	block, exists := tf.Instance.CongestionControl.Block(b.ID())
 	require.True(t, exists)
-	protocolTF.Protocol.Engine().EvictionState.EvictUntil(b.ID().EpochIndex + 1)
-	protocolTF.WaitUntilAllTasksProcessed()
-	retainer.WorkerPool().PendingTasksCounter.WaitIsZero()
+
+	// Trigger eviction through commitment creation
+	tf.Engine.Instance.Notarization.(*slotnotarization.Manager).TryCommitUntil(tf.Instance.SlotTimeProvider().EndTime(tf.Instance.SlotTimeProvider().IndexFromTime(tf.Instance.SlotTimeProvider().GenesisTime().Add(70*time.Second)) + 8))
+	workers.WaitChildren()
 
 	meta, exists := retainer.BlockMetadata(block.ID())
 	require.True(t, exists)
@@ -153,7 +178,7 @@ func TestRetainer_BlockMetadata_Evicted(t *testing.T) {
 	require.EqualValues(t, pastMarkers, block.StructureDetails().PastMarkers())
 	require.Equal(t, meta.M.AddedConflictIDs, block.AddedConflictIDs())
 	require.Equal(t, meta.M.SubtractedConflictIDs, block.SubtractedConflictIDs())
-	require.Equal(t, meta.M.ConflictIDs, protocolTF.Protocol.Engine().Tangle.BlockConflicts(block.Block.Block))
+	require.Equal(t, meta.M.ConflictIDs, tf.Instance.Engine().Tangle.Booker().BlockConflicts(block.Block))
 	require.Equal(t, meta.M.Tracked, true)
 	require.Equal(t, meta.M.SubjectivelyInvalid, block.IsSubjectivelyInvalid())
 	// You cannot really test this as the scheduler might have scheduled the block after its metadata was retained.
@@ -188,6 +213,14 @@ func validateDeserialized(t *testing.T, meta *BlockMetadata, metaDeserialized *B
 	require.Equal(t, meta.M.SchedulerTime.Unix(), metaDeserialized.M.SchedulerTime.Unix())
 	require.Equal(t, meta.M.Accepted, metaDeserialized.M.Accepted)
 	require.Equal(t, meta.M.AcceptedTime.Unix(), metaDeserialized.M.AcceptedTime.Unix())
+}
+
+func validateDeserializedCommitmentDetails(t *testing.T, cd *CommitmentDetails, cdDeserialized *CommitmentDetails) {
+	require.Equal(t, cd.M.AcceptedBlocks, cdDeserialized.M.AcceptedBlocks)
+	require.Equal(t, cd.M.AcceptedTransactions, cdDeserialized.M.AcceptedTransactions)
+	require.Equal(t, cd.M.CreatedOutputs, cdDeserialized.M.CreatedOutputs)
+	require.Equal(t, cd.M.SpentOutputs, cdDeserialized.M.SpentOutputs)
+	require.EqualValues(t, cd.M.Commitment, cdDeserialized.M.Commitment)
 }
 
 func createBlockMetadata() *BlockMetadata {
@@ -231,6 +264,42 @@ func createBlockMetadata() *BlockMetadata {
 	meta.M.Accepted = true
 	meta.M.AcceptedTime = time.Now()
 	return meta
+}
+
+func createCommitmentDetails() *CommitmentDetails {
+	var id0, id1 commitment.ID
+	_ = id0.FromRandomness()
+	_ = id1.FromRandomness()
+
+	var root types.Identifier
+	_ = root.FromRandomness()
+	cm := commitment.New(slot.Index(4), id0, root, 500)
+
+	cd := newCommitmentDetails()
+	cd.SetID(id1)
+	cd.M.Commitment = cm
+
+	var blockID0 models.BlockID
+	_ = blockID0.FromRandomness()
+
+	cd.M.AcceptedBlocks = make(models.BlockIDs)
+	cd.M.AcceptedBlocks.Add(blockID0)
+
+	var txID utxo.TransactionID
+	_ = txID.FromRandomness()
+	cd.M.AcceptedTransactions = utxo.NewTransactionIDs()
+	cd.M.AcceptedTransactions.Add(txID)
+
+	var outputID0, outputID1 utxo.OutputID
+	_ = outputID0.FromRandomness()
+	_ = outputID1.FromRandomness()
+
+	cd.M.CreatedOutputs = utxo.NewOutputIDs()
+	cd.M.CreatedOutputs.Add(outputID0)
+	cd.M.SpentOutputs = utxo.NewOutputIDs()
+	cd.M.SpentOutputs.Add(outputID1)
+
+	return cd
 }
 
 func printPrettyJSON(t *testing.T, b []byte) {

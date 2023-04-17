@@ -2,104 +2,127 @@ package eviction
 
 import (
 	"io"
+	"math"
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/generics/options"
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/core/memstorage"
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/stream"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
+	"github.com/iotaledger/hive.go/core/memstorage"
+	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/ds/ringbuffer"
+	"github.com/iotaledger/hive.go/ds/shrinkingmap"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 // State represents the state of the eviction and keeps track of the root blocks.
 type State struct {
 	Events *Events
 
-	rootBlocks           *memstorage.EpochStorage[models.BlockID, bool]
-	latestRootBlock      models.BlockID
-	latestRootBlockMutex sync.RWMutex
-	storage              *storage.Storage
-	lastEvictedEpoch     epoch.Index
-	evictionMutex        sync.RWMutex
-	triggerMutex         sync.Mutex
+	rootBlocks       *memstorage.SlotStorage[models.BlockID, commitment.ID]
+	latestRootBlocks *ringbuffer.RingBuffer[models.BlockID]
+	storage          *storage.Storage
+	lastEvictedSlot  slot.Index
+	evictionMutex    sync.RWMutex
+	triggerMutex     sync.Mutex
 
-	optsRootBlocksEvictionDelay epoch.Index
+	optsRootBlocksEvictionDelay slot.Index
 }
 
 // NewState creates a new eviction State.
 func NewState(storageInstance *storage.Storage, opts ...options.Option[State]) (state *State) {
 	return options.Apply(&State{
 		Events:                      NewEvents(),
-		rootBlocks:                  memstorage.NewEpochStorage[models.BlockID, bool](),
-		latestRootBlock:             models.EmptyBlockID,
+		rootBlocks:                  memstorage.NewSlotStorage[models.BlockID, commitment.ID](),
+		latestRootBlocks:            ringbuffer.NewRingBuffer[models.BlockID](8),
 		storage:                     storageInstance,
-		lastEvictedEpoch:            storageInstance.Settings.LatestCommitment().Index(),
+		lastEvictedSlot:             storageInstance.Settings.LatestCommitment().Index(),
 		optsRootBlocksEvictionDelay: 3,
 	}, opts)
 }
 
-// EvictUntil triggers the EpochEvicted event for every evicted epoch and evicts all root blocks until the delayed
+// EvictUntil triggers the SlotEvicted event for every evicted slot and evicts all root blocks until the delayed
 // root blocks eviction threshold.
-func (s *State) EvictUntil(index epoch.Index) {
+func (s *State) EvictUntil(index slot.Index) {
 	s.triggerMutex.Lock()
 	defer s.triggerMutex.Unlock()
 
 	s.evictionMutex.Lock()
 
-	lastEvictedEpoch := s.lastEvictedEpoch
-	if index <= lastEvictedEpoch {
+	lastEvictedSlot := s.lastEvictedSlot
+	if index <= lastEvictedSlot {
 		s.evictionMutex.Unlock()
 		return
 	}
 
-	for currentIndex := lastEvictedEpoch; currentIndex < index; currentIndex++ {
+	for currentIndex := lastEvictedSlot; currentIndex < index; currentIndex++ {
 		if delayedIndex := s.delayedBlockEvictionThreshold(currentIndex); delayedIndex >= 0 {
 			s.rootBlocks.Evict(delayedIndex)
 		}
 	}
-	s.lastEvictedEpoch = index
+	s.lastEvictedSlot = index
 	s.evictionMutex.Unlock()
 
-	for currentIndex := lastEvictedEpoch + 1; currentIndex <= index; currentIndex++ {
-		s.Events.EpochEvicted.Trigger(currentIndex)
+	for currentIndex := lastEvictedSlot + 1; currentIndex <= index; currentIndex++ {
+		s.Events.SlotEvicted.Trigger(currentIndex)
 	}
 }
 
-// LastEvictedEpoch returns the last evicted epoch.
-func (s *State) LastEvictedEpoch() (lastEvictedEpoch epoch.Index) {
+// LastEvictedSlot returns the last evicted slot.
+func (s *State) LastEvictedSlot() slot.Index {
 	s.evictionMutex.RLock()
 	defer s.evictionMutex.RUnlock()
 
-	return s.lastEvictedEpoch
+	return s.lastEvictedSlot
 }
 
-// InEvictedEpoch checks if the Block associated with the given id is too old (in a pruned epoch).
-func (s *State) InEvictedEpoch(id models.BlockID) (inEvictedEpoch bool) {
+// EarliestRootCommitmentID returns the earliest commitment that rootblocks are committing to across all rootblocks.
+func (s *State) EarliestRootCommitmentID() (earliestCommitment commitment.ID) {
+	earliestCommitment.SlotIndex = math.MaxInt64
+	s.rootBlocks.ForEach(func(index slot.Index, storage *shrinkingmap.ShrinkingMap[models.BlockID, commitment.ID]) {
+		storage.ForEach(func(id models.BlockID, commitmentID commitment.ID) bool {
+			if commitmentID.Index() < earliestCommitment.Index() {
+				earliestCommitment = commitmentID
+			}
+
+			return true
+		})
+	})
+
+	if earliestCommitment.Index() == math.MaxInt64 {
+		return commitment.NewEmptyCommitment().ID()
+	}
+
+	return earliestCommitment
+}
+
+// InEvictedSlot checks if the Block associated with the given id is too old (in a pruned slot).
+func (s *State) InEvictedSlot(id models.BlockID) bool {
 	s.evictionMutex.RLock()
 	defer s.evictionMutex.RUnlock()
 
-	return id.Index() <= s.lastEvictedEpoch
+	return id.Index() <= s.lastEvictedSlot
 }
 
 // AddRootBlock inserts a solid entry point to the seps map.
-func (s *State) AddRootBlock(id models.BlockID) {
+func (s *State) AddRootBlock(id models.BlockID, commitmentID commitment.ID) {
 	s.evictionMutex.RLock()
 	defer s.evictionMutex.RUnlock()
 
-	if id.Index() <= s.delayedBlockEvictionThreshold(s.lastEvictedEpoch) {
+	if id.Index() <= s.delayedBlockEvictionThreshold(s.lastEvictedSlot) {
 		return
 	}
 
-	if s.rootBlocks.Get(id.Index(), true).Set(id, true) {
-		if err := s.storage.RootBlocks.Store(id); err != nil {
+	if s.rootBlocks.Get(id.Index(), true).Set(id, commitmentID) {
+		if err := s.storage.RootBlocks.Store(id, commitmentID); err != nil {
 			panic(errors.Wrapf(err, "failed to store root block %s", id))
 		}
 	}
 
-	s.updateLatestRootBlock(id)
+	s.latestRootBlocks.Add(id)
 }
 
 // RemoveRootBlock removes a solid entry points from the map.
@@ -123,30 +146,35 @@ func (s *State) IsRootBlock(id models.BlockID) (has bool) {
 	s.evictionMutex.RLock()
 	defer s.evictionMutex.RUnlock()
 
-	if id.Index() <= s.delayedBlockEvictionThreshold(s.lastEvictedEpoch) {
+	if id.Index() <= s.delayedBlockEvictionThreshold(s.lastEvictedSlot) || id.Index() > s.lastEvictedSlot {
 		return false
 	}
 
-	epochBlocks := s.rootBlocks.Get(id.Index(), false)
+	slotBlocks := s.rootBlocks.Get(id.Index(), false)
 
-	return epochBlocks != nil && epochBlocks.Has(id)
+	return slotBlocks != nil && slotBlocks.Has(id)
 }
 
-// LatestRootBlock returns the latest root block.
-func (s *State) LatestRootBlock() models.BlockID {
-	s.latestRootBlockMutex.RLock()
-	defer s.latestRootBlockMutex.RUnlock()
-
-	return s.latestRootBlock
+// LatestRootBlocks returns the latest root blocks.
+func (s *State) LatestRootBlocks() models.BlockIDs {
+	rootBlocks := s.latestRootBlocks.Elements()
+	if len(rootBlocks) == 0 {
+		return models.NewBlockIDs(models.EmptyBlockID)
+	}
+	return models.NewBlockIDs(rootBlocks...)
 }
 
 // Export exports the root blocks to the given writer.
-func (s *State) Export(writer io.WriteSeeker, evictedEpoch epoch.Index) (err error) {
+func (s *State) Export(writer io.WriteSeeker, evictedSlot slot.Index) (err error) {
 	return stream.WriteCollection(writer, func() (elementsCount uint64, err error) {
-		for currentEpoch := s.delayedBlockEvictionThreshold(evictedEpoch) + 1; currentEpoch <= evictedEpoch; currentEpoch++ {
-			if err = s.storage.RootBlocks.Stream(currentEpoch, func(rootBlockID models.BlockID) (err error) {
+		for currentSlot := s.delayedBlockEvictionThreshold(evictedSlot) + 1; currentSlot <= evictedSlot; currentSlot++ {
+			if err = s.storage.RootBlocks.Stream(currentSlot, func(rootBlockID models.BlockID, commitmentID commitment.ID) (err error) {
 				if err = stream.WriteSerializable(writer, rootBlockID, models.BlockIDLength); err != nil {
-					return errors.Wrapf(err, "failed to write root block %s", rootBlockID)
+					return errors.Wrapf(err, "failed to write root block ID %s", rootBlockID)
+				}
+
+				if err = stream.WriteSerializable(writer, commitmentID, commitmentID.Length()); err != nil {
+					return errors.Wrapf(err, "failed to write root block's %s commitment %s", rootBlockID, commitmentID)
 				}
 
 				elementsCount++
@@ -164,52 +192,40 @@ func (s *State) Export(writer io.WriteSeeker, evictedEpoch epoch.Index) (err err
 // Import imports the root blocks from the given reader.
 func (s *State) Import(reader io.ReadSeeker) (err error) {
 	var rootBlockID models.BlockID
+	var commitmentID commitment.ID
 
 	return stream.ReadCollection(reader, func(i int) error {
 		if err = stream.ReadSerializable(reader, &rootBlockID, models.BlockIDLength); err != nil {
 			return errors.Wrapf(err, "failed to read root block id %d", i)
 		}
+		if err = stream.ReadSerializable(reader, &commitmentID, commitmentID.Length()); err != nil {
+			return errors.Wrapf(err, "failed to read root block's %s commitment id", rootBlockID)
+		}
 
-		s.AddRootBlock(rootBlockID)
+		s.AddRootBlock(rootBlockID, commitmentID)
 
 		return nil
 	})
 }
 
-// importRootBlocksFromStorage imports the root blocks from the storage into the cache.
-func (s *State) importRootBlocksFromStorage() (importedBlocks int) {
-	for currentEpoch := s.lastEvictedEpoch; currentEpoch >= 0 && currentEpoch > s.delayedBlockEvictionThreshold(s.lastEvictedEpoch); currentEpoch-- {
-		if err := s.storage.RootBlocks.Stream(currentEpoch, func(rootBlockID models.BlockID) (err error) {
-			s.AddRootBlock(rootBlockID)
+// PopulateFromStorage populates the root blocks from the storage.
+func (s *State) PopulateFromStorage(latestCommitmentIndex slot.Index) {
+	for index := latestCommitmentIndex - s.delayedBlockEvictionThreshold(latestCommitmentIndex); index <= latestCommitmentIndex; index++ {
+		_ = s.storage.RootBlocks.Stream(index, func(id models.BlockID, commitmentID commitment.ID) error {
+			s.AddRootBlock(id, commitmentID)
 
-			importedBlocks++
-
-			return
-		}); err != nil {
-			panic(errors.Wrap(err, "failed importing root blocks from storage"))
-		}
-	}
-
-	return
-}
-
-// updateLatestRootBlock updates the latest root block.
-func (s *State) updateLatestRootBlock(id models.BlockID) {
-	s.latestRootBlockMutex.Lock()
-	defer s.latestRootBlockMutex.Unlock()
-
-	if id.Index() >= s.latestRootBlock.Index() {
-		s.latestRootBlock = id
+			return nil
+		})
 	}
 }
 
-// delayedBlockEvictionThreshold returns the epoch index that is the threshold for delayed rootblocks eviction.
-func (s *State) delayedBlockEvictionThreshold(index epoch.Index) (threshold epoch.Index) {
+// delayedBlockEvictionThreshold returns the slot index that is the threshold for delayed rootblocks eviction.
+func (s *State) delayedBlockEvictionThreshold(index slot.Index) (threshold slot.Index) {
 	return (index - s.optsRootBlocksEvictionDelay - 1).Max(0)
 }
 
 // WithRootBlocksEvictionDelay sets the time since confirmation threshold.
-func WithRootBlocksEvictionDelay(delay epoch.Index) options.Option[State] {
+func WithRootBlocksEvictionDelay(delay slot.Index) options.Option[State] {
 	return func(s *State) {
 		s.optsRootBlocksEvictionDelay = delay
 	}

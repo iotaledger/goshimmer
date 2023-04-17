@@ -1,13 +1,11 @@
 package plugins
 
 import (
-	"github.com/iotaledger/hive.go/core/node"
-
+	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/webapi"
 	"github.com/iotaledger/goshimmer/plugins/webapi/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/webapi/block"
 	"github.com/iotaledger/goshimmer/plugins/webapi/data"
-	"github.com/iotaledger/goshimmer/plugins/webapi/epoch"
 	"github.com/iotaledger/goshimmer/plugins/webapi/faucet"
 	"github.com/iotaledger/goshimmer/plugins/webapi/faucetrequest"
 	"github.com/iotaledger/goshimmer/plugins/webapi/healthz"
@@ -17,7 +15,8 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/webapi/metrics"
 	"github.com/iotaledger/goshimmer/plugins/webapi/ratesetter"
 	"github.com/iotaledger/goshimmer/plugins/webapi/scheduler"
-	"github.com/iotaledger/goshimmer/plugins/webapi/spamming"
+	"github.com/iotaledger/goshimmer/plugins/webapi/slot"
+	"github.com/iotaledger/goshimmer/plugins/webapi/snapshot"
 	"github.com/iotaledger/goshimmer/plugins/webapi/weightprovider"
 )
 
@@ -31,13 +30,13 @@ var WebAPI = node.Plugins(
 	block.Plugin,
 	autopeering.Plugin,
 	info.Plugin,
-	epoch.Plugin,
+	slot.Plugin,
 	mana.Plugin,
 	ledgerstate.Plugin,
-	// snapshot.Plugin,
+	snapshot.Plugin,
 	weightprovider.Plugin,
 	ratesetter.Plugin,
 	scheduler.Plugin,
 	metrics.Plugin,
-	spamming.Plugin,
+	// spamming.Plugin,
 )

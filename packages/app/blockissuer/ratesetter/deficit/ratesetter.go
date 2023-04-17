@@ -4,15 +4,14 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/atomic"
+
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/identity"
-
-	"go.uber.org/atomic"
+	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 // region RateSetter ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -63,7 +62,7 @@ func (r *RateSetter) Estimate() time.Duration {
 	} else {
 		// Note: this method needs to be updated to take the expected work of the incoming block as an argument.
 		expectedWork := models.MaxBlockWork
-		return time.Duration(lo.Max(0.0, (float64(expectedWork)-r.getExcessDeficit())/r.ownRate.Load()))
+		return time.Duration(lo.Max(0.0, (float64(expectedWork)-r.getExcessDeficit())/r.Rate()))
 	}
 }
 

@@ -1,9 +1,7 @@
 export enum PayloadType {
     Data = 0,
-    Transaction = 1337,
-    Faucet = 2,
-    Statement = 3,
-    Chat = 989,
+    Transaction = 1,
+    Faucet = 3,
 }
 
 // BasicPayload
@@ -18,11 +16,11 @@ export class TransactionPayload {
     transaction: Transaction;
 }
 
-// Chat payload
-export class ChatPayload {
-    from: string;
-    to: string;
-    block: string;
+export class FaucetPayload {
+    address: string;
+    accessManaPledgeID: string;
+    consensusManaPledgeID: string;
+    nonce: number;
 }
 
 export class Transaction {
@@ -38,7 +36,7 @@ export class Transaction {
 
 export class Input {
     type: string;
-    referencedOutputID: string;
+    referencedOutputID: OutputID;
     output: Output;
 }
 
@@ -125,12 +123,8 @@ export function getPayloadType(p: number){
             return "Data"
         case PayloadType.Transaction:
             return "Transaction"
-        case PayloadType.Statement:
-            return "Statement"
         case PayloadType.Faucet:
             return "Faucet"
-        case PayloadType.Chat:
-            return "Chat"
         default:
             return "Unknown"
     }

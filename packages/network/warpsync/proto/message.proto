@@ -6,32 +6,32 @@ package warpsyncproto;
 
 message Packet {
   oneof body {
-    EpochBlocksStart epochBlocksStart = 1;
-    EpochBlocksBatch epochBlocksBatch = 2;
-    EpochBlocksEnd epochBlocksEnd = 3;
-    EpochBlocksRequest epochBlocksRequest = 4;
+    SlotBlocksStart slotBlocksStart = 1;
+    SlotBlocksBatch slotBlocksBatch = 2;
+    SlotBlocksEnd slotBlocksEnd = 3;
+    SlotBlocksRequest slotBlocksRequest = 4;
   }
 }
 
-message EpochBlocksStart {
-  int64 EI = 1;
-  bytes EC = 2;
+message SlotBlocksStart {
+  int64 SI = 1;
+  bytes SC = 2;
   int64 blocksCount = 3;
 }
 
-message EpochBlocksBatch {
-  int64 EI = 1;
-  bytes EC = 2;
+message SlotBlocksBatch {
+  int64 SI = 1;
+  bytes SC = 2;
   repeated bytes blocks = 3;
 }
 
-message EpochBlocksEnd {
-  int64 EI = 1;
-  bytes EC = 2;
+message SlotBlocksEnd {
+  int64 SI = 1;
+  bytes SC = 2;
   bytes roots = 3;
 }
 
-message EpochBlocksRequest {
-  int64 EI = 1;
-  bytes EC = 2;
+message SlotBlocksRequest {
+  int64 SI = 1;
+  bytes SC = 2;
 }

@@ -34,7 +34,6 @@ goshimmers:
           faucetSeed: "{{ FAUCET_01_FAUCET_SEED }}"
 
   vars:
-    analysisServerHost: "analysisentry-01.feature.shimmer.iota.cafe"
     entryNodeHost: "analysisentry-01.feature.shimmer.iota.cafe"
     entryNodePubKey: "AZKt9NEbNb9TAk5SqVTfj3ANoBzrWLjR5YKxa2BCyi8X"
     bootstrapNodePubKey: "BYpRNA5aCuyym8SRFbEATraY4yr9oyuXCsCFVcEM8Fm4"
@@ -43,5 +42,4 @@ goshimmers:
     debugPorts: true
     remoteDebugging: true
     spammer: true
-    genesisTime: "{{ GENESIS_TIME }}"
     remoteLogs: false

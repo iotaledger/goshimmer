@@ -5,13 +5,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/stringify"
-	"github.com/iotaledger/hive.go/core/types"
-
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/ds/types"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/stringify"
 )
 
 // region Block ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -22,6 +21,7 @@ type Block struct {
 	solid                bool
 	invalid              bool
 	orphaned             bool
+	future               bool
 	strongChildren       []*Block
 	weakChildren         []*Block
 	likedInsteadChildren []*Block
@@ -42,10 +42,10 @@ func NewBlock(data *models.Block, opts ...options.Option[Block]) (newBlock *Bloc
 	}, opts)
 }
 
-func NewRootBlock(id models.BlockID, opts ...options.Option[models.Block]) (rootBlock *Block) {
-	issuingTime := time.Unix(epoch.GenesisTime, 0)
+func NewRootBlock(id models.BlockID, slotTimeProvider *slot.TimeProvider, opts ...options.Option[models.Block]) (rootBlock *Block) {
+	issuingTime := time.Unix(slotTimeProvider.GenesisUnixTime(), 0)
 	if id.Index() > 0 {
-		issuingTime = id.Index().EndTime()
+		issuingTime = slotTimeProvider.EndTime(id.Index())
 	}
 	return NewBlock(
 		models.NewEmptyBlock(id, append([]options.Option[models.Block]{models.WithIssuingTime(issuingTime)}, opts...)...),
@@ -76,6 +76,27 @@ func (b *Block) IsInvalid() (isInvalid bool) {
 	defer b.mutex.RUnlock()
 
 	return b.invalid
+}
+
+// IsFuture returns true if the Block is a future Block (we haven't committed to its commitment slot yet).
+func (b *Block) IsFuture() (isFuture bool) {
+	b.mutex.RLock()
+	defer b.mutex.RUnlock()
+
+	return b.future
+}
+
+// SetFuture marks the Block as future block.
+func (b *Block) SetFuture() (wasUpdated bool) {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+
+	if b.future {
+		return false
+	}
+
+	b.future = true
+	return true
 }
 
 // IsOrphaned returns true if the Block is orphaned (either due to being marked as orphaned itself or because it has
@@ -130,8 +151,8 @@ func (b *Block) LikedInsteadChildren() []*Block {
 	return lo.CopySlice(b.likedInsteadChildren)
 }
 
-// setSolid marks the Block as solid.
-func (b *Block) setSolid() (wasUpdated bool) {
+// SetSolid marks the Block as solid.
+func (b *Block) SetSolid() (wasUpdated bool) {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 
@@ -142,8 +163,8 @@ func (b *Block) setSolid() (wasUpdated bool) {
 	return
 }
 
-// setInvalid marks the Block as invalid.
-func (b *Block) setInvalid() (wasUpdated bool) {
+// SetInvalid marks the Block as invalid.
+func (b *Block) SetInvalid() (wasUpdated bool) {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 
@@ -156,8 +177,8 @@ func (b *Block) setInvalid() (wasUpdated bool) {
 	return true
 }
 
-// setOrphaned sets the orphaned flag of the Block.
-func (b *Block) setOrphaned(orphaned bool) (wasUpdated bool) {
+// SetOrphaned sets the orphaned flag of the Block.
+func (b *Block) SetOrphaned(orphaned bool) (wasUpdated bool) {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 
@@ -169,8 +190,8 @@ func (b *Block) setOrphaned(orphaned bool) (wasUpdated bool) {
 	return true
 }
 
-// appendChild adds a child of the corresponding type to the Block.
-func (b *Block) appendChild(child *Block, childType models.ParentsType) {
+// AppendChild adds a child of the corresponding type to the Block.
+func (b *Block) AppendChild(child *Block, childType models.ParentsType) {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 
@@ -184,8 +205,8 @@ func (b *Block) appendChild(child *Block, childType models.ParentsType) {
 	}
 }
 
-// update publishes the given Block data to the underlying Block and marks it as no longer missing.
-func (b *Block) update(data *models.Block) (wasPublished bool) {
+// Update publishes the given Block data to the underlying Block and marks it as no longer missing.
+func (b *Block) Update(data *models.Block) (wasPublished bool) {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 

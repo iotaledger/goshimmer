@@ -3,9 +3,9 @@ package latestvotes
 import (
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/generics/constraints"
-	"github.com/iotaledger/hive.go/core/generics/thresholdmap"
-	"github.com/iotaledger/hive.go/core/identity"
+	"github.com/iotaledger/hive.go/constraints"
+	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/ds/thresholdmap"
 )
 
 // LatestVotes keeps track of the most up-to-date for a certain Voter casted on a specific Index.

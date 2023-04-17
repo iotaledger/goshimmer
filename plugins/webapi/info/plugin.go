@@ -5,11 +5,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/autopeering/peer"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/node"
-	"github.com/labstack/echo"
+	"github.com/labstack/echo/v4"
 	"github.com/mr-tron/base58/base58"
 	"go.uber.org/dig"
 
@@ -17,12 +13,16 @@ import (
 	"github.com/iotaledger/goshimmer/packages/app/collector"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/core/latestblocktracker"
+	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/plugins/autopeering/discovery"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/goshimmer/plugins/dashboardmetrics"
+	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/event"
 )
 
 // PluginName is the name of the web API info endpoint plugin.
@@ -46,16 +46,18 @@ var (
 )
 
 func init() {
-	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure)
+	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, run)
 }
 
-func configure(_ *node.Plugin) {
-	deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Attach(event.NewClosure(func(block *blockgadget.Block) {
+func run(plugin *node.Plugin) {
+	deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Hook(func(block *blockgadget.Block) {
 		lastAcceptedBlock.Update(block.ModelsBlock)
-	}))
-	deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockConfirmed.Attach(event.NewClosure(func(block *blockgadget.Block) {
+	}, event.WithWorkerPool(plugin.WorkerPool))
+
+	deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockConfirmed.Hook(func(block *blockgadget.Block) {
 		lastConfirmedBlock.Update(block.ModelsBlock)
-	}))
+	}, event.WithWorkerPool(plugin.WorkerPool))
+
 	deps.Server.GET("info", getInfo)
 }
 
@@ -129,12 +131,12 @@ func getInfo(c echo.Context) error {
 		Bootstrapped:     deps.Protocol.Engine().IsBootstrapped(),
 		AcceptedBlockID:  lastAcceptedBlockID.Base58(),
 		ConfirmedBlockID: lastConfirmedBlockID.Base58(),
-		ConfirmedEpoch:   int64(deps.Protocol.Engine().LastConfirmedEpoch()),
+		ConfirmedSlot:    int64(deps.Protocol.Engine().LastConfirmedSlot()),
 
-		ATT:  tm.AcceptedTime().UnixNano(),
-		RATT: tm.RelativeAcceptedTime().UnixNano(),
-		CTT:  tm.ConfirmedTime().UnixNano(),
-		RCTT: tm.RelativeConfirmedTime().UnixNano(),
+		ATT:  tm.Accepted().Time().UnixNano(),
+		RATT: tm.Accepted().RelativeTime().UnixNano(),
+		CTT:  tm.Confirmed().Time().UnixNano(),
+		RCTT: tm.Confirmed().RelativeTime().UnixNano(),
 	}
 
 	accessMana, _ := deps.Protocol.Engine().ThroughputQuota.Balance(deps.Local.ID())
@@ -167,7 +169,7 @@ func getInfo(c echo.Context) error {
 		DisabledPlugins:       disabledPlugins,
 		Mana:                  nodeMana,
 		Scheduler: jsonmodels.Scheduler{
-			Running:           scheduler.Running(),
+			Running:           scheduler.IsRunning(),
 			Rate:              scheduler.Rate().String(),
 			MaxBufferSize:     scheduler.MaxBufferSize(),
 			CurrentBufferSize: scheduler.BufferSize(),

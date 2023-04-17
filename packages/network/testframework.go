@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/identity"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/lo"
 )
 
 // region MockedNetwork ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -20,7 +21,9 @@ type MockedNetwork struct {
 
 func NewMockedNetwork() (mockedNetwork *MockedNetwork) {
 	return &MockedNetwork{
-		dispatchersByPartition: make(map[string]map[identity.ID]*MockedEndpoint),
+		dispatchersByPartition: map[string]map[identity.ID]*MockedEndpoint{
+			mainPartition: make(map[identity.ID]*MockedEndpoint),
+		},
 	}
 }
 

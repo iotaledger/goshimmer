@@ -3,25 +3,24 @@ package faucet
 import (
 	"context"
 
-	"github.com/iotaledger/hive.go/core/daemon"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/node"
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
 	"go.uber.org/atomic"
 	"go.uber.org/dig"
 
+	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
+	"github.com/iotaledger/goshimmer/packages/app/faucet"
 	"github.com/iotaledger/goshimmer/packages/core/pow"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
-
-	walletseed "github.com/iotaledger/goshimmer/client/wallet/packages/seed"
-	"github.com/iotaledger/goshimmer/packages/app/faucet"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm/indexer"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
+	"github.com/iotaledger/hive.go/app/daemon"
+	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/runtime/event"
 )
 
 const (
@@ -62,22 +61,22 @@ func newFaucet() *Faucet {
 	}
 	seedBytes, err := base58.Decode(Parameters.Seed)
 	if err != nil {
-		Plugin.LogFatalfAndExit("configured seed for the faucet is invalid: %s", err)
+		Plugin.LogFatalfAndExitf("configured seed for the faucet is invalid: %s", err)
 	}
 	if Parameters.TokensPerRequest <= 0 {
-		Plugin.LogFatalfAndExit("the amount of tokens to fulfill per request must be above zero")
+		Plugin.LogFatalfAndExitf("the amount of tokens to fulfill per request must be above zero")
 	}
 	if Parameters.MaxTransactionBookedAwaitTime <= 0 {
-		Plugin.LogFatalfAndExit("the max transaction booked await time must be more than 0")
+		Plugin.LogFatalfAndExitf("the max transaction booked await time must be more than 0")
 	}
 
 	return NewFaucet(walletseed.NewSeed(seedBytes), deps.Protocol, deps.BlockIssuer, deps.Indexer)
 }
 
-func configure(_ *node.Plugin) {
+func configure(plugin *node.Plugin) {
 	targetPoWDifficulty = Parameters.PowDifficulty
 
-	configureEvents()
+	deps.Protocol.Events.Engine.Tangle.Booker.BlockTracked.Hook(onBlockProcessed, event.WithWorkerPool(plugin.WorkerPool))
 }
 
 func run(plugin *node.Plugin) {
@@ -93,10 +92,6 @@ func run(plugin *node.Plugin) {
 	}, shutdown.PriorityFaucet); err != nil {
 		plugin.Logger().Panicf("Failed to start daemon: %s", err)
 	}
-}
-
-func configureEvents() {
-	deps.Protocol.Events.Engine.Tangle.VirtualVoting.BlockTracked.Attach(event.NewClosure(onBlockProcessed))
 }
 
 func OnWebAPIRequest(fundingRequest *faucet.Payload) error {
@@ -115,7 +110,7 @@ func OnWebAPIRequest(fundingRequest *faucet.Payload) error {
 	return nil
 }
 
-func onBlockProcessed(block *virtualvoting.Block) {
+func onBlockProcessed(block *booker.Block) {
 	// Do not start picking up request while waiting for initialization.
 	// If faucet nodes crashes, and you restart with a clean db, all previous faucet req blks will be enqueued
 	// and addresses will be funded again. Therefore, do not process any faucet request blocks until we are in

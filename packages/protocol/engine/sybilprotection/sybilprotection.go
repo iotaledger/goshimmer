@@ -2,6 +2,7 @@ package sybilprotection
 
 import (
 	"github.com/iotaledger/goshimmer/packages/core/traits"
+	"github.com/iotaledger/hive.go/runtime/module"
 )
 
 // SybilProtection is the minimal interface for the SybilProtection component of the IOTA protocol.
@@ -12,6 +13,9 @@ type SybilProtection interface {
 	// Validators returns the set of online validators that is used to track acceptance.
 	Validators() (validators *WeightedSet)
 
-	// Initializable exposes a subscribable life-cycle event that is triggered when the component is initialized.
-	traits.Initializable
+	// Committable is a trait that stores information about the latest commitment.
+	traits.Committable
+
+	// Interface embeds the required methods of the module.Interface.
+	module.Interface
 }

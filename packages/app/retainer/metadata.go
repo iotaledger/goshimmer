@@ -5,18 +5,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/model"
-	"github.com/iotaledger/hive.go/core/serix"
-
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/objectstorage/generic/model"
+	"github.com/iotaledger/hive.go/serializer/v2/serix"
 )
 
 // region cachedMetadata ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -26,7 +24,7 @@ type cachedMetadata struct {
 	Booker   *blockWithTime[*booker.Block]
 	// calculated property
 	ConflictIDs   utxo.TransactionIDs
-	VirtualVoting *blockWithTime[*virtualvoting.Block]
+	VirtualVoting *blockWithTime[*booker.Block]
 	Scheduler     *blockWithTime[*scheduler.Block]
 	Acceptance    *blockWithTime[*blockgadget.Block]
 	Confirmation  *blockWithTime[*blockgadget.Block]
@@ -50,7 +48,7 @@ func (c *cachedMetadata) setBookerBlock(block *booker.Block) {
 	c.Booker = newBlockWithTime(block)
 }
 
-func (c *cachedMetadata) setVirtualVotingBlock(block *virtualvoting.Block) {
+func (c *cachedMetadata) setVirtualVotingBlock(block *booker.Block) {
 	c.Lock()
 	defer c.Unlock()
 	c.VirtualVoting = newBlockWithTime(block)
@@ -143,10 +141,10 @@ type blockMetadataModel struct {
 	AcceptedTime time.Time `serix:"24"`
 
 	// confirmation.Block
-	Confirmed            bool      `serix:"25"`
-	ConfirmedTime        time.Time `serix:"26"`
-	ConfirmedByEpoch     bool      `serix:"27"`
-	ConfirmedByEpochTime time.Time `serix:"28"`
+	Confirmed           bool      `serix:"25"`
+	ConfirmedTime       time.Time `serix:"26"`
+	ConfirmedBySlot     bool      `serix:"27"`
+	ConfirmedBySlotTime time.Time `serix:"28"`
 
 	Block *models.Block `serix:"29,optional"`
 }
@@ -250,7 +248,7 @@ func copyFromBookerBlock(blockWithTime *blockWithTime[*booker.Block], blockMetad
 	blockMetadata.M.BookedTime = blockWithTime.Time
 }
 
-func copyFromVirtualVotingBlock(blockWithTime *blockWithTime[*virtualvoting.Block], blockMetadata *BlockMetadata) {
+func copyFromVirtualVotingBlock(blockWithTime *blockWithTime[*booker.Block], blockMetadata *BlockMetadata) {
 	block := blockWithTime.Block
 
 	blockMetadata.M.Tracked = true

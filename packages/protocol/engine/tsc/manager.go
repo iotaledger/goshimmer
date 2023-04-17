@@ -2,18 +2,16 @@ package tsc
 
 import (
 	"container/heap"
-	"fmt"
 	"sync"
 	"time"
-
-	"github.com/iotaledger/hive.go/core/generalheap"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/timed"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/ds/generalheap"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/timed"
 )
 
 // region Manager /////////////////////////////////////////////////////////////////////////////////////////////
@@ -21,7 +19,7 @@ import (
 // Manager is a manager that tracks orphaned blocks.
 type Manager struct {
 	unacceptedBlocks generalheap.Heap[timed.HeapKey, *blockdag.Block]
-	tangle           *tangle.Tangle
+	tangle           tangle.Tangle
 	isBlockAccepted  func(models.BlockID) bool
 
 	optsTimeSinceConfirmationThreshold time.Duration
@@ -30,7 +28,7 @@ type Manager struct {
 }
 
 // New returns a new instance of Manager.
-func New(isBlockAccepted func(models.BlockID) bool, tangle *tangle.Tangle, opts ...options.Option[Manager]) *Manager {
+func New(isBlockAccepted func(models.BlockID) bool, tangle tangle.Tangle, opts ...options.Option[Manager]) *Manager {
 	return options.Apply(&Manager{
 		isBlockAccepted:                    isBlockAccepted,
 		tangle:                             tangle,
@@ -63,10 +61,16 @@ func (o *Manager) orphanBeforeTSC(minAllowedTime time.Time) {
 		blockToOrphan := o.unacceptedBlocks[0].Value
 		heap.Pop(&o.unacceptedBlocks)
 		if !o.isBlockAccepted(blockToOrphan.ID()) {
-			fmt.Println("(time: ", time.Now(), ") orphan block due to TSC", blockToOrphan.ID())
-			o.tangle.SetOrphaned(blockToOrphan, true)
+			o.tangle.BlockDAG().SetOrphaned(blockToOrphan, true)
 		}
 	}
+}
+
+func (o *Manager) Size() int {
+	o.Lock()
+	defer o.Unlock()
+
+	return o.unacceptedBlocks.Len()
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

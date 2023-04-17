@@ -1,17 +1,19 @@
 package booker
 
 import (
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/set"
-
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/stringify"
 )
 
 type Block struct {
 	booked                bool
+	subjectivelyInvalid   bool
 	structureDetails      *markers.StructureDetails
 	addedConflictIDs      utxo.TransactionIDs
 	subtractedConflictIDs utxo.TransactionIDs
@@ -70,6 +72,24 @@ func (b *Block) SubtractedConflictIDs() utxo.TransactionIDs {
 	return b.subtractedConflictIDs.Clone()
 }
 
+func (b *Block) IsSubjectivelyInvalid() bool {
+	b.RLock()
+	defer b.RUnlock()
+
+	return b.subjectivelyInvalid
+}
+
+func (b *Block) SetSubjectivelyInvalid(bool) (wasUpdated bool) {
+	b.Lock()
+	defer b.Unlock()
+
+	if wasUpdated = !b.subjectivelyInvalid; wasUpdated {
+		b.subjectivelyInvalid = true
+	}
+
+	return
+}
+
 func NewBlock(block *blockdag.Block, opts ...options.Option[Block]) (newBlock *Block) {
 	return options.Apply(&Block{
 		Block:                 block,
@@ -78,8 +98,8 @@ func NewBlock(block *blockdag.Block, opts ...options.Option[Block]) (newBlock *B
 	}, opts)
 }
 
-func NewRootBlock(id models.BlockID, opts ...options.Option[models.Block]) *Block {
-	blockDAGBlock := blockdag.NewRootBlock(id, opts...)
+func NewRootBlock(id models.BlockID, slotTimeProvider *slot.TimeProvider, opts ...options.Option[models.Block]) *Block {
+	blockDAGBlock := blockdag.NewRootBlock(id, slotTimeProvider, opts...)
 
 	genesisStructureDetails := markers.NewStructureDetails()
 	genesisStructureDetails.SetIsPastMarker(true)
@@ -95,7 +115,7 @@ func (b *Block) IsBooked() (isBooked bool) {
 	return b.booked
 }
 
-func (b *Block) setBooked() (wasUpdated bool) {
+func (b *Block) SetBooked() (wasUpdated bool) {
 	b.Lock()
 	defer b.Unlock()
 
@@ -113,21 +133,32 @@ func (b *Block) StructureDetails() *markers.StructureDetails {
 	return b.structureDetails
 }
 
-func (b *Block) setStructureDetails(structureDetails *markers.StructureDetails) {
+func (b *Block) SetStructureDetails(structureDetails *markers.StructureDetails) {
 	b.Lock()
 	defer b.Unlock()
 
 	b.structureDetails = structureDetails
 }
 
+func (b *Block) String() string {
+	builder := stringify.NewStructBuilder("VirtualVoting.Block", stringify.NewStructField("id", b.ID()))
+	builder.AddField(stringify.NewStructField("Booked", b.booked))
+	builder.AddField(stringify.NewStructField("SubjectivelyInvalid", b.subjectivelyInvalid))
+	builder.AddField(stringify.NewStructField("StructureDetails", b.structureDetails))
+	builder.AddField(stringify.NewStructField("AddedConflictIDs", b.addedConflictIDs))
+	builder.AddField(stringify.NewStructField("SubtractedConflictIDs", b.subtractedConflictIDs))
+
+	return builder.String()
+}
+
 // region Blocks ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Blocks represents a collection of Block.
-type Blocks = *set.AdvancedSet[*Block]
+type Blocks = *advancedset.AdvancedSet[*Block]
 
 // NewBlocks returns a new Block collection with the given elements.
 func NewBlocks(blocks ...*Block) (newBlocks Blocks) {
-	return set.NewAdvancedSet(blocks...)
+	return advancedset.New(blocks...)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

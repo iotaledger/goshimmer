@@ -1,127 +1,153 @@
 package tipmanager
 
-// type TipsConflictTracker struct {
-// 	missingConflicts  utxo.TransactionIDs
-// 	tipsConflictCount map[utxo.TransactionID]int
-// 	tangle            *Tangle
-//
-// 	sync.RWMutex
-// }
-//
-// func NewTipsConflictTracker(tangle *Tangle) *TipsConflictTracker {
-// 	return &TipsConflictTracker{
-// 		missingConflicts:  set.NewAdvancedSet[utxo.TransactionID](),
-// 		tipsConflictCount: make(map[utxo.TransactionID]int),
-// 		tangle:            tangle,
-// 	}
-// }
-//
-// func (c *TipsConflictTracker) Setup() {
-// 	c.tangle.Ledger.ConflictDAG.Events.ConflictAccepted.Attach(event.NewClosure(func(event *conflictdag.ConflictAcceptedEvent[utxo.TransactionID]) {
-// 		c.deleteConflict(event.ID)
-// 	}))
-// 	c.tangle.Ledger.ConflictDAG.Events.ConflictRejected.Attach(event.NewClosure(func(event *conflictdag.ConflictRejectedEvent[utxo.TransactionID]) {
-// 		c.deleteConflict(event.ID)
-// 	}))
-// }
-//
-// func (c *TipsConflictTracker) AddTip(blockID BlockID) {
-// 	blockConflictIDs, err := c.tangle.Booker.BlockConflictIDs(blockID)
-// 	if err != nil {
-// 		panic(err)
-// 	}
-//
-// 	c.Lock()
-// 	defer c.Unlock()
-//
-// 	for it := blockConflictIDs.Iterator(); it.HasNext(); {
-// 		conflictID := it.Next()
-//
-// 		if !c.tangle.Ledger.ConflictDAG.ConfirmationState(set.NewAdvancedSet(conflictID)).IsPending() {
-// 			continue
-// 		}
-//
-// 		if c.tipsConflictCount[conflictID]++; c.tipsConflictCount[conflictID] == 1 {
-// 			c.missingConflicts.Delete(conflictID)
-// 		}
-// 	}
-// }
-//
-// func (c *TipsConflictTracker) RemoveTip(blockID BlockID) {
-// 	blockConflictIDs, err := c.tangle.Booker.BlockConflictIDs(blockID)
-// 	if err != nil {
-// 		panic("could not determine ConflictIDs of tip.")
-// 	}
-//
-// 	c.Lock()
-// 	defer c.Unlock()
-//
-// 	for it := blockConflictIDs.Iterator(); it.HasNext(); {
-// 		conflictID := it.Next()
-//
-// 		if _, exists := c.tipsConflictCount[conflictID]; !exists {
-// 			continue
-// 		}
-//
-// 		if !c.tangle.Ledger.ConflictDAG.ConfirmationState(set.NewAdvancedSet(conflictID)).IsPending() {
-// 			continue
-// 		}
-//
-// 		if c.tipsConflictCount[conflictID]--; c.tipsConflictCount[conflictID] == 0 {
-// 			c.missingConflicts.Add(conflictID)
-// 			delete(c.tipsConflictCount, conflictID)
-// 		}
-// 	}
-// }
-//
-// func (c *TipsConflictTracker) MissingConflicts(amount int) (missingConflicts utxo.TransactionIDs) {
-// 	c.Lock()
-// 	defer c.Unlock()
-//
-// 	missingConflicts = utxo.NewTransactionIDs()
-// 	_ = c.missingConflicts.ForEach(func(conflictID utxo.TransactionID) (err error) {
-// 		// TODO: this should not be necessary if ConflictAccepted/ConflictRejected events are fired appropriately
-// 		if !c.tangle.Ledger.ConflictDAG.ConfirmationState(set.NewAdvancedSet(conflictID)).IsPending() {
-// 			c.missingConflicts.Delete(conflictID)
-// 			delete(c.tipsConflictCount, conflictID)
-// 			return
-// 		}
-// 		if !c.tangle.OTVConsensusManager.ConflictLiked(conflictID) {
-// 			return
-// 		}
-//
-// 		if missingConflicts.Add(conflictID) && missingConflicts.Size() == amount {
-// 			return errors.Errorf("amount of missing conflicts reached %d", amount)
-// 		}
-//
-// 		return nil
-// 	})
-//
-// 	return missingConflicts
-// }
-//
-// func (c *TipsConflictTracker) deleteConflict(id utxo.TransactionID) {
-// 	c.Lock()
-// 	defer c.Unlock()
-//
-// 	c.missingConflicts.Delete(id)
-// 	delete(c.tipsConflictCount, id)
-// }
-//
-// func (r *ReferenceProvider) ReferencesToMissingConflicts(issuingTime time.Time, amount int) (blockIDs models.BlockIDs) {
-// 	blockIDs = models.NewBlockIDs()
-// 	if amount == 0 {
-// 		return blockIDs
-// 	}
-//
-// 	for it := r.tipManager.tipsConflictTracker.MissingConflicts(amount).Iterator(); it.HasNext(); {
-// 		blockID, blockIDErr := r.firstValidAttachment(it.Next(), issuingTime)
-// 		if blockIDErr != nil {
-// 			continue
-// 		}
-//
-// 		blockIDs.Add(blockID)
-// 	}
-//
-// 	return blockIDs
-// }
+import (
+	"sync"
+
+	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/ds/shrinkingmap"
+	"github.com/iotaledger/hive.go/ds/types"
+	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
+)
+
+type TipsConflictTracker struct {
+	workerPool          *workerpool.WorkerPool
+	tipConflicts        *shrinkingmap.ShrinkingMap[models.BlockID, utxo.TransactionIDs]
+	censoredConflicts   *shrinkingmap.ShrinkingMap[utxo.TransactionID, types.Empty]
+	tipCountPerConflict *shrinkingmap.ShrinkingMap[utxo.TransactionID, int]
+	engine              *engine.Engine
+
+	sync.RWMutex
+}
+
+func NewTipsConflictTracker(workerPool *workerpool.WorkerPool, engineInstance *engine.Engine) *TipsConflictTracker {
+	t := &TipsConflictTracker{
+		workerPool:          workerPool,
+		tipConflicts:        shrinkingmap.New[models.BlockID, utxo.TransactionIDs](),
+		censoredConflicts:   shrinkingmap.New[utxo.TransactionID, types.Empty](),
+		tipCountPerConflict: shrinkingmap.New[utxo.TransactionID, int](),
+		engine:              engineInstance,
+	}
+
+	t.setup()
+	return t
+}
+
+func (c *TipsConflictTracker) setup() {
+	c.engine.Events.Ledger.MemPool.ConflictDAG.ConflictAccepted.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+		c.deleteConflict(conflict.ID())
+	}, event.WithWorkerPool(c.workerPool))
+	c.engine.Events.Ledger.MemPool.ConflictDAG.ConflictRejected.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+		c.deleteConflict(conflict.ID())
+	}, event.WithWorkerPool(c.workerPool))
+	c.engine.Events.Ledger.MemPool.ConflictDAG.ConflictNotConflicting.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+		c.deleteConflict(conflict.ID())
+	}, event.WithWorkerPool(c.workerPool))
+}
+
+func (c *TipsConflictTracker) Cleanup() {
+	c.workerPool.Shutdown()
+}
+
+func (c *TipsConflictTracker) AddTip(block *scheduler.Block, blockConflictIDs utxo.TransactionIDs) {
+	c.Lock()
+	defer c.Unlock()
+
+	c.tipConflicts.Set(block.ID(), blockConflictIDs)
+
+	for it := blockConflictIDs.Iterator(); it.HasNext(); {
+		conflict := it.Next()
+
+		if !c.engine.Ledger.MemPool().ConflictDAG().ConfirmationState(advancedset.New(conflict)).IsPending() {
+			continue
+		}
+
+		count, _ := c.tipCountPerConflict.Get(conflict)
+		c.tipCountPerConflict.Set(conflict, count+1)
+
+		// If the conflict has now a tip representation, we can remove it from the censored conflicts.
+		if count == 0 {
+			c.censoredConflicts.Delete(conflict)
+		}
+	}
+}
+
+func (c *TipsConflictTracker) RemoveTip(block *scheduler.Block) {
+	c.Lock()
+	defer c.Unlock()
+
+	blockConflictIDs, exists := c.tipConflicts.Get(block.ID())
+	if !exists {
+		return
+	}
+
+	c.tipConflicts.Delete(block.ID())
+
+	for it := blockConflictIDs.Iterator(); it.HasNext(); {
+		conflictID := it.Next()
+
+		count, _ := c.tipCountPerConflict.Get(conflictID)
+		if count == 0 {
+			continue
+		}
+
+		if !c.engine.Ledger.MemPool().ConflictDAG().ConfirmationState(advancedset.New(conflictID)).IsPending() {
+			continue
+		}
+
+		count--
+		if count == 0 {
+			c.censoredConflicts.Set(conflictID, types.Void)
+			c.tipCountPerConflict.Delete(conflictID)
+		}
+	}
+}
+
+func (c *TipsConflictTracker) MissingConflicts(amount int) (missingConflicts utxo.TransactionIDs) {
+	c.Lock()
+	defer c.Unlock()
+
+	missingConflicts = utxo.NewTransactionIDs()
+	censoredConflictsToDelete := utxo.NewTransactionIDs()
+	dislikedConflicts := utxo.NewTransactionIDs()
+	c.censoredConflicts.ForEach(func(conflictID utxo.TransactionID, _ types.Empty) bool {
+		// TODO: this should not be necessary if ConflictAccepted/ConflictRejected events are fired appropriately
+		// If the conflict is not pending anymore or it clashes with a conflict we already introduced, we can remove it from the censored conflicts.
+		if !c.engine.Ledger.MemPool().ConflictDAG().ConfirmationState(advancedset.New(conflictID)).IsPending() || dislikedConflicts.Has(conflictID) {
+			censoredConflictsToDelete.Add(conflictID)
+			return true
+		}
+
+		// We want to reintroduce only the pending conflict that is liked.
+		likedConflictID, dislikedConflictsInner := c.engine.Consensus.ConflictResolver().AdjustOpinion(conflictID)
+		dislikedConflicts.AddAll(dislikedConflictsInner)
+
+		if missingConflicts.Add(likedConflictID) && missingConflicts.Size() == amount {
+			// We stop iterating if we have enough conflicts
+			return false
+		}
+
+		return true
+	})
+
+	for it := censoredConflictsToDelete.Iterator(); it.HasNext(); {
+		conflictID := it.Next()
+		c.censoredConflicts.Delete(conflictID)
+		c.tipCountPerConflict.Delete(conflictID)
+	}
+
+	return missingConflicts
+}
+
+func (c *TipsConflictTracker) deleteConflict(id utxo.TransactionID) {
+	c.Lock()
+	defer c.Unlock()
+
+	c.censoredConflicts.Delete(id)
+	c.tipCountPerConflict.Delete(id)
+}

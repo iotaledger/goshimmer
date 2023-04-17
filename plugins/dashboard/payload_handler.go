@@ -1,16 +1,12 @@
 package dashboard
 
 import (
-	"github.com/iotaledger/hive.go/core/generics/lo"
-
-	chatPkg "github.com/iotaledger/goshimmer/packages/app/chat"
 	"github.com/iotaledger/goshimmer/packages/app/faucet"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
-
-	"github.com/iotaledger/goshimmer/plugins/chat"
+	"github.com/iotaledger/hive.go/lo"
 )
 
 // BasicPayload contains content title and bytes
@@ -95,16 +91,12 @@ func ProcessPayload(p payload.Payload) interface{} {
 		return processTransactionPayload(p)
 	case faucet.RequestType:
 		// faucet payload
-		return BasicStringPayload{
-			ContentTitle: "address",
-			Content:      p.(*faucet.Payload).Address().Base58(),
-		}
-	case chatPkg.Type:
-		chatPayload := p.(*chatPkg.Payload)
-		return chat.Request{
-			From:  chatPayload.From(),
-			To:    chatPayload.To(),
-			Block: chatPayload.Block(),
+		faucetPayload := p.(*faucet.Payload)
+		return jsonmodels.FaucetRequest{
+			Address:               faucetPayload.Address().Base58(),
+			ConsensusManaPledgeID: faucetPayload.ConsensusManaPledgeID().EncodeBase58(),
+			AccessManaPledgeID:    faucetPayload.AccessManaPledgeID().EncodeBase58(),
+			Nonce:                 faucetPayload.M.Nonce,
 		}
 	default:
 		// unknown payload
@@ -123,7 +115,7 @@ func processTransactionPayload(p payload.Payload) (tp TransactionPayload) {
 	// add consumed inputs
 	for i, input := range tx.Essence().Inputs() {
 		refOutputID := input.(*devnetvm.UTXOInput).ReferencedOutputID()
-		deps.Protocol.Engine().Ledger.Storage.CachedOutput(refOutputID).Consume(func(output utxo.Output) {
+		deps.Protocol.Engine().Ledger.MemPool().Storage().CachedOutput(refOutputID).Consume(func(output utxo.Output) {
 			if typedOutput, ok := output.(devnetvm.Output); ok {
 				tp.Transaction.Inputs[i].Output = jsonmodels.NewOutput(typedOutput)
 			}

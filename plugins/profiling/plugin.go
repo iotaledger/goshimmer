@@ -7,8 +7,9 @@ import (
 	"runtime"
 
 	"github.com/felixge/fgprof"
-	"github.com/iotaledger/hive.go/core/logger"
-	"github.com/iotaledger/hive.go/core/node"
+
+	"github.com/iotaledger/goshimmer/packages/node"
+	"github.com/iotaledger/hive.go/logger"
 )
 
 // PluginName is the name of the profiling plugin.

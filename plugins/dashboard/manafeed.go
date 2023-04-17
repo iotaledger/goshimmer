@@ -6,25 +6,22 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/autopeering/peer"
-	"github.com/iotaledger/hive.go/core/daemon"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/workerpool"
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
+	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1/manamodels"
+	"github.com/iotaledger/hive.go/app/daemon"
+	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/lo"
 )
 
 var (
-	manaFeedWorkerCount     = 1
-	manaFeedWorkerQueueSize = 500
-	manaFeedWorkerPool      *workerpool.NonBlockingQueuedWorkerPool
-	manaBuffer              *ManaBuffer
-	manaBufferOnce          sync.Once
+	manaBuffer     *ManaBuffer
+	manaBufferOnce sync.Once
 )
 
 // ManaBufferInstance is the ManaBuffer singleton.
@@ -35,35 +32,20 @@ func ManaBufferInstance() *ManaBuffer {
 	return manaBuffer
 }
 
-func configureManaFeed() {
-	manaFeedWorkerPool = workerpool.NewNonBlockingQueuedWorkerPool(func(task workerpool.Task) {
-		switch task.Param(0).(byte) {
-		case MsgTypeManaValue:
-			sendManaValue()
-		case MsgTypeManaMapOverall:
-			sendManaMapOverall()
-		case MsgTypeManaMapOnline:
-			sendManaMapOnline()
-		}
-		task.Return(nil)
-	}, workerpool.WorkerCount(manaFeedWorkerCount), workerpool.QueueSize(manaFeedWorkerQueueSize))
-}
-
-func runManaFeed() {
+func runManaFeed(plugin *node.Plugin) {
 	if err := daemon.BackgroundWorker("Dashboard[ManaUpdater]", func(ctx context.Context) {
 		manaTicker := time.NewTicker(10 * time.Second)
 		for {
 			select {
 			case <-ctx.Done():
 				log.Info("Stopping Dashboard[ManaUpdater] ...")
-				manaFeedWorkerPool.Stop()
 				manaTicker.Stop()
 				log.Info("Stopping Dashboard[ManaUpdater] ... done")
 				return
 			case <-manaTicker.C:
-				manaFeedWorkerPool.TrySubmit(MsgTypeManaValue)
-				manaFeedWorkerPool.TrySubmit(MsgTypeManaMapOverall)
-				manaFeedWorkerPool.TrySubmit(MsgTypeManaMapOnline)
+				plugin.WorkerPool.Submit(sendManaValue)
+				plugin.WorkerPool.Submit(sendManaMapOverall)
+				plugin.WorkerPool.Submit(sendManaMapOnline)
 			}
 		}
 	}, shutdown.PriorityDashboard); err != nil {

@@ -3,21 +3,22 @@ package blockissuer
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer/blockfactory"
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer/ratesetter"
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
+	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 // region Factory ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -31,47 +32,47 @@ type BlockIssuer struct {
 	protocol          *protocol.Protocol
 	identity          *identity.LocalIdentity
 	referenceProvider *blockfactory.ReferenceProvider
+	workerPool        *workerpool.WorkerPool
 
-	optsBlockFactoryOptions    []options.Option[blockfactory.Factory]
-	optsIgnoreBootstrappedFlag bool
+	optsBlockFactoryOptions            []options.Option[blockfactory.Factory]
+	optsIgnoreBootstrappedFlag         bool
+	optsTimeSinceConfirmationThreshold time.Duration
 }
 
 // New creates a new block issuer.
 func New(protocol *protocol.Protocol, localIdentity *identity.LocalIdentity, opts ...options.Option[BlockIssuer]) *BlockIssuer {
 	return options.Apply(&BlockIssuer{
-		Events:   NewEvents(),
-		identity: localIdentity,
-		protocol: protocol,
-		referenceProvider: blockfactory.NewReferenceProvider(protocol, func() epoch.Index {
-			return protocol.Engine().Storage.Settings.LatestCommitment().Index()
-		}),
+		Events:     NewEvents(),
+		identity:   localIdentity,
+		protocol:   protocol,
+		workerPool: protocol.Workers.CreatePool("BlockIssuer", 2),
 	}, opts, func(i *BlockIssuer) {
+		i.referenceProvider = blockfactory.NewReferenceProvider(protocol, i.optsTimeSinceConfirmationThreshold, func() slot.Index {
+			return protocol.Engine().Storage.Settings.LatestCommitment().Index()
+		})
+
 		i.Factory = blockfactory.NewBlockFactory(
 			localIdentity,
+			protocol.SlotTimeProvider,
 			func(blockID models.BlockID) (block *blockdag.Block, exists bool) {
-				return i.protocol.Engine().Tangle.BlockDAG.Block(blockID)
+				return i.protocol.Engine().Tangle.BlockDAG().Block(blockID)
 			},
 			func(countParents int) (parents models.BlockIDs) {
 				return i.protocol.TipManager.Tips(countParents)
 			},
 			i.referenceProvider.References,
-			func() (ecRecord *commitment.Commitment, lastConfirmedEpochIndex epoch.Index, err error) {
+			func() (ecRecord *commitment.Commitment, lastConfirmedSlotIndex slot.Index, err error) {
 				latestCommitment := i.protocol.Engine().Storage.Settings.LatestCommitment()
-				if err != nil {
-					return nil, 0, err
-				}
-				confirmedEpochIndex := i.protocol.Engine().Storage.Settings.LatestConfirmedEpoch()
-				if err != nil {
-					return nil, 0, err
-				}
+				confirmedSlotIndex := i.protocol.Engine().Storage.Settings.LatestConfirmedSlot()
 
-				return latestCommitment, confirmedEpochIndex, nil
+				return latestCommitment, confirmedSlotIndex, nil
 			},
 			i.optsBlockFactoryOptions...)
 	}, (*BlockIssuer).setupEvents)
 }
 
 func (i *BlockIssuer) setupEvents() {
+	i.Events.Error.LinkTo(i.Factory.Events.Error)
 }
 
 // IssuePayload creates a new block including sequence number and tip selection, submits it to be processed and returns it.
@@ -104,9 +105,12 @@ func (i *BlockIssuer) IssuePayloadWithReferences(p payload.Payload, references m
 }
 
 func (i *BlockIssuer) issueBlock(block *models.Block) error {
-	err := i.protocol.ProcessBlock(block, i.identity.ID())
+	if err := i.protocol.ProcessBlock(block, i.identity.ID()); err != nil {
+		return err
+	}
 	i.Events.BlockIssued.Trigger(block)
-	return err
+
+	return nil
 }
 
 // IssueBlockAndAwaitBlockToBeBooked awaits maxAwait for the given block to get booked.
@@ -122,21 +126,54 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeBooked(block *models.Block, max
 	exit := make(chan struct{})
 	defer close(exit)
 
-	closure := event.NewClosure(func(bookedBlock *booker.Block) {
-		if block.ID() != bookedBlock.ID() {
+	defer i.protocol.Events.Engine.Tangle.Booker.BlockBooked.Hook(func(evt *booker.BlockBookedEvent) {
+		if block.ID() != evt.Block.ID() {
 			return
 		}
 		select {
-		case booked <- bookedBlock:
+		case booked <- evt.Block:
 		case <-exit:
 		}
-	})
-	i.protocol.Events.Engine.Tangle.Booker.BlockBooked.Attach(closure)
-	defer i.protocol.Events.Engine.Tangle.Booker.BlockBooked.Detach(closure)
+	}, event.WithWorkerPool(i.workerPool)).Unhook()
 
-	err := i.issueBlock(block)
+	if err := i.issueBlock(block); err != nil {
+		return errors.Wrapf(err, "failed to issue block %s", block.ID().String())
+	}
 
-	if err != nil {
+	timer := time.NewTimer(maxAwait)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		return ErrBlockWasNotBookedInTime
+	case <-booked:
+		return nil
+	}
+}
+
+// IssueBlockAndAwaitBlockToBeTracked awaits maxAwait for the given block to get tracked.
+func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeTracked(block *models.Block, maxAwait time.Duration) error {
+	if !i.optsIgnoreBootstrappedFlag && !i.protocol.Engine().IsBootstrapped() {
+		return ErrNotBootstraped
+	}
+
+	// first subscribe to the transaction booked event
+	booked := make(chan *booker.Block, 1)
+	// exit is used to let the caller exit if for whatever
+	// reason the same transaction gets booked multiple times
+	exit := make(chan struct{})
+	defer close(exit)
+
+	defer i.protocol.Events.Engine.Tangle.Booker.BlockTracked.Hook(func(evtBlock *booker.Block) {
+		if block.ID() != evtBlock.ID() {
+			return
+		}
+		select {
+		case booked <- evtBlock:
+		case <-exit:
+		}
+	}, event.WithWorkerPool(i.workerPool)).Unhook()
+
+	if err := i.issueBlock(block); err != nil {
 		return errors.Wrapf(err, "failed to issue block %s", block.ID().String())
 	}
 
@@ -160,7 +197,7 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeScheduled(block *models.Block, 
 	exit := make(chan struct{})
 	defer close(exit)
 
-	closure := event.NewClosure(func(scheduledBlock *scheduler.Block) {
+	defer i.protocol.Events.CongestionControl.Scheduler.BlockScheduled.Hook(func(scheduledBlock *scheduler.Block) {
 		if block.ID() != scheduledBlock.ID() {
 			return
 		}
@@ -168,13 +205,9 @@ func (i *BlockIssuer) IssueBlockAndAwaitBlockToBeScheduled(block *models.Block, 
 		case scheduled <- scheduledBlock:
 		case <-exit:
 		}
-	})
-	i.protocol.Events.CongestionControl.Scheduler.BlockScheduled.Attach(closure)
-	defer i.protocol.Events.CongestionControl.Scheduler.BlockScheduled.Detach(closure)
+	}, event.WithWorkerPool(i.workerPool)).Unhook()
 
-	err := i.issueBlock(block)
-
-	if err != nil {
+	if err := i.issueBlock(block); err != nil {
 		return errors.Wrapf(err, "failed to issue block %s", block.ID().String())
 	}
 
@@ -195,6 +228,7 @@ func WithBlockFactoryOptions(blockFactoryOptions ...options.Option[blockfactory.
 		issuer.optsBlockFactoryOptions = blockFactoryOptions
 	}
 }
+
 func WithRateSetter(rateSetter ratesetter.RateSetter) options.Option[BlockIssuer] {
 	return func(issuer *BlockIssuer) {
 		issuer.RateSetter = rateSetter
@@ -204,6 +238,13 @@ func WithRateSetter(rateSetter ratesetter.RateSetter) options.Option[BlockIssuer
 func WithIgnoreBootstrappedFlag(ignoreBootstrappedFlag bool) options.Option[BlockIssuer] {
 	return func(issuer *BlockIssuer) {
 		issuer.optsIgnoreBootstrappedFlag = ignoreBootstrappedFlag
+	}
+}
+
+// WithTimeSinceConfirmationThreshold returns an option that sets the time since confirmation threshold.
+func WithTimeSinceConfirmationThreshold(timeSinceConfirmationThreshold time.Duration) options.Option[BlockIssuer] {
+	return func(o *BlockIssuer) {
+		o.optsTimeSinceConfirmationThreshold = timeSinceConfirmationThreshold
 	}
 }
 

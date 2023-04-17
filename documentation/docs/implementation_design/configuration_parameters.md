@@ -55,7 +55,7 @@ One difference is that parameter names do not contain the namespace they belong 
 ```go
 package customPlugin
 
-import "github.com/iotaledger/hive.go/core/configuration"
+import "github.com/iotaledger/hive.go/app/configuration"
 
 // Parameters contains the configuration parameters used by the custom plugin.
 type ParametersDefinition struct {

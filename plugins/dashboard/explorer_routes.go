@@ -3,26 +3,26 @@ package dashboard
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
-	"github.com/labstack/echo"
+	"github.com/labstack/echo/v4"
 	"github.com/mr-tron/base58/base58"
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/types/confirmation"
-
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/app/retainer"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
+	"github.com/iotaledger/goshimmer/packages/core/confirmation"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm/indexer"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
 
-	"github.com/iotaledger/goshimmer/plugins/chat"
 	ledgerstateAPI "github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
+	slotAPI "github.com/iotaledger/goshimmer/plugins/webapi/slot"
+	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/lo"
 )
 
 // ExplorerBlock defines the struct of the ExplorerBlock.
@@ -50,21 +50,21 @@ type ExplorerBlock struct {
 	// LikedInsteadChildren are the shallow like children of the block.
 	LikedInsteadChildren []string `json:"shallowLikeChildren"`
 	// Solid defines the solid status of the block.
-	Solid                   bool     `json:"solid"`
-	ConflictIDs             []string `json:"conflictIDs"`
-	AddedConflictIDs        []string `json:"addedConflictIDs"`
-	SubtractedConflictIDs   []string `json:"subtractedConflictIDs"`
-	Scheduled               bool     `json:"scheduled"`
-	Booked                  bool     `json:"booked"`
-	Orphaned                bool     `json:"orphaned"`
-	ObjectivelyInvalid      bool     `json:"objectivelyInvalid"`
-	SubjectivelyInvalid     bool     `json:"subjectivelyInvalid"`
-	Acceptance              bool     `json:"acceptance"`
-	AcceptanceTime          int64    `json:"acceptanceTime"`
-	Confirmation            bool     `json:"confirmation"`
-	ConfirmationTime        int64    `json:"confirmationTime"`
-	ConfirmationByEpoch     bool     `json:"confirmationByEpoch"`
-	ConfirmationByEpochTime int64    `json:"confirmationByEpochTime"`
+	Solid                  bool     `json:"solid"`
+	ConflictIDs            []string `json:"conflictIDs"`
+	AddedConflictIDs       []string `json:"addedConflictIDs"`
+	SubtractedConflictIDs  []string `json:"subtractedConflictIDs"`
+	Scheduled              bool     `json:"scheduled"`
+	Booked                 bool     `json:"booked"`
+	Orphaned               bool     `json:"orphaned"`
+	ObjectivelyInvalid     bool     `json:"objectivelyInvalid"`
+	SubjectivelyInvalid    bool     `json:"subjectivelyInvalid"`
+	Acceptance             bool     `json:"acceptance"`
+	AcceptanceTime         int64    `json:"acceptanceTime"`
+	Confirmation           bool     `json:"confirmation"`
+	ConfirmationTime       int64    `json:"confirmationTime"`
+	ConfirmationBySlot     bool     `json:"confirmationBySlot"`
+	ConfirmationBySlotTime int64    `json:"confirmationBySlotTime"`
 	// PayloadType defines the type of the payload.
 	PayloadType payload.Type `json:"payload_type"`
 	// Payload is the content of the payload.
@@ -76,13 +76,13 @@ type ExplorerBlock struct {
 	IsPastMarker  bool   `json:"isPastMarker"`
 	PastMarkers   string `json:"pastMarkers"`
 
-	// Epoch commitment
+	// Slot commitment
 	CommitmentID         string `json:"ec"`
 	EI                   uint64 `json:"ei"`
 	CommitmentRootsID    string `json:"ecr"`
 	PreviousCommitmentID string `json:"prevEC"`
 	CumulativeWeight     int64  `json:"cumulativeWeight"`
-	LatestConfirmedEpoch uint64 `json:"latestConfirmedEpoch"`
+	LatestConfirmedSlot  uint64 `json:"latestConfirmedSlot"`
 }
 
 func createExplorerBlock(block *models.Block, blockMetadata *retainer.BlockMetadata) *ExplorerBlock {
@@ -121,8 +121,8 @@ func createExplorerBlock(block *models.Block, blockMetadata *retainer.BlockMetad
 		AcceptanceTime:          blockMetadata.M.AcceptedTime.Unix(),
 		Confirmation:            blockMetadata.M.Confirmed,
 		ConfirmationTime:        blockMetadata.M.ConfirmedTime.Unix(),
-		ConfirmationByEpoch:     blockMetadata.M.ConfirmedByEpoch,
-		ConfirmationByEpochTime: blockMetadata.M.ConfirmedByEpochTime.Unix(),
+		ConfirmationBySlot:      blockMetadata.M.ConfirmedBySlot,
+		ConfirmationBySlotTime:  blockMetadata.M.ConfirmedBySlotTime.Unix(),
 
 		PayloadType:          block.Payload().Type(),
 		Payload:              ProcessPayload(block.Payload()),
@@ -131,7 +131,7 @@ func createExplorerBlock(block *models.Block, blockMetadata *retainer.BlockMetad
 		CommitmentRootsID:    block.Commitment().RootsID().Base58(),
 		PreviousCommitmentID: block.Commitment().PrevID().Base58(),
 		CumulativeWeight:     block.Commitment().CumulativeWeight(),
-		LatestConfirmedEpoch: uint64(block.LatestConfirmedEpoch()),
+		LatestConfirmedSlot:  uint64(block.LatestConfirmedSlot()),
 	}
 
 	if d := blockMetadata.M.StructureDetails; d != nil {
@@ -216,25 +216,18 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 	routeGroup.GET("/conflict/:conflictID/children", ledgerstateAPI.GetConflictChildren)
 	routeGroup.GET("/conflict/:conflictID/conflicts", ledgerstateAPI.GetConflictConflicts)
 	routeGroup.GET("/conflict/:conflictID/voters", ledgerstateAPI.GetConflictVoters)
-	routeGroup.POST("/chat", chat.SendChatBlock)
+	routeGroup.GET("/slot/:index", slotAPI.GetCommittedSlot)
+	routeGroup.GET("/slot/:index/blocks", slotAPI.GetBlocks)
+	routeGroup.GET("/slot/commitment/:commitment", slotAPI.GetCommittedSlotByCommitment)
+	routeGroup.GET("/slot/:index/transactions", slotAPI.GetTransactions)
+	routeGroup.GET("/slot/:index/utxos", slotAPI.GetUTXOs)
 
 	routeGroup.GET("/search/:search", func(c echo.Context) error {
 		search := c.Param("search")
 		result := &SearchResult{}
 
-		searchInByte, err := base58.Decode(search)
-		if err != nil {
-			return errors.WithMessagef(ErrInvalidParameter, "search ID %s", search)
-		}
-
-		switch len(searchInByte) {
-		case devnetvm.AddressLength:
-			addr, err := findAddress(search)
-			if err == nil {
-				result.Address = addr
-			}
-
-		case models.BlockIDLength:
+		switch strings.Contains(search, ":") {
+		case true:
 			var blockID models.BlockID
 			err := blockID.FromBase58(search)
 			if err != nil {
@@ -247,8 +240,12 @@ func setupExplorerRoutes(routeGroup *echo.Group) {
 			}
 			result.Block = blk
 
-		default:
-			return errors.WithMessagef(ErrInvalidParameter, "search ID %s", search)
+		case false:
+			addr, err := findAddress(search)
+			if err != nil {
+				return fmt.Errorf("can't find address %s: %w", search, err)
+			}
+			result.Address = addr
 		}
 
 		return c.JSON(http.StatusOK, result)
@@ -277,28 +274,28 @@ func findAddress(strAddress string) (*ExplorerAddress, error) {
 	// get outputids by address
 	// deps.Indexer.CachedOutputsOnAddress(address).Consume(func(output ledgerstate.Output) {
 	deps.Indexer.CachedAddressOutputMappings(address).Consume(func(addressOutputMapping *indexer.AddressOutputMapping) {
-		var metaData *ledger.OutputMetadata
+		var metaData *mempool.OutputMetadata
 		var timestamp int64
 
 		// get output metadata + confirmation status from conflict of the output
-		deps.Protocol.Engine().Ledger.Storage.CachedOutputMetadata(addressOutputMapping.OutputID()).Consume(func(outputMetadata *ledger.OutputMetadata) {
+		deps.Protocol.Engine().Ledger.MemPool().Storage().CachedOutputMetadata(addressOutputMapping.OutputID()).Consume(func(outputMetadata *mempool.OutputMetadata) {
 			metaData = outputMetadata
 		})
 
 		var txID utxo.TransactionID
-		deps.Protocol.Engine().Ledger.Storage.CachedOutput(addressOutputMapping.OutputID()).Consume(func(output utxo.Output) {
+		deps.Protocol.Engine().Ledger.MemPool().Storage().CachedOutput(addressOutputMapping.OutputID()).Consume(func(output utxo.Output) {
 			if output, ok := output.(devnetvm.Output); ok {
 				// get the inclusion state info from the transaction that created this output
 				txID = output.ID().TransactionID
 
-				deps.Protocol.Engine().Ledger.Storage.CachedTransaction(txID).Consume(func(transaction utxo.Transaction) {
+				deps.Protocol.Engine().Ledger.MemPool().Storage().CachedTransaction(txID).Consume(func(transaction utxo.Transaction) {
 					if tx, ok := transaction.(*devnetvm.Transaction); ok {
 						timestamp = tx.Essence().Timestamp().Unix()
 					}
 				})
 
 				// obtain information about the consumer of the output being considered
-				confirmedConsumerID := deps.Protocol.Engine().Ledger.Utils.ConfirmedConsumer(output.ID())
+				confirmedConsumerID := deps.Protocol.Engine().Ledger.MemPool().Utils().ConfirmedConsumer(output.ID())
 
 				outputs = append(outputs, ExplorerOutput{
 					ID:                jsonmodels.NewOutputID(output.ID()),

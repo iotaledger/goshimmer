@@ -4,9 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/node"
-	"github.com/labstack/echo"
+	"github.com/labstack/echo/v4"
 	"github.com/mr-tron/base58"
 	"go.uber.org/dig"
 
@@ -14,8 +12,10 @@ import (
 	faucetpkg "github.com/iotaledger/goshimmer/packages/app/faucet"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/core/pow"
+	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
+	"github.com/iotaledger/hive.go/crypto/identity"
 )
 
 var (

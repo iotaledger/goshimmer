@@ -3,14 +3,14 @@ package jsonmodels
 import (
 	"strconv"
 
-	"github.com/iotaledger/hive.go/core/identity"
-
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/ds/advancedset"
 )
 
 // region GetAddressResponse ///////////////////////////////////////////////////////////////////////////////////////////
@@ -71,13 +71,13 @@ type GetConflictChildrenResponse struct {
 }
 
 // NewGetConflictChildrenResponse returns a GetConflictChildrenResponse from the given details.
-func NewGetConflictChildrenResponse(conflictID utxo.TransactionID, childConflicts []*conflictdag.ChildConflict[utxo.TransactionID]) *GetConflictChildrenResponse {
+func NewGetConflictChildrenResponse(conflictID utxo.TransactionID, childConflicts *advancedset.AdvancedSet[*conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]]) *GetConflictChildrenResponse {
 	return &GetConflictChildrenResponse{
 		ConflictID: conflictID.Base58(),
 		ChildConflicts: func() (mappedChildConflicts []*ChildConflict) {
 			mappedChildConflicts = make([]*ChildConflict, 0)
-			for _, childConflict := range childConflicts {
-				mappedChildConflicts = append(mappedChildConflicts, NewChildConflict(childConflict))
+			for it := childConflicts.Iterator(); it.HasNext(); {
+				mappedChildConflicts = append(mappedChildConflicts, NewChildConflict(it.Next()))
 			}
 
 			return
@@ -146,7 +146,7 @@ type GetOutputConsumersResponse struct {
 }
 
 // NewGetOutputConsumersResponse returns a GetOutputConsumersResponse from the given details.
-func NewGetOutputConsumersResponse(outputID utxo.OutputID, consumers []*ledger.Consumer) *GetOutputConsumersResponse {
+func NewGetOutputConsumersResponse(outputID utxo.OutputID, consumers []*mempool.Consumer) *GetOutputConsumersResponse {
 	return &GetOutputConsumersResponse{
 		OutputID: NewOutputID(outputID),
 		Consumers: func() []*Consumer {
@@ -222,6 +222,7 @@ type PostTransactionRequest struct {
 // PostTransactionResponse is the HTTP response from sending transaction.
 type PostTransactionResponse struct {
 	TransactionID string `json:"transactionID,omitempty"`
+	BlockID       string `json:"block_id,omitempty"`
 	Error         string `json:"error,omitempty"`
 }
 
@@ -282,3 +283,8 @@ type GetUnspentOutputResponse struct {
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// GetSnapshotRequest represents the JSON model of a GetSnapshot request.
+type GetSnapshotRequest struct {
+	SlotIndex uint64 `query:"index"`
+}

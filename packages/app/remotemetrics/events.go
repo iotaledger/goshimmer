@@ -3,20 +3,20 @@ package remotemetrics
 import (
 	"time"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
+	"github.com/iotaledger/hive.go/runtime/event"
 )
 
 // CollectionLogEvents defines the events for the remotelogmetrics package.
 type CollectionLogEvents struct {
 	// TangleTimeSyncChanged defines the local sync status change event based on tangle time.
-	TangleTimeSyncChanged *event.Event[*TangleTimeSyncChangedEvent]
-	SchedulerQuery        *event.Event[*SchedulerQueryEvent]
+	TangleTimeSyncChanged *event.Event1[*TangleTimeSyncChangedEvent]
+	SchedulerQuery        *event.Event1[*SchedulerQueryEvent]
 }
 
 func newCollectionLogEvents() *CollectionLogEvents {
 	return &CollectionLogEvents{
-		TangleTimeSyncChanged: event.New[*TangleTimeSyncChangedEvent](),
-		SchedulerQuery:        event.New[*SchedulerQueryEvent](),
+		TangleTimeSyncChanged: event.New1[*TangleTimeSyncChangedEvent](),
+		SchedulerQuery:        event.New1[*SchedulerQueryEvent](),
 	}
 }
 

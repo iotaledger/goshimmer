@@ -4,12 +4,13 @@ import (
 	// import required to profile.
 	_ "net/http/pprof"
 
-	"github.com/iotaledger/hive.go/core/autopeering/peer"
-	"github.com/iotaledger/hive.go/core/node"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/seed"
+	"github.com/iotaledger/goshimmer/packages/node"
+	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/lo"
 )
 
 // PluginName is the name of the profiling plugin.
@@ -38,7 +39,7 @@ func run(_ *node.Plugin) {
 	api := client.NewGoShimmerAPI(Parameters.FaucetAPI)
 	pledgeAddress := Parameters.Address
 	if pledgeAddress == "" {
-		pledgeAddress = seed.NewSeed(deps.Local.PublicKey().Bytes()).Address(0).Base58()
+		pledgeAddress = seed.NewSeed(lo.PanicOnErr(deps.Local.PublicKey().Bytes())).Address(0).Base58()
 	}
 	res, err := api.SendFaucetRequestAPI(pledgeAddress, -1, deps.Local.ID().EncodeBase58(), deps.Local.ID().EncodeBase58())
 	if err != nil {

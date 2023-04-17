@@ -1,10 +1,11 @@
 package commitment
 
 import (
-	"github.com/iotaledger/hive.go/core/byteutils"
-	"github.com/iotaledger/hive.go/core/generics/model"
-	"github.com/iotaledger/hive.go/core/types"
 	"golang.org/x/crypto/blake2b"
+
+	"github.com/iotaledger/hive.go/core/model"
+	"github.com/iotaledger/hive.go/ds/types"
+	"github.com/iotaledger/hive.go/serializer/v2/byteutils"
 )
 
 type Roots struct {

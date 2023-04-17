@@ -5,16 +5,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/autopeering/peer"
-	"github.com/iotaledger/hive.go/core/autopeering/peer/service"
-	"github.com/iotaledger/hive.go/core/crypto/ed25519"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/logger"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/app/ratelimiter"
+	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/autopeering/peer/service"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/logger"
 )
 
 const (
@@ -53,7 +52,7 @@ func testCount(t testing.TB, prl *ratelimiter.PeerRateLimiter, testPeer *peer.Pe
 	activityCount := atomic.NewInt32(0)
 	expectedActivity := testLimit + 1
 	eventCalled := atomic.NewInt32(0)
-	prl.Events.Hit.Hook(event.NewClosure(func(event *ratelimiter.HitEvent) {
+	prl.Events.Hit.Hook(func(event *ratelimiter.HitEvent) {
 		p := event.Source
 		rl := event.RateLimit
 		eventCalled.Inc()
@@ -61,7 +60,7 @@ func testCount(t testing.TB, prl *ratelimiter.PeerRateLimiter, testPeer *peer.Pe
 		require.Equal(t, testPeer.ID(), p)
 		require.Equal(t, defaultTestInterval, rl.Interval)
 		require.Equal(t, testLimit, rl.Limit)
-	}))
+	})
 	for i := 0; i < expectedActivity; i++ {
 		activityCount.Inc()
 		prl.Count(testPeer.ID())

@@ -1,23 +1,22 @@
 package sybilprotection
 
 import (
-	"github.com/iotaledger/hive.go/core/identity"
-
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/crypto/identity"
 )
 
 // WeightsBatch is a batch of weight diffs that can be applied to a Weights instance.
 type WeightsBatch struct {
-	targetEpoch epoch.Index
-	diffs       map[identity.ID]int64
-	totalDiff   int64
+	targetSlot slot.Index
+	diffs      map[identity.ID]int64
+	totalDiff  int64
 }
 
 // NewWeightsBatch creates a new WeightsBatch instance.
-func NewWeightsBatch(targetEpoch epoch.Index) (newWeightDiffs *WeightsBatch) {
+func NewWeightsBatch(targetSlot slot.Index) (newWeightDiffs *WeightsBatch) {
 	return &WeightsBatch{
-		targetEpoch: targetEpoch,
-		diffs:       make(map[identity.ID]int64),
+		targetSlot: targetSlot,
+		diffs:      make(map[identity.ID]int64),
 	}
 }
 
@@ -30,9 +29,13 @@ func (w *WeightsBatch) Update(id identity.ID, diff int64) {
 	w.totalDiff += diff
 }
 
-// TargetEpoch returns the epoch that the batch is targeting.
-func (w *WeightsBatch) TargetEpoch() (targetEpoch epoch.Index) {
-	return w.targetEpoch
+func (w *WeightsBatch) Get(id identity.ID) (diff int64) {
+	return w.diffs[id]
+}
+
+// TargetSlot returns the slot that the batch is targeting.
+func (w *WeightsBatch) TargetSlot() (targetSlot slot.Index) {
+	return w.targetSlot
 }
 
 // ForEach iterates over all weight diffs in the batch.

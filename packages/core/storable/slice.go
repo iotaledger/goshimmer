@@ -6,10 +6,11 @@ import (
 	"os"
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/generics/constraints"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/serix"
 	"github.com/pkg/errors"
+
+	"github.com/iotaledger/hive.go/constraints"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/serializer/v2/serix"
 )
 
 const SliceOffsetAuto = ^int(0)

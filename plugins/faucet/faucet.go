@@ -4,8 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/bitmask"
-	"github.com/iotaledger/hive.go/core/identity"
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/client/wallet"
@@ -15,8 +13,10 @@ import (
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
 	"github.com/iotaledger/goshimmer/packages/app/faucet"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm/indexer"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm/indexer"
+	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/ds/bitmask"
 )
 
 type Faucet struct {

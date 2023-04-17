@@ -5,14 +5,12 @@ import (
 
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/hive.go/core/daemon"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/node"
-
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
+	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/requester/warpsync"
+	"github.com/iotaledger/hive.go/app/daemon"
 )
 
 // PluginName is the name of the warpsync plugin.
@@ -36,7 +34,7 @@ type dependencies struct {
 func init() {
 	Plugin = node.NewPlugin(PluginName, deps, node.Disabled, configure, run)
 
-	Plugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
+	Plugin.Events.Init.Hook(func(event *node.InitEvent) {
 		if err := event.Container.Provide(func(p *protocol.Protocol, p2pManager *p2p.Manager) *warpsync.Manager {
 			// TODO: refactor when its ready
 			// // TODO: use a different block loader function
@@ -58,7 +56,7 @@ func init() {
 		}); err != nil {
 			Plugin.Panic(err)
 		}
-	}))
+	})
 }
 
 func configure(_ *node.Plugin) {

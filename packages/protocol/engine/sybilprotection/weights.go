@@ -3,15 +3,16 @@ package sybilprotection
 import (
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/kvstore"
-	"github.com/iotaledger/hive.go/core/types"
 	"github.com/pkg/errors"
 	"github.com/zyedidia/generic/cache"
 
-	"github.com/iotaledger/goshimmer/packages/core/ads"
+	"github.com/iotaledger/hive.go/ads"
+	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/ds/types"
+	"github.com/iotaledger/hive.go/kvstore"
+	"github.com/iotaledger/hive.go/lo"
 )
 
 const cacheSize = 1000
@@ -30,12 +31,22 @@ type Weights struct {
 
 // NewWeights creates a new Weights instance.
 func NewWeights(store kvstore.KVStore) (newWeights *Weights) {
-	return &Weights{
+	newWeights = &Weights{
 		Events:       NewEvents(),
 		weights:      ads.NewMap[identity.ID, Weight](store),
 		weightsCache: cache.New[identity.ID, *Weight](cacheSize),
 		totalWeight:  NewWeight(0, -1),
 	}
+
+	if err := newWeights.weights.Stream(func(_ identity.ID, value *Weight) bool {
+		newWeights.totalWeight.Value += value.Value
+		newWeights.totalWeight.UpdateTime = value.UpdateTime.Max(newWeights.totalWeight.UpdateTime)
+		return true
+	}); err != nil {
+		return nil
+	}
+
+	return
 }
 
 // NewWeightedSet creates a new WeightedSet instance, that maintains a correct and updated total weight of its members.
@@ -77,14 +88,14 @@ func (w *Weights) BatchUpdate(batch *WeightsBatch) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
-	direction := int64(lo.Compare(batch.TargetEpoch(), w.totalWeight.UpdateTime))
-	removedWeights := set.NewAdvancedSet[identity.ID]()
+	direction := int64(lo.Compare(batch.TargetSlot(), w.totalWeight.UpdateTime))
+	removedWeights := advancedset.New[identity.ID]()
 
 	batch.ForEach(func(id identity.ID, diff int64) {
 		oldWeight, exists := w.get(id)
 		if !exists {
 			oldWeight = NewWeight(0, -1)
-		} else if batch.TargetEpoch() == oldWeight.UpdateTime {
+		} else if batch.TargetSlot() == oldWeight.UpdateTime {
 			if oldWeight.Value == 0 {
 				removedWeights.Add(id)
 			}
@@ -99,7 +110,7 @@ func (w *Weights) BatchUpdate(batch *WeightsBatch) {
 		}
 
 		w.weightsCache.Remove(id)
-		w.weights.Set(id, NewWeight(newWeight, batch.TargetEpoch()))
+		w.weights.Set(id, NewWeight(newWeight, batch.TargetSlot()))
 	})
 
 	w.Events.WeightsUpdated.Trigger(batch)
@@ -112,7 +123,7 @@ func (w *Weights) BatchUpdate(batch *WeightsBatch) {
 	})
 
 	w.totalWeight.Value += direction * batch.TotalDiff()
-	w.totalWeight.UpdateTime = batch.TargetEpoch()
+	w.totalWeight.UpdateTime = batch.TargetSlot()
 
 	// TODO: mark as clean
 }
@@ -126,11 +137,31 @@ func (w *Weights) ForEach(callback func(id identity.ID, weight *Weight) bool) (e
 }
 
 // TotalWeight returns the total weight of all identities.
-func (w *Weights) TotalWeight() (totalWeight *Weight) {
+func (w *Weights) TotalWeight() (totalWeight int64) {
 	w.mutex.RLock()
 	defer w.mutex.RUnlock()
 
-	return w.totalWeight
+	return w.totalWeight.Value
+}
+
+// TotalWeightWithoutZeroIdentity returns the total weight of all identities minus the zero identity.
+func (w *Weights) TotalWeightWithoutZeroIdentity() int64 {
+	w.mutex.RLock()
+	defer w.mutex.RUnlock()
+
+	var totalWeight int64
+	if zeroIdentityWeight, exists := w.get(identity.ID{}); exists {
+		totalWeight -= zeroIdentityWeight.Value
+	}
+
+	return totalWeight + w.totalWeight.Value
+}
+
+func (w *Weights) UpdateTotalWeightSlot(index slot.Index) {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
+	w.totalWeight.UpdateTime = index
 }
 
 // Root returns the root of the merkle tree of the stored weights.
@@ -156,13 +187,17 @@ func (w *Weights) Map() (weights map[identity.ID]int64, err error) {
 
 func (w *Weights) get(id identity.ID) (weight *Weight, exists bool) {
 	if weight, exists = w.getFromCache(id); exists {
+		if weight.UpdateTime == -1 {
+			return weight, false
+		}
 		return weight, exists
 	}
 
 	weight, exists = w.weights.Get(id)
-	if exists {
-		w.setCache(id, weight)
+	if !exists {
+		weight = NewWeight(0, -1)
 	}
+	w.setCache(id, weight)
 
 	return weight, exists
 }

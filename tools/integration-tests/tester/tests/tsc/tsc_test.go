@@ -2,6 +2,7 @@ package tsc
 
 import (
 	"context"
+	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"log"
 	"testing"
 	"time"
@@ -19,10 +20,11 @@ import (
 // After the network is merged, blocks issued in minority partition should be orphaned on nodes from that partition.
 // Blocks from majority partition should become available on all nodes.
 func TestOrphanageTSC(t *testing.T) {
+	t.Skip("TSC is currently disabled in the codebase. This test will be re-enabled once TSC is re-enabled.")
 	const tscThreshold = 30 * time.Second
 
-	snapshotInfo := tests.OrphanageSnapshotDetails
-
+	snapshotOptions := tests.OrphanageSnapshotOptions
+	snapshotInfo := snapshotcreator.NewOptions(snapshotOptions...)
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), 4,
@@ -31,14 +33,13 @@ func TestOrphanageTSC(t *testing.T) {
 			Faucet:      false,
 			Activity:    true,
 			Autopeering: false,
-			Snapshot:    snapshotInfo,
+			Snapshot:    snapshotOptions,
 		}, tests.CommonSnapshotConfigFunc(t, snapshotInfo, func(peerIndex int, isPeerMaster bool, conf config.GoShimmer) config.GoShimmer {
 			conf.UseNodeSeedAsWalletSeed = true
 			conf.TimeSinceConfirmationThreshold = tscThreshold
 			conf.ValidatorActivityWindow = 10 * time.Minute
 			return conf
 		}))
-
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
 

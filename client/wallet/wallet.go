@@ -6,10 +6,6 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/iotaledger/hive.go/core/bitmask"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/marshalutil"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 
@@ -25,8 +21,12 @@ import (
 	"github.com/iotaledger/goshimmer/client/wallet/packages/sweepnftownedoptions"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/transfernftoptions"
 	"github.com/iotaledger/goshimmer/client/wallet/packages/withdrawfromnftoptions"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
+	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/ds/bitmask"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/serializer/v2/marshalutil"
 )
 
 // region Wallet ///////////////////////////////////////////////////////////////////////////////////////////////////////

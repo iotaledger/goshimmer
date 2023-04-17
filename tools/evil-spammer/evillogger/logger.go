@@ -3,8 +3,9 @@ package evillogger
 import (
 	"fmt"
 
-	"github.com/iotaledger/hive.go/core/configuration"
-	"github.com/iotaledger/hive.go/core/logger"
+	"github.com/iotaledger/hive.go/app/configuration"
+	appLogger "github.com/iotaledger/hive.go/app/logger"
+	"github.com/iotaledger/hive.go/logger"
 )
 
 var New = logger.NewLogger
@@ -16,7 +17,7 @@ func init() {
 		fmt.Println(err)
 		return
 	}
-	if err = logger.InitGlobalLogger(config); err != nil {
+	if err = appLogger.InitGlobalLogger(config); err != nil {
 		panic(err)
 	}
 	logger.SetLevel(logger.LevelInfo)

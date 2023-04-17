@@ -7,9 +7,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
+
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
-	"github.com/iotaledger/hive.go/core/crypto/ed25519"
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
@@ -18,6 +19,8 @@ import (
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/network/manualpeering"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/lo"
 )
 
 // Network represents a complete GoShimmer network within Docker.
@@ -401,13 +404,14 @@ func (n *Network) createPeers(ctx context.Context, numPeers int, networkConfig C
 	if networkConfig.Autopeering {
 		conf.AutoPeering.Enabled = true
 		conf.AutoPeering.EntryNodes = []string{
-			fmt.Sprintf("%s@%s:%d", base58.Encode(n.entryNode.Identity.PublicKey().Bytes()), n.entryNode.Name(), peeringPort),
+			fmt.Sprintf("%s@%s:%d", base58.Encode(lo.PanicOnErr(n.entryNode.Identity.PublicKey().Bytes())), n.entryNode.Name(), peeringPort),
 		}
 	}
 	if networkConfig.Activity {
 		conf.Activity.Enabled = true
 	}
-	conf.Snapshot.Path = networkConfig.Snapshot.FilePath
+	snapshotOpt := snapshotcreator.NewOptions(networkConfig.Snapshot...)
+	conf.Snapshot.Path = snapshotOpt.FilePath
 
 	log.Printf("Starting %d peers...", numPeers)
 	for i := 0; i < numPeers; i++ {

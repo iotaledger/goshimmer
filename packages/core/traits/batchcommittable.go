@@ -3,16 +3,16 @@ package traits
 import (
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/kvstore"
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
+	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/kvstore"
 )
 
 // BatchCommittable is a trait that stores the latest commitment and metadata about batched state transitions.
 type BatchCommittable interface {
-	// BeginBatchedStateTransition starts a batched state transition to the given epoch.
-	BeginBatchedStateTransition(newEpoch epoch.Index) (currentEpoch epoch.Index, err error)
+	// BeginBatchedStateTransition starts a batched state transition to the given slot.
+	BeginBatchedStateTransition(newSlot slot.Index) (currentSlot slot.Index, err error)
 
 	// FinalizeBatchedStateTransition finalizes the current batched state transition.
 	FinalizeBatchedStateTransition()
@@ -33,51 +33,51 @@ func NewBatchCommittable(store kvstore.KVStore, keyBytes ...byte) (newBatchCommi
 
 // batchCommittable is the implementation of the BatchCommittable trait.
 type batchCommittable struct {
-	// batchEpoch is the epoch that is currently being batched.
-	batchEpoch epoch.Index
+	// batchSlot is the slot that is currently being batched.
+	batchSlot slot.Index
 
-	// batchEpochMutex is used to synchronize access to batchEpoch.
-	batchEpochMutex sync.RWMutex
+	// batchSlotMutex is used to synchronize access to batchSlot.
+	batchSlotMutex sync.RWMutex
 
 	// Committable is the underlying committable trait.
 	Committable
 }
 
-// BeginBatchedStateTransition starts a batched state transition to the given epoch.
-func (b *batchCommittable) BeginBatchedStateTransition(newEpoch epoch.Index) (lastCommittedEpoch epoch.Index, err error) {
-	b.batchEpochMutex.Lock()
-	defer b.batchEpochMutex.Unlock()
+// BeginBatchedStateTransition starts a batched state transition to the given slot.
+func (b *batchCommittable) BeginBatchedStateTransition(newSlot slot.Index) (lastCommittedSlot slot.Index, err error) {
+	b.batchSlotMutex.Lock()
+	defer b.batchSlotMutex.Unlock()
 
-	if newEpoch != 0 && b.batchEpoch != 0 {
-		return 0, errors.Errorf("batch epoch already set: previous=%d, new=%d", b.batchEpoch, newEpoch)
+	if newSlot != 0 && b.batchSlot != 0 {
+		return 0, errors.Errorf("batch slot already set: previous=%d, new=%d", b.batchSlot, newSlot)
 	}
 
-	if lastCommittedEpoch = b.LastCommittedEpoch(); lastCommittedEpoch == newEpoch {
+	if lastCommittedSlot = b.LastCommittedSlot(); lastCommittedSlot == newSlot {
 		return
 	}
 
-	if newEpoch != 0 && (newEpoch-lastCommittedEpoch).Abs() > 1 {
+	if newSlot != 0 && (newSlot-lastCommittedSlot).Abs() > 1 {
 		return 0, errors.New("batches can only be applied in order")
 	}
 
-	b.batchEpoch = newEpoch
+	b.batchSlot = newSlot
 
 	return
 }
 
 // FinalizeBatchedStateTransition finalizes the current batched state transition.
 func (b *batchCommittable) FinalizeBatchedStateTransition() {
-	b.batchEpochMutex.Lock()
-	defer b.batchEpochMutex.Unlock()
+	b.batchSlotMutex.Lock()
+	defer b.batchSlotMutex.Unlock()
 
-	b.SetLastCommittedEpoch(b.batchEpoch)
-	b.batchEpoch = 0
+	b.SetLastCommittedSlot(b.batchSlot)
+	b.batchSlot = 0
 }
 
 // BatchedStateTransitionStarted returns true if a batched state transition is currently in progress.
 func (b *batchCommittable) BatchedStateTransitionStarted() bool {
-	b.batchEpochMutex.RLock()
-	defer b.batchEpochMutex.RUnlock()
+	b.batchSlotMutex.RLock()
+	defer b.batchSlotMutex.RUnlock()
 
-	return b.batchEpoch != 0
+	return b.batchSlot != 0
 }

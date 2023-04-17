@@ -17,7 +17,7 @@ jobs:
       - ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Create Git tag
         run: |
@@ -31,13 +31,14 @@ jobs:
     runs-on:
       - ubuntu-latest
     container:
-      image: iotaledger/goreleaser-cgo-cross-compiler:1.19
-      volumes: [/repo]
+      image: iotaledger/goreleaser-cgo-cross-compiler:1.20.1
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           ref: "refs/tags/${{github.event.inputs.tagName}}"
+
+      - run: git config --system --add safe.directory /__w/goshimmer/goshimmer
 
       - name: Copy config.default.json to config.json
         run: cp config.default.json config.json
@@ -46,7 +47,7 @@ jobs:
         run: wget -O snapshot.bin https://dbfiles-goshimmer.s3.eu-central-1.amazonaws.com/snapshots/nectar/snapshot-latest.bin
 
       - name: Run GoReleaser
-        run: goreleaser --rm-dist --release-notes <(echo "${{ github.event.inputs.releaseDescription }}")
+        run: goreleaser --clean --release-notes <(echo "${{ github.event.inputs.releaseDescription }}")
         shell: bash
         env:
           GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
@@ -59,7 +60,7 @@ jobs:
       - ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           ref: "refs/tags/${{github.event.inputs.tagName}}"
       - name: Publish to Docker Hub

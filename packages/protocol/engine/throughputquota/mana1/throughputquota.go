@@ -4,25 +4,26 @@ import (
 	"context"
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
-	typedkvstore "github.com/iotaledger/hive.go/core/generics/kvstore"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/generics/shrinkingmap"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/kvstore"
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/storable"
 	"github.com/iotaledger/goshimmer/packages/core/traits"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger"
+	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/ds/shrinkingmap"
+	"github.com/iotaledger/hive.go/kvstore"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/module"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 const (
-	PrefixLastCommittedEpoch byte = iota
+	PrefixLastCommittedSlot byte = iota
 	PrefixTotalBalance
 	PrefixQuotasByID
 )
@@ -30,25 +31,26 @@ const (
 // ThroughputQuota is the manager that tracks the throughput quota of identities according to mana1 (delegated pledge).
 type ThroughputQuota struct {
 	engine              *engine.Engine
-	quotaByIDStorage    *typedkvstore.TypedStore[identity.ID, storable.SerializableInt64, *identity.ID, *storable.SerializableInt64]
+	workers             *workerpool.Group
+	quotaByIDStorage    *kvstore.TypedStore[identity.ID, storable.SerializableInt64, *identity.ID, *storable.SerializableInt64]
 	quotaByIDCache      *shrinkingmap.ShrinkingMap[identity.ID, int64]
 	quotaByIDMutex      sync.RWMutex // TODO: replace this lock with DAG mutex so each entity is individually locked
 	totalBalanceStorage kvstore.KVStore
 	totalBalance        int64
 	totalBalanceMutex   sync.RWMutex
 
-	traits.Initializable
 	traits.BatchCommittable
+	module.Module
 }
 
 // New creates a new ThroughputQuota manager.
 func New(engineInstance *engine.Engine, opts ...options.Option[ThroughputQuota]) (manaTracker *ThroughputQuota) {
 	return options.Apply(&ThroughputQuota{
-		BatchCommittable:    traits.NewBatchCommittable(engineInstance.Storage.ThroughputQuota(), PrefixLastCommittedEpoch),
-		Initializable:       traits.NewInitializable(),
+		BatchCommittable:    traits.NewBatchCommittable(engineInstance.Storage.ThroughputQuota(), PrefixLastCommittedSlot),
 		engine:              engineInstance,
+		workers:             engineInstance.Workers.CreateGroup("ThroughputQuota"),
 		totalBalanceStorage: engineInstance.Storage.ThroughputQuota(PrefixTotalBalance),
-		quotaByIDStorage:    typedkvstore.NewTypedStore[identity.ID, storable.SerializableInt64](engineInstance.Storage.ThroughputQuota(PrefixQuotasByID)),
+		quotaByIDStorage:    kvstore.NewTypedStore[identity.ID, storable.SerializableInt64](engineInstance.Storage.ThroughputQuota(PrefixQuotasByID)),
 		quotaByIDCache:      shrinkingmap.New[identity.ID, int64](),
 	}, opts, func(m *ThroughputQuota) {
 		if iterationErr := m.quotaByIDStorage.Iterate([]byte{}, func(key identity.ID, value storable.SerializableInt64) (advance bool) {
@@ -69,20 +71,20 @@ func New(engineInstance *engine.Engine, opts ...options.Option[ThroughputQuota])
 			m.totalBalance = int64(*totalBalance)
 		}
 
-		m.engine.SubscribeConstructed(func() {
-			m.engine.Storage.Settings.SubscribeInitialized(func() {
-				m.SetLastCommittedEpoch(m.engine.Storage.Settings.LatestCommitment().Index())
+		m.engine.HookConstructed(func() {
+			m.engine.Storage.Settings.HookInitialized(func() {
+				m.SetLastCommittedSlot(m.engine.Storage.Settings.LatestCommitment().Index())
 			})
 
-			m.engine.LedgerState.UnspentOutputs.Subscribe(m)
-			m.engine.LedgerState.SubscribeInitialized(m.init)
+			m.engine.Ledger.UnspentOutputs().Subscribe(m)
+			m.engine.Ledger.HookInitialized(m.init)
 		})
 	})
 }
 
 // NewProvider returns a new throughput quota provider that uses mana1.
-func NewProvider(opts ...options.Option[ThroughputQuota]) engine.ModuleProvider[throughputquota.ThroughputQuota] {
-	return engine.ProvideModule(func(e *engine.Engine) throughputquota.ThroughputQuota {
+func NewProvider(opts ...options.Option[ThroughputQuota]) module.Provider[*engine.Engine, throughputquota.ThroughputQuota] {
+	return module.Provide(func(e *engine.Engine) throughputquota.ThroughputQuota {
 		return New(e, opts...)
 	})
 }
@@ -111,18 +113,18 @@ func (m *ThroughputQuota) TotalBalance() (totalMana int64) {
 	return m.totalBalance
 }
 
-func (m *ThroughputQuota) ApplyCreatedOutput(output *ledger.OutputWithMetadata) (err error) {
+func (m *ThroughputQuota) ApplyCreatedOutput(output *mempool.OutputWithMetadata) (err error) {
 	m.quotaByIDMutex.Lock()
 	defer m.quotaByIDMutex.Unlock()
 
 	return m.applyCreatedOutput(output)
 }
 
-func (m *ThroughputQuota) applyCreatedOutput(output *ledger.OutputWithMetadata) (err error) {
+func (m *ThroughputQuota) applyCreatedOutput(output *mempool.OutputWithMetadata) (err error) {
 	if iotaBalance, exists := output.IOTABalance(); exists {
 		m.updateMana(output.AccessManaPledgeID(), int64(iotaBalance))
 
-		if !m.engine.LedgerState.UnspentOutputs.WasInitialized() {
+		if !m.engine.Ledger.UnspentOutputs().WasInitialized() {
 			totalBalanceBytes, serializationErr := storable.SerializableInt64(m.updateTotalBalance(int64(iotaBalance))).Bytes()
 			if serializationErr != nil {
 				return errors.Wrapf(serializationErr, "failed to serialize total balance")
@@ -137,14 +139,14 @@ func (m *ThroughputQuota) applyCreatedOutput(output *ledger.OutputWithMetadata) 
 	return
 }
 
-func (m *ThroughputQuota) ApplySpentOutput(output *ledger.OutputWithMetadata) (err error) {
+func (m *ThroughputQuota) ApplySpentOutput(output *mempool.OutputWithMetadata) (err error) {
 	m.quotaByIDMutex.Lock()
 	defer m.quotaByIDMutex.Unlock()
 
 	return m.applySpentOutput(output)
 }
 
-func (m *ThroughputQuota) applySpentOutput(output *ledger.OutputWithMetadata) (err error) {
+func (m *ThroughputQuota) applySpentOutput(output *mempool.OutputWithMetadata) (err error) {
 	if iotaBalance, exists := output.IOTABalance(); exists {
 		m.updateMana(output.AccessManaPledgeID(), -int64(iotaBalance))
 	}
@@ -152,16 +154,16 @@ func (m *ThroughputQuota) applySpentOutput(output *ledger.OutputWithMetadata) (e
 	return
 }
 
-func (m *ThroughputQuota) RollbackCreatedOutput(output *ledger.OutputWithMetadata) (err error) {
+func (m *ThroughputQuota) RollbackCreatedOutput(output *mempool.OutputWithMetadata) (err error) {
 	return m.ApplySpentOutput(output)
 }
 
-func (m *ThroughputQuota) RollbackSpentOutput(output *ledger.OutputWithMetadata) (err error) {
+func (m *ThroughputQuota) RollbackSpentOutput(output *mempool.OutputWithMetadata) (err error) {
 	return m.ApplyCreatedOutput(output)
 }
 
-func (m *ThroughputQuota) BeginBatchedStateTransition(targetEpoch epoch.Index) (currentEpoch epoch.Index, err error) {
-	return m.BatchCommittable.BeginBatchedStateTransition(targetEpoch)
+func (m *ThroughputQuota) BeginBatchedStateTransition(targetSlot slot.Index) (currentSlot slot.Index, err error) {
+	return m.BatchCommittable.BeginBatchedStateTransition(targetSlot)
 }
 
 func (m *ThroughputQuota) CommitBatchedStateTransition() (ctx context.Context) {
@@ -175,11 +177,12 @@ func (m *ThroughputQuota) CommitBatchedStateTransition() (ctx context.Context) {
 }
 
 func (m *ThroughputQuota) init() {
-	m.engine.LedgerState.UnspentOutputs.Unsubscribe(m)
+	m.engine.Ledger.UnspentOutputs().Unsubscribe(m)
 
 	m.TriggerInitialized()
 
-	m.engine.Ledger.Events.TransactionAccepted.Attach(event.NewClosure(func(event *ledger.TransactionEvent) {
+	wp := m.workers.CreatePool("ThroughputQuota", 2)
+	m.engine.Ledger.MemPool().Events().TransactionAccepted.Hook(func(event *mempool.TransactionEvent) {
 		m.quotaByIDMutex.Lock()
 		defer m.quotaByIDMutex.Unlock()
 		for _, createdOutput := range event.CreatedOutputs {
@@ -193,9 +196,8 @@ func (m *ThroughputQuota) init() {
 				panic(spentOutputErr)
 			}
 		}
-	}))
-
-	m.engine.Ledger.Events.TransactionOrphaned.Attach(event.NewClosure(func(event *ledger.TransactionEvent) {
+	}, event.WithWorkerPool(wp))
+	m.engine.Ledger.MemPool().Events().TransactionOrphaned.Hook(func(event *mempool.TransactionEvent) {
 		m.quotaByIDMutex.Lock()
 		defer m.quotaByIDMutex.Unlock()
 
@@ -210,7 +212,7 @@ func (m *ThroughputQuota) init() {
 				panic(createdOutputErr)
 			}
 		}
-	}))
+	}, event.WithWorkerPool(wp))
 }
 
 func (m *ThroughputQuota) updateMana(id identity.ID, diff int64) {

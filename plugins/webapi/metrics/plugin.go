@@ -6,19 +6,26 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/iotaledger/hive.go/core/autopeering/discover"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/node"
-	"github.com/labstack/echo"
+	"github.com/labstack/echo/v4"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/app/collector"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1/manamodels"
 	"github.com/iotaledger/goshimmer/plugins/dashboardmetrics"
+	"github.com/iotaledger/hive.go/autopeering/discover"
+	"github.com/iotaledger/hive.go/lo"
 )
+
+type dependencies struct {
+	dig.In
+
+	Server    *echo.Echo
+	Protocol  *protocol.Protocol
+	Discovery *discover.Protocol
+}
 
 var (
 	// Plugin holds the singleton instance of the plugin.
@@ -30,23 +37,14 @@ var (
 	bps atomic.Uint64
 )
 
-type dependencies struct {
-	dig.In
-
-	Server    *echo.Echo
-	Protocol  *protocol.Protocol
-	Discovery *discover.Protocol
-	Collector *collector.Collector
-}
-
 func init() {
 	Plugin = node.NewPlugin("WebAPIMetricsEndpoint", deps, node.Enabled, configure)
 }
 
 func configure(_ *node.Plugin) {
-	dashboardmetrics.Events.AttachedBPSUpdated.Attach(event.NewClosure(func(e *dashboardmetrics.AttachedBPSUpdatedEvent) {
+	dashboardmetrics.Events.AttachedBPSUpdated.Hook(func(e *dashboardmetrics.AttachedBPSUpdatedEvent) {
 		bps.Store(e.BPS)
-	}))
+	})
 
 	deps.Server.GET("metrics/global", GetGlobalMetrics)
 	deps.Server.GET("metrics/nodes", GetNodesMetrics)
@@ -74,8 +72,8 @@ func GetGlobalMetrics(c echo.Context) (err error) {
 		ConfirmationDelay:  confirmationDelay.String(),
 		ActiveManaRatio:    activeManaRatio(),
 		OnlineNodes:        len(deps.Discovery.GetVerifiedPeers()),
-		ConflictsResolved:  dashboardmetrics.FinalizedConflictCountDB(),
-		TotalConflicts:     dashboardmetrics.TotalConflictCountDB(),
+		// ConflictsResolved:  dashboardmetrics.FinalizedConflictCountDB(),
+		// TotalConflicts:     dashboardmetrics.TotalConflictCountDB(),
 	})
 }
 

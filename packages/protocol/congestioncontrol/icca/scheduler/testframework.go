@@ -3,37 +3,51 @@ package scheduler
 import (
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/hive.go/core/debug"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/identity"
-
+	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/clock/blocktime"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/tangleconsensus"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/filter/blockfilter"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/realitiesledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxoledger"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/mockedvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/notarization/slotnotarization"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection/dpos"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag/inmemoryblockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markers"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/virtualvoting"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/inmemorytangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/throughputquota/mana1"
+	"github.com/iotaledger/goshimmer/packages/protocol/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
+	"github.com/iotaledger/goshimmer/packages/storage/utils"
+	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/runtime/debug"
+	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
 // region TestFramework //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type TestFramework struct {
-	Scheduler      *Scheduler
+	Scheduler *Scheduler
+	Tangle    *tangle.TestFramework
+	workers   *workerpool.Group
+
 	storage        *storage.Storage
 	engine         *engine.Engine
-	mockAcceptance *blockgadget.MockAcceptanceGadget
+	mockAcceptance *blockgadget.MockBlockGadget
 	issuersByAlias map[string]*identity.Identity
 	issuersMana    map[identity.ID]int64
 
@@ -43,91 +57,98 @@ type TestFramework struct {
 	skippedBlocksCount   uint32
 	droppedBlocksCount   uint32
 	evictionState        *eviction.State
-
-	optsScheduler           []options.Option[Scheduler]
-	optsTangle              []options.Option[tangle.Tangle]
-	optsGadget              []options.Option[blockgadget.Gadget]
-	optsValidators          *sybilprotection.WeightedSet
-	optsIsBlockAcceptedFunc func(models.BlockID) bool
-	optsBlockAcceptedEvent  *event.Linkable[*blockgadget.Block]
-	*TangleTestFramework
 }
 
-func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (t *TestFramework) {
-	return options.Apply(&TestFramework{
+func NewTestFramework(test *testing.T, workers *workerpool.Group, optsScheduler ...options.Option[Scheduler]) *TestFramework {
+	t := &TestFramework{
 		test:           test,
+		workers:        workers,
 		issuersMana:    make(map[identity.ID]int64),
 		issuersByAlias: make(map[string]*identity.Identity),
 		mockAcceptance: blockgadget.NewMockAcceptanceGadget(),
-	}, opts, func(t *TestFramework) {
-		storageInstance := storage.New(test.TempDir(), 1)
-		t.storage = storageInstance
-		test.Cleanup(func() {
-			t.storage.Shutdown()
-		})
+	}
+	t.storage = storage.New(test.TempDir(), 1)
 
-		if t.evictionState == nil {
-			t.evictionState = eviction.NewState(t.storage)
-		}
+	ledgerProvider := utxoledger.NewProvider(
+		utxoledger.WithMemPoolProvider(
+			realitiesledger.NewProvider(
+				realitiesledger.WithVM(new(mockedvm.MockedVM))),
+		),
+	)
 
-		if t.engine == nil {
-			t.engine = engine.New(t.storage, dpos.NewProvider(), mana1.NewProvider())
-		}
+	tempDir := utils.NewDirectory(test.TempDir())
+	require.NoError(test, snapshotcreator.CreateSnapshot(snapshotcreator.WithDatabaseVersion(1),
+		snapshotcreator.WithFilePath(tempDir.Path("genesis_snapshot.bin")),
+		snapshotcreator.WithGenesisUnixTime(time.Now().Add(-5*time.Hour).Unix()),
+		snapshotcreator.WithSlotDuration(10),
+		snapshotcreator.WithLedgerProvider(ledgerProvider),
+	))
 
-		if t.optsValidators == nil {
-			t.optsValidators = dpos.NewSybilProtection(t.engine).Validators()
-		}
+	t.engine = engine.New(
+		workers.CreateGroup("Engine"),
+		t.storage,
+		blocktime.NewProvider(),
+		ledgerProvider,
+		blockfilter.NewProvider(),
+		dpos.NewProvider(),
+		mana1.NewProvider(),
+		slotnotarization.NewProvider(),
+		inmemorytangle.NewProvider(),
+		tangleconsensus.NewProvider(),
+	)
 
-		t.TangleTestFramework = tangle.NewTestFramework(
-			test,
-			tangle.WithTangleOptions(t.optsTangle...),
-			tangle.WithValidators(t.optsValidators),
-			tangle.WithEvictionState(t.evictionState),
-		)
+	test.Cleanup(func() {
+		t.Scheduler.Shutdown()
+		t.engine.Shutdown()
+		workers.WaitChildren()
+		t.storage.Shutdown()
+	})
 
-		if t.optsIsBlockAcceptedFunc == nil {
-			t.optsIsBlockAcceptedFunc = t.mockAcceptance.IsBlockAccepted
-		}
-		if t.optsBlockAcceptedEvent == nil {
-			t.optsBlockAcceptedEvent = t.mockAcceptance.BlockAcceptedEvent
-		}
+	require.NoError(test, t.engine.Initialize(tempDir.Path("genesis_snapshot.bin")))
 
-		if t.Scheduler == nil {
-			t.Scheduler = New(t.TangleTestFramework.BlockDAG.EvictionState, t.optsIsBlockAcceptedFunc, t.ManaMap, t.TotalMana, t.optsScheduler...)
-		}
-	}, (*TestFramework).setupEvents)
+	t.Tangle = tangle.NewTestFramework(
+		test,
+		t.engine.Tangle,
+		booker.NewTestFramework(test, workers.CreateGroup("BookerTestFramework"), t.engine.Tangle.Booker(), t.engine.Tangle.BlockDAG(), t.engine.Ledger.MemPool(), t.engine.SybilProtection.Validators(), t.engine.SlotTimeProvider),
+	)
+
+	t.Scheduler = New(t.Tangle.BlockDAG.Instance.(*inmemoryblockdag.BlockDAG).EvictionState(), t.engine.SlotTimeProvider(), t.mockAcceptance.IsBlockAccepted, t.ManaMap, t.TotalMana, optsScheduler...)
+
+	t.setupEvents()
+
+	return t
 }
 
-type TangleTestFramework = tangle.TestFramework
-
-type GadgetTestFramework = blockgadget.TestFramework
-
 func (t *TestFramework) setupEvents() {
-	t.mockAcceptance.BlockAcceptedEvent.Attach(event.NewClosure(t.Scheduler.HandleAcceptedBlock))
-	t.Tangle.Events.VirtualVoting.BlockTracked.Attach(event.NewClosure(t.Scheduler.AddBlock))
-	t.Tangle.Events.BlockDAG.BlockOrphaned.Attach(event.NewClosure(t.Scheduler.HandleOrphanedBlock))
+	t.mockAcceptance.Events().BlockAccepted.Hook(t.Scheduler.HandleAcceptedBlock, event.WithWorkerPool(t.workers.CreatePool("HandleAccepted", 2)))
+	t.Tangle.Instance.Events().Booker.BlockTracked.Hook(t.Scheduler.AddBlock, event.WithWorkerPool(t.workers.CreatePool("Add", 2)))
+	t.Tangle.Instance.Events().BlockDAG.BlockOrphaned.Hook(t.Scheduler.HandleOrphanedBlock, event.WithWorkerPool(t.workers.CreatePool("HandleOrphaned", 2)))
 
-	t.Scheduler.Events.BlockScheduled.Hook(event.NewClosure(func(block *Block) {
+	t.Scheduler.Events.BlockScheduled.Hook(func(block *Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("SCHEDULED: %s", block.ID())
 		}
 
 		atomic.AddUint32(&(t.scheduledBlocksCount), 1)
-	}))
+	})
 
-	t.Scheduler.Events.BlockSkipped.Hook(event.NewClosure(func(block *Block) {
+	t.Scheduler.Events.BlockSkipped.Hook(func(block *Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("BLOCK SKIPPED: %s", block.ID())
 		}
 		atomic.AddUint32(&(t.skippedBlocksCount), 1)
-	}))
+	})
 
-	t.Scheduler.Events.BlockDropped.Hook(event.NewClosure(func(block *Block) {
+	t.Scheduler.Events.BlockDropped.Hook(func(block *Block) {
 		if debug.GetEnabled() {
 			t.test.Logf("BLOCK DROPPED: %s", block.ID())
 		}
 		atomic.AddUint32(&(t.droppedBlocksCount), 1)
-	}))
+	})
+}
+
+func (t *TestFramework) SlotTimeProvider() *slot.TimeProvider {
+	return t.engine.SlotTimeProvider()
 }
 
 func (t *TestFramework) CreateIssuer(alias string, issuerMana int64) {
@@ -161,14 +182,14 @@ func (t *TestFramework) Issuer(alias string) (issuerIdentity *identity.Identity)
 }
 
 func (t *TestFramework) CreateSchedulerBlock(opts ...options.Option[models.Block]) *Block {
-	blk := virtualvoting.NewBlock(booker.NewBlock(blockdag.NewBlock(models.NewBlock(opts...), blockdag.WithSolid(true)), booker.WithBooked(true), booker.WithStructureDetails(markers.NewStructureDetails())))
+	blk := booker.NewBlock(blockdag.NewBlock(models.NewBlock(opts...), blockdag.WithSolid(true)), booker.WithBooked(true), booker.WithStructureDetails(markers.NewStructureDetails()))
 	if len(blk.ParentsByType(models.StrongParentType)) == 0 {
 		parents := models.NewParentBlockIDs()
 		parents.AddStrong(models.EmptyBlockID)
 		opts = append(opts, models.WithParents(parents))
-		blk = virtualvoting.NewBlock(booker.NewBlock(blockdag.NewBlock(models.NewBlock(opts...), blockdag.WithSolid(true)), booker.WithBooked(true), booker.WithStructureDetails(markers.NewStructureDetails())))
+		blk = booker.NewBlock(blockdag.NewBlock(models.NewBlock(opts...), blockdag.WithSolid(true)), booker.WithBooked(true), booker.WithStructureDetails(markers.NewStructureDetails()))
 	}
-	if err := blk.DetermineID(); err != nil {
+	if err := blk.DetermineID(t.SlotTimeProvider()); err != nil {
 		panic(errors.Wrap(err, "could not determine BlockID"))
 	}
 
@@ -202,7 +223,7 @@ func (t *TestFramework) AssertBlocksDropped(blocksDropped uint32) {
 
 func (t *TestFramework) ValidateScheduledBlocks(expectedState map[string]bool) {
 	for blockID, expected := range expectedState {
-		block, exists := t.Scheduler.Block(t.Block(blockID).ID())
+		block, exists := t.Scheduler.Block(t.Tangle.BlockDAG.Block(blockID).ID())
 		require.Truef(t.test, exists, "block %s not registered", blockID)
 
 		actual := block.IsScheduled()
@@ -212,7 +233,7 @@ func (t *TestFramework) ValidateScheduledBlocks(expectedState map[string]bool) {
 
 func (t *TestFramework) ValidateSkippedBlocks(expectedState map[string]bool) {
 	for blockID, expected := range expectedState {
-		block, exists := t.Scheduler.Block(t.Block(blockID).ID())
+		block, exists := t.Scheduler.Block(t.Tangle.BlockDAG.Block(blockID).ID())
 		require.Truef(t.test, exists, "block %s not registered", blockID)
 
 		actual := block.IsSkipped()
@@ -223,63 +244,11 @@ func (t *TestFramework) ValidateSkippedBlocks(expectedState map[string]bool) {
 
 func (t *TestFramework) ValidateDroppedBlocks(expectedState map[string]bool) {
 	for blockID, expected := range expectedState {
-		block, exists := t.Scheduler.Block(t.Block(blockID).ID())
+		block, exists := t.Scheduler.Block(t.Tangle.BlockDAG.Block(blockID).ID())
 		require.Truef(t.test, exists, "block %s not registered", blockID)
 
 		actual := block.IsDropped()
 		require.Equal(t.test, expected, actual, "Block %s should be dropped=%t but is %t", blockID, expected, actual)
-	}
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region Options //////////////////////////////////////////////////////////////////////////////////////////////////////
-
-func WithSchedulerOptions(opts ...options.Option[Scheduler]) options.Option[TestFramework] {
-	return func(tf *TestFramework) {
-		tf.optsScheduler = opts
-	}
-}
-
-func WithGadgetOptions(opts ...options.Option[blockgadget.Gadget]) options.Option[TestFramework] {
-	return func(tf *TestFramework) {
-		tf.optsGadget = opts
-	}
-}
-
-func WithTangleOptions(opts ...options.Option[tangle.Tangle]) options.Option[TestFramework] {
-	return func(tf *TestFramework) {
-		tf.optsTangle = opts
-	}
-}
-
-func WithBlockAcceptedEvent(blockAcceptedEvent *event.Linkable[*blockgadget.Block]) options.Option[TestFramework] {
-	return func(tf *TestFramework) {
-		tf.optsBlockAcceptedEvent = blockAcceptedEvent
-	}
-}
-
-func WithIsBlockAcceptedFunc(isBlockAcceptedFunc func(id models.BlockID) bool) options.Option[TestFramework] {
-	return func(tf *TestFramework) {
-		tf.optsIsBlockAcceptedFunc = isBlockAcceptedFunc
-	}
-}
-
-func WithEngine(engine *engine.Engine) options.Option[TestFramework] {
-	return func(t *TestFramework) {
-		t.engine = engine
-	}
-}
-
-func WithEvictionState(evictionState *eviction.State) options.Option[TestFramework] {
-	return func(t *TestFramework) {
-		t.evictionState = evictionState
-	}
-}
-
-func WithValidators(validators *sybilprotection.WeightedSet) options.Option[TestFramework] {
-	return func(t *TestFramework) {
-		t.optsValidators = validators
 	}
 }
 

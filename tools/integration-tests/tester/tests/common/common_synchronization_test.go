@@ -2,10 +2,12 @@ package common
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"testing"
 	"time"
+
+	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
+	"github.com/iotaledger/hive.go/runtime/options"
 
 	"github.com/mr-tron/base58"
 	"github.com/stretchr/testify/require"
@@ -22,15 +24,16 @@ func TestCommonSynchronization(t *testing.T) {
 	const (
 		initialPeers  = 3
 		numBlocks     = 100
-		numSyncBlocks = 5 * initialPeers
+		numSyncBlocks = 10 * initialPeers
 	)
-	snapshotInfo := tests.EqualSnapshotDetails
+	snapshotOptions := tests.EqualSnapshotOptions
+	snapshotInfo := snapshotcreator.NewOptions(snapshotOptions...)
 
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), initialPeers, framework.CreateNetworkConfig{
 		StartSynced: false,
-		Snapshot:    snapshotInfo,
+		Snapshot:    snapshotOptions,
 	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
@@ -47,7 +50,7 @@ func TestCommonSynchronization(t *testing.T) {
 	// 2. spawn peer without knowledge of previous blocks
 	log.Println("Spawning new node to sync...")
 
-	cfg := createNewPeerConfig(t, snapshotInfo, 3)
+	cfg := createNewPeerConfig(t, snapshotOptions, 3)
 	newPeer, err := n.CreatePeer(ctx, cfg)
 	require.NoError(t, err)
 	err = n.DoManualPeering(ctx)
@@ -93,7 +96,7 @@ func TestCommonSynchronization(t *testing.T) {
 
 	// 7. issue some blocks on old peers so that new peer can sync again
 	log.Printf("Issuing %d blocks on the %d initial peers...", numSyncBlocks, initialPeers)
-	ids = tests.SendDataBlocks(t, n.Peers()[:initialPeers], numSyncBlocks, ids)
+	ids = tests.SendDataBlocksWithDelay(t, n.Peers()[:initialPeers], numSyncBlocks, 10*time.Millisecond, ids)
 	log.Println("Issuing blocks... done")
 
 	// 9. check whether all issued blocks are available on to the new peer
@@ -107,57 +110,15 @@ func TestCommonSynchronization(t *testing.T) {
 		"the peer %s did not sync again after restart", newPeer)
 }
 
-func TestFirewall(t *testing.T) {
-	t.Skip("Test firewall when network layer is fully implemented")
-	ctx, cancel := tests.Context(context.Background(), t)
-	defer cancel()
-	n, err := f.CreateNetwork(ctx, t.Name(), 2, framework.CreateNetworkConfig{
-		StartSynced: true,
-		Snapshot:    tests.EqualSnapshotDetails,
-	}, func(peerIndex int, peerMaster bool, cfg config.GoShimmer) config.GoShimmer {
-		if peerIndex == 0 {
-			// cfg..BlocksRateLimit.Limit = 50
-		}
-		return cfg
-	})
-	require.NoError(t, err)
-	defer tests.ShutdownNetwork(ctx, t, n)
-
-	log.Println("Bootstrapping network...")
-	tests.BootstrapNetwork(t, n)
-	log.Println("Bootstrapping network... done")
-
-	peer1, peer2 := n.Peers()[0], n.Peers()[1]
-	got1, err := peer1.GetPeerFaultinessCount(peer2.ID())
-	require.NoError(t, err)
-	require.Equal(t, 0, got1)
-	got2, err := peer2.GetPeerFaultinessCount(peer1.ID())
-	require.NoError(t, err)
-	require.Equal(t, 0, got2)
-
-	// Start spamming blocks from peer2 to peer1.
-	for i := 0; i < 51; i++ {
-		tests.SendDataBlock(t, peer2, []byte(fmt.Sprintf("Test %d", i)), i)
-		require.NoError(t, err)
-	}
-	require.Eventually(t, func() bool {
-		got1, err = peer1.GetPeerFaultinessCount(peer2.ID())
-		require.NoError(t, err)
-		return got1 != 0
-	}, tests.Timeout, tests.Tick)
-	got2, err = peer2.GetPeerFaultinessCount(peer1.ID())
-	require.NoError(t, err)
-	require.Equal(t, 0, got2)
-}
-
 func TestConfirmBlock(t *testing.T) {
-	snapshotInfo := tests.ConsensusSnapshotDetails
+	snapshotOptions := tests.ConsensusSnapshotOptions
+	snapshotInfo := snapshotcreator.NewOptions(snapshotOptions...)
 
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
 	n, err := f.CreateNetwork(ctx, t.Name(), 4, framework.CreateNetworkConfig{
 		StartSynced: false,
-		Snapshot:    snapshotInfo,
+		Snapshot:    snapshotOptions,
 	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo, func(peerIndex int, isPeerMaster bool, conf config.GoShimmer) config.GoShimmer {
 		conf.UseNodeSeedAsWalletSeed = true
 		return conf
@@ -176,12 +137,14 @@ func TestConfirmBlock(t *testing.T) {
 	tests.TryAcceptBlock(t, peers, blockID, 30*time.Second, 100*time.Millisecond)
 }
 
-func createNewPeerConfig(t *testing.T, snapshotInfo framework.SnapshotInfo, peerIndex int) config.GoShimmer {
-	seedBytes, err := base58.Decode(snapshotInfo.PeersSeedBase58[peerIndex])
+func createNewPeerConfig(t *testing.T, snapshotOptions []options.Option[snapshotcreator.Options], peerIndex int) config.GoShimmer {
+	opt := snapshotcreator.NewOptions(snapshotOptions...)
+
+	seedBytes, err := base58.Decode(opt.PeersSeedBase58[peerIndex])
 	require.NoError(t, err)
 	conf := framework.PeerConfig()
 	conf.Seed = seedBytes
-	conf.Protocol.Snapshot.Path = snapshotInfo.FilePath
+	conf.Protocol.Snapshot.Path = opt.FilePath
 	// the new peer should use a shorter TangleTimeWindow than regular peers to go out of sync before them
 	conf.Protocol.BootstrapWindow = 30 * time.Second
 	return conf

@@ -4,15 +4,14 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/client/evilwallet"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
-
-	"github.com/iotaledger/hive.go/core/configuration"
-	"github.com/iotaledger/hive.go/core/logger"
-	"github.com/iotaledger/hive.go/core/types"
-	"go.uber.org/atomic"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
+	"github.com/iotaledger/hive.go/app/configuration"
+	appLogger "github.com/iotaledger/hive.go/app/logger"
+	"github.com/iotaledger/hive.go/ds/types"
+	"github.com/iotaledger/hive.go/logger"
 )
 
 // region Spammer //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -127,7 +126,7 @@ func (s *Spammer) setupSpamDetails() {
 
 func (s *Spammer) initLogger() {
 	config := configuration.New()
-	_ = logger.InitGlobalLogger(config)
+	_ = appLogger.InitGlobalLogger(config)
 	logger.SetLevel(logger.LevelDebug)
 	s.log = logger.NewLogger("Spammer")
 }
@@ -207,12 +206,10 @@ func (s *Spammer) PostTransaction(tx *devnetvm.Transaction, clt evilwallet.Clien
 		return
 	}
 
-	var err error
-	var txID utxo.TransactionID
-	if err = evilwallet.RateSetterSleep(clt, s.UseRateSetter); err != nil {
+	if err := evilwallet.RateSetterSleep(clt, s.UseRateSetter); err != nil {
 		return
 	}
-	txID, err = clt.PostTransaction(tx)
+	txID, blockID, err := clt.PostTransaction(tx)
 	if err != nil {
 		s.log.Debug(ErrFailPostTransaction)
 		s.ErrCounter.CountError(errors.WithMessage(ErrFailPostTransaction, err.Error()))
@@ -223,11 +220,10 @@ func (s *Spammer) PostTransaction(tx *devnetvm.Transaction, clt evilwallet.Clien
 	}
 
 	count := s.State.txSent.Add(1)
-	s.log.Debugf("Last transaction sent, ID: %s, txCount: %d", txID.String(), count)
+	s.log.Debugf("%s: Last transaction sent, ID: %s, txCount: %d", blockID.Base58(), txID.Base58(), count)
 }
 
 func (s *Spammer) handleSolidityForReuseOutputs(clt evilwallet.Client, tx *devnetvm.Transaction) (ok bool) {
-	ok = true
 	ok = s.EvilWallet.AwaitInputsSolidity(tx.Essence().Inputs(), clt)
 	if s.EvilScenario.OutputWallet.Type() == evilwallet.Reuse {
 		s.EvilWallet.AddReuseOutputsToThePool(tx.Essence().Outputs())

@@ -1,9 +1,8 @@
 package throughputquota
 
 import (
-	"github.com/iotaledger/hive.go/core/identity"
-
-	"github.com/iotaledger/goshimmer/packages/core/traits"
+	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/runtime/module"
 )
 
 type ThroughputQuota interface {
@@ -16,5 +15,6 @@ type ThroughputQuota interface {
 	// TotalBalance returns the total amount of throughput quota.
 	TotalBalance() (totalQuota int64)
 
-	traits.Initializable
+	// Interface embeds the required methods of the module.Interface.
+	module.Interface
 }

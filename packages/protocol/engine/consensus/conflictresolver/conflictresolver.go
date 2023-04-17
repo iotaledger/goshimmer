@@ -4,13 +4,11 @@ import (
 	"bytes"
 	"sort"
 
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/generics/walker"
-	"github.com/iotaledger/hive.go/core/types/confirmation"
-
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
+	"github.com/iotaledger/hive.go/ds/set"
+	"github.com/iotaledger/hive.go/ds/walker"
+	"github.com/iotaledger/hive.go/lo"
 )
 
 type WeightFunc func(conflictID utxo.TransactionID) (weight int64)
@@ -30,36 +28,68 @@ func New(conflictDAG *conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID]
 	}
 }
 
-// LikedConflictMember returns the liked ConflictID across the members of its conflict sets.
-func (o *ConflictResolver) LikedConflictMember(conflictID utxo.TransactionID) (likedConflict utxo.TransactionID, dislikedConflicts utxo.TransactionIDs) {
+// likedConflictMember returns the liked ConflictID across the members of its conflict sets.
+func (o *ConflictResolver) likedConflictMember(conflictID utxo.TransactionID) (likedConflict utxo.TransactionID, dislikedConflicts utxo.TransactionIDs) {
 	dislikedConflicts = utxo.NewTransactionIDs()
 
-	if o.ConflictLiked(conflictID) {
+	conflict, exists := o.conflictDAG.Conflict(conflictID)
+	if !exists {
+		return utxo.EmptyTransactionID, dislikedConflicts
+	}
+
+	if o.ConflictLiked(conflict) {
 		likedConflict = conflictID
 	} else {
 		dislikedConflicts.Add(conflictID)
 	}
 
-	o.conflictDAG.Utils.ForEachConflictingConflictID(conflictID, func(conflictingConflictID utxo.TransactionID) bool {
-		if likedConflict.IsEmpty() && o.ConflictLiked(conflictingConflictID) {
-			likedConflict = conflictingConflictID
+	// Try to find a liked conflict across the "flat" intersecting conflict set: we don't try to find a liked conflict on the parent conflicts.
+	conflict.ForEachConflictingConflict(func(conflictingConflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) bool {
+		if likedConflict.IsEmpty() && o.ConflictLiked(conflictingConflict) {
+			likedConflict = conflictingConflict.ID()
 		} else {
-			dislikedConflicts.Add(conflictingConflictID)
+			dislikedConflicts.Add(conflictingConflict.ID())
 		}
-
 		return true
 	})
 
-	return
+	return likedConflict, dislikedConflicts
+}
+
+// AdjustOpinion returns the reference that is necessary to correct our opinion on the given conflict.
+// It recursively walk to the parent conflicts to find the upmost liked conflict.
+func (o *ConflictResolver) AdjustOpinion(conflictID utxo.TransactionID) (likedConflict utxo.TransactionID, dislikedConflicts utxo.TransactionIDs) {
+	dislikedConflicts = utxo.NewTransactionIDs()
+
+	for w := walker.New[utxo.TransactionID](false).Push(conflictID); w.HasNext(); {
+		currentConflictID := w.Next()
+
+		likedConflictID, dislikedConflictIDs := o.likedConflictMember(currentConflictID)
+
+		dislikedConflicts.AddAll(dislikedConflictIDs)
+
+		if !likedConflictID.IsEmpty() {
+			likedConflict = likedConflictID
+			break
+		}
+		// only walk deeper if we don't like "something else"
+		conflict, exists := o.conflictDAG.Conflict(currentConflictID)
+		if exists {
+			w.PushFront(conflict.Parents().Slice()...)
+		}
+	}
+
+	return likedConflict, dislikedConflicts
 }
 
 // ConflictLiked returns whether the conflict is the winner across all conflict sets (it is in the liked reality).
-func (o *ConflictResolver) ConflictLiked(conflictID utxo.TransactionID) (conflictLiked bool) {
+func (o *ConflictResolver) ConflictLiked(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) (conflictLiked bool) {
 	conflictLiked = true
-	if conflictID == utxo.EmptyTransactionID {
+	if conflict.ID().IsEmpty() {
 		return
 	}
-	for likeWalker := walker.New[utxo.TransactionID]().Push(conflictID); likeWalker.HasNext(); {
+
+	for likeWalker := walker.New[*conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]]().Push(conflict); likeWalker.HasNext(); {
 		if conflictLiked = conflictLiked && o.conflictPreferred(likeWalker.Next(), likeWalker); !conflictLiked {
 			return
 		}
@@ -69,72 +99,70 @@ func (o *ConflictResolver) ConflictLiked(conflictID utxo.TransactionID) (conflic
 }
 
 // conflictPreferred returns whether the conflict is the winner across its conflict sets.
-func (o *ConflictResolver) conflictPreferred(conflictID utxo.TransactionID, likeWalker *walker.Walker[utxo.TransactionID]) (preferred bool) {
+func (o *ConflictResolver) conflictPreferred(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID], likeWalker *walker.Walker[*conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]]) (preferred bool) {
 	preferred = true
-	if conflictID == utxo.EmptyTransactionID {
+	if conflict.ID().IsEmpty() {
 		return
 	}
 
-	o.conflictDAG.Storage.CachedConflict(conflictID).Consume(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-		switch conflict.ConfirmationState() {
-		case confirmation.Rejected:
-			preferred = false
-			return
-		case confirmation.Accepted:
-		case confirmation.Confirmed:
-			return
-		}
+	if conflict.ConfirmationState().IsAccepted() {
+		return
+	}
 
-		if preferred = !o.dislikedConnectedConflictingConflicts(conflictID).Has(conflictID); preferred {
-			for it := conflict.Parents().Iterator(); it.HasNext(); {
-				likeWalker.Push(it.Next())
+	if preferred = !o.dislikedConnectedConflictingConflicts(conflict).Has(conflict.ID()); preferred {
+		for it := conflict.Parents().Iterator(); it.HasNext(); {
+			parentConflict, exists := o.conflictDAG.Conflict(it.Next())
+			if !exists {
+				continue
 			}
+			likeWalker.Push(parentConflict)
 		}
-	})
+	}
 
 	return
 }
 
-func (o *ConflictResolver) dislikedConnectedConflictingConflicts(currentConflictID utxo.TransactionID) (dislikedConflicts set.Set[utxo.TransactionID]) {
+func (o *ConflictResolver) dislikedConnectedConflictingConflicts(currentConflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) (dislikedConflicts set.Set[utxo.TransactionID]) {
 	dislikedConflicts = set.New[utxo.TransactionID]()
-	o.forEachConnectedConflictingConflictInDescendingOrder(currentConflictID, func(conflictID utxo.TransactionID) {
-		if dislikedConflicts.Has(conflictID) {
+
+	o.ForEachConnectedConflictingConflictInDescendingOrder(currentConflict, func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+		if dislikedConflicts.Has(conflict.ID()) {
 			return
 		}
 
-		rejectionWalker := walker.New[utxo.TransactionID]()
-		o.conflictDAG.Utils.ForEachConflictingConflictID(conflictID, func(conflictingConflictID utxo.TransactionID) bool {
-			rejectionWalker.Push(conflictingConflictID)
+		rejectionWalker := walker.New[*conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]]()
+		conflict.ForEachConflictingConflict(func(conflictingConflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) bool {
+			rejectionWalker.Push(conflictingConflict)
 			return true
 		})
 
 		for rejectionWalker.HasNext() {
-			rejectedConflictID := rejectionWalker.Next()
+			rejectedConflict := rejectionWalker.Next()
 
-			dislikedConflicts.Add(rejectedConflictID)
+			dislikedConflicts.Add(rejectedConflict.ID())
 
-			o.conflictDAG.Storage.CachedChildConflicts(rejectedConflictID).Consume(func(childConflict *conflictdag.ChildConflict[utxo.TransactionID]) {
-				rejectionWalker.Push(childConflict.ChildConflictID())
-			})
+			rejectionWalker.PushAll(rejectedConflict.Children().Slice()...)
 		}
 	})
 
 	return dislikedConflicts
 }
 
-// forEachConnectedConflictingConflictInDescendingOrder iterates over all conflicts connected via conflict sets
+// ForEachConnectedConflictingConflictInDescendingOrder iterates over all conflicts connected via conflict sets
 // and sorts them by weight. It calls the callback for each of them in that order.
-func (o *ConflictResolver) forEachConnectedConflictingConflictInDescendingOrder(conflictID utxo.TransactionID, callback func(conflictID utxo.TransactionID)) {
+func (o *ConflictResolver) ForEachConnectedConflictingConflictInDescendingOrder(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID], callback func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID])) {
 	conflictWeights := make(map[utxo.TransactionID]int64)
-	conflictsOrderedByWeight := make([]utxo.TransactionID, 0)
-	o.conflictDAG.Utils.ForEachConnectedConflictingConflictID(conflictID, func(conflictingConflictID utxo.TransactionID) {
-		conflictWeights[conflictingConflictID] = o.weightFunc(conflictingConflictID)
-		conflictsOrderedByWeight = append(conflictsOrderedByWeight, conflictingConflictID)
+	conflictsOrderedByWeight := make([]*conflictdag.Conflict[utxo.TransactionID, utxo.OutputID], 0)
+
+	o.conflictDAG.ForEachConnectedConflictingConflictID(conflict, func(conflictingConflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+		// TODO: possible race condition on weight function state because it's not locked
+		conflictWeights[conflictingConflict.ID()] = o.weightFunc(conflictingConflict.ID())
+		conflictsOrderedByWeight = append(conflictsOrderedByWeight, conflictingConflict)
 	})
 
 	sort.Slice(conflictsOrderedByWeight, func(i, j int) bool {
-		conflictI := conflictsOrderedByWeight[i]
-		conflictJ := conflictsOrderedByWeight[j]
+		conflictI := conflictsOrderedByWeight[i].ID()
+		conflictJ := conflictsOrderedByWeight[j].ID()
 
 		return !(conflictWeights[conflictI] < conflictWeights[conflictJ] || (conflictWeights[conflictI] == conflictWeights[conflictJ] && bytes.Compare(lo.PanicOnErr(conflictI.Bytes()), lo.PanicOnErr(conflictJ.Bytes())) > 0))
 	})

@@ -5,9 +5,11 @@ import (
 	"log"
 	"testing"
 
+	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
+
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/tests"
 )
@@ -21,16 +23,16 @@ func TestFaucetRequest(t *testing.T) {
 
 	ctx, cancel := tests.Context(context.Background(), t)
 	defer cancel()
-	snapshotInfo := tests.EqualSnapshotDetails
+	snapshotOptions := tests.EqualSnapshotOptions
+	snapshotInfo := snapshotcreator.NewOptions(snapshotOptions...)
 	n, err := f.CreateNetwork(ctx, t.Name(), numPeers, framework.CreateNetworkConfig{
 		StartSynced: false,
 		Faucet:      true,
 		Activity:    true,
-		Snapshot:    snapshotInfo,
+		Snapshot:    snapshotOptions,
 	}, tests.CommonSnapshotConfigFunc(t, snapshotInfo))
 	require.NoError(t, err)
 	defer tests.ShutdownNetwork(ctx, t, n)
-
 	log.Println("Bootstrapping network...")
 	tests.BootstrapNetwork(t, n)
 	log.Println("Bootstrapping network... done")

@@ -5,16 +5,15 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/atomic"
+
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
-
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/identity"
-
-	"go.uber.org/atomic"
+	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 const (
@@ -80,7 +79,9 @@ func New(protocol *protocol.Protocol, selfIdentity identity.ID, opts ...options.
 
 // Setup sets up the behavior of the component by making it attach to the relevant events of the other components.
 func (r *RateSetter) setupEvents() {
-	r.protocol.Events.CongestionControl.Scheduler.BlockScheduled.Attach(event.NewClosure(func(block *scheduler.Block) {
+	wp := r.protocol.Workers.CreatePool("RateSetter", 2)
+
+	r.protocol.Events.CongestionControl.Scheduler.BlockScheduled.Hook(func(block *scheduler.Block) {
 		if r.pauseUpdates > 0 {
 			r.pauseUpdates--
 			return
@@ -91,12 +92,13 @@ func (r *RateSetter) setupEvents() {
 		if r.protocol.CongestionControl.Scheduler().IssuerQueueSize(r.self) > 0 {
 			r.rateUpdateChan <- block.ModelsBlock
 		}
-	}))
-	r.protocol.Events.CongestionControl.Scheduler.BlockSubmitted.Attach(event.NewClosure(func(block *scheduler.Block) {
+	}, event.WithWorkerPool(wp))
+
+	r.protocol.Events.CongestionControl.Scheduler.BlockSubmitted.Hook(func(block *scheduler.Block) {
 		if block.IssuerID() == r.self {
 			r.updateIssueCredits(float64(-block.Work()))
 		}
-	}))
+	}, event.WithWorkerPool(wp))
 }
 
 // Shutdown shuts down the RateSetter.

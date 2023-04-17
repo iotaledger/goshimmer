@@ -1,16 +1,16 @@
 package blockissuer
 
 import (
-	"github.com/iotaledger/hive.go/core/autopeering/peer"
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/node"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer/blockfactory"
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer/ratesetter"
+	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	protocolParams "github.com/iotaledger/goshimmer/plugins/protocol"
+	"github.com/iotaledger/hive.go/autopeering/peer"
+	"github.com/iotaledger/hive.go/runtime/event"
 )
 
 // PluginName is the name of the spammer plugin.
@@ -31,17 +31,17 @@ type dependencies struct {
 func init() {
 	Plugin = node.NewPlugin(PluginName, deps, node.Enabled, configure)
 
-	Plugin.Events.Init.Hook(event.NewClosure(func(event *node.InitEvent) {
+	Plugin.Events.Init.Hook(func(event *node.InitEvent) {
 		if err := event.Container.Provide(createBlockIssuer); err != nil {
 			Plugin.Panic(err)
 		}
-	}))
+	})
 }
 
-func configure(_ *node.Plugin) {
-	deps.BlockIssuer.Events.Error.Attach(event.NewClosure(func(err error) {
+func configure(plugin *node.Plugin) {
+	deps.BlockIssuer.Events.Error.Hook(func(err error) {
 		Plugin.LogErrorf("Error in BlockIssuer: %s", err)
-	}))
+	}, event.WithWorkerPool(plugin.WorkerPool))
 }
 
 func createBlockIssuer(local *peer.Local, protocol *protocol.Protocol) *blockissuer.BlockIssuer {
@@ -60,5 +60,6 @@ func createBlockIssuer(local *peer.Local, protocol *protocol.Protocol) *blockiss
 		),
 		blockissuer.WithRateSetter(rateSetter),
 		blockissuer.WithIgnoreBootstrappedFlag(Parameters.IgnoreBootstrappedFlag),
+		blockissuer.WithTimeSinceConfirmationThreshold(protocolParams.Parameters.TimeSinceConfirmationThreshold),
 	)
 }

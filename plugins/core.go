@@ -1,8 +1,7 @@
 package plugins
 
 import (
-	"github.com/iotaledger/hive.go/core/node"
-
+	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/plugins/autopeering"
 	"github.com/iotaledger/goshimmer/plugins/banner"
 	"github.com/iotaledger/goshimmer/plugins/blockissuer"
@@ -45,7 +44,6 @@ var Core = node.Plugins(
 	retainer.Plugin,
 	indexer.Plugin,
 	warpsync.Plugin,
-	// firewall.Plugin,
 	faucet.Plugin,
 	blockissuer.Plugin,
 	dashboardmetrics.Plugin,

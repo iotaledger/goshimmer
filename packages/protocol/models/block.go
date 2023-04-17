@@ -7,24 +7,23 @@ import (
 	"sort"
 	"time"
 
+	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotaledger/hive.go/core/byteutils"
-	"github.com/iotaledger/hive.go/core/crypto/ed25519"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/model"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/iotaledger/hive.go/core/serix"
-	"github.com/iotaledger/hive.go/core/stringify"
-	"github.com/iotaledger/hive.go/core/types"
-	"github.com/pkg/errors"
-
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/utxo"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/vm/devnetvm"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
+	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/ds/types"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/objectstorage/generic/model"
+	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/serializer/v2/byteutils"
+	"github.com/iotaledger/hive.go/serializer/v2/serix"
+	"github.com/iotaledger/hive.go/stringify"
 )
 
 const (
@@ -34,7 +33,7 @@ const (
 	// MaxBlockSize defines the maximum size of a block in bytes.
 	MaxBlockSize = 64 * 1024
 
-	// MaxBlockSize defines the maximum work of a block.
+	// MaxBlockWork defines the maximum work of a block.
 	MaxBlockWork = 1
 
 	// BlockIDLength defines the length of an BlockID.
@@ -72,16 +71,16 @@ type Block struct {
 
 type block struct {
 	// core properties (get sent over the wire)
-	Version              uint8                  `serix:"0"`
-	Parents              ParentBlockIDs         `serix:"1"`
-	IssuerPublicKey      ed25519.PublicKey      `serix:"2"`
-	IssuingTime          time.Time              `serix:"3"`
-	SequenceNumber       uint64                 `serix:"4"`
-	PayloadBytes         []byte                 `serix:"5,lengthPrefixType=uint32"`
-	EpochCommitment      *commitment.Commitment `serix:"6"`
-	LatestConfirmedEpoch epoch.Index            `serix:"7"`
-	Nonce                uint64                 `serix:"8"`
-	Signature            ed25519.Signature      `serix:"9"`
+	Version             uint8                  `serix:"0"`
+	Parents             ParentBlockIDs         `serix:"1"`
+	IssuerPublicKey     ed25519.PublicKey      `serix:"2"`
+	IssuingTime         time.Time              `serix:"3"`
+	SequenceNumber      uint64                 `serix:"4"`
+	PayloadBytes        []byte                 `serix:"5,lengthPrefixType=uint32"`
+	SlotCommitment      *commitment.Commitment `serix:"6"`
+	LatestConfirmedSlot slot.Index             `serix:"7"`
+	Nonce               uint64                 `serix:"8"`
+	Signature           ed25519.Signature      `serix:"9"`
 }
 
 // NewBlock creates a new block with the details provided by the issuer.
@@ -95,7 +94,7 @@ func NewBlock(opts ...options.Option[Block]) *Block {
 		IssuingTime:     time.Now(),
 		SequenceNumber:  0,
 		PayloadBytes:    lo.PanicOnErr(defaultPayload.Bytes()),
-		EpochCommitment: commitment.New(0, commitment.ID{}, types.Identifier{}, 0),
+		SlotCommitment:  commitment.New(0, commitment.ID{}, types.Identifier{}, 0),
 	})
 	blk.payload = defaultPayload
 
@@ -106,7 +105,7 @@ func NewEmptyBlock(id BlockID, opts ...options.Option[Block]) (newBlock *Block) 
 	return options.Apply(model.NewStorable[BlockID, Block](&block{}), opts, func(b *Block) {
 		b.SetID(id)
 		b.M.PayloadBytes = lo.PanicOnErr(payload.NewGenericDataPayload([]byte("")).Bytes())
-		b.M.EpochCommitment = commitment.New(0, commitment.ID{}, types.Identifier{}, 0)
+		b.M.SlotCommitment = commitment.New(0, commitment.ID{}, types.Identifier{}, 0)
 	})
 }
 
@@ -119,19 +118,46 @@ func (b *Block) ContentHash() (contentHash types.Identifier, err error) {
 	return blake2b.Sum256(blkBytes[:len(blkBytes)-ed25519.SignatureSize]), nil
 }
 
-// VerifySignature verifies the Signature of the block.
-func (b *Block) VerifySignature() (valid bool, err error) {
+func (b *Block) Sign(pair *ed25519.KeyPair) error {
+	b.M.IssuerPublicKey = pair.PublicKey
+
 	contentHash, err := b.ContentHash()
 	if err != nil {
-		return false, err
+		return errors.Wrap(err, "failed to obtain block content's hash")
 	}
 
 	issuingTimeBytes, err := serix.DefaultAPI.Encode(context.Background(), b.IssuingTime(), serix.WithValidation())
 	if err != nil {
-		panic(err)
+		return errors.Wrap(err, "failed to serialize block's issuing time")
 	}
 
-	return b.M.IssuerPublicKey.VerifySignature(byteutils.ConcatBytes(issuingTimeBytes, lo.PanicOnErr(b.Commitment().ID().Bytes()), contentHash[:]), b.Signature()), nil
+	commitmentIDBytes, err := b.Commitment().ID().Bytes()
+	if err != nil {
+		return errors.Wrap(err, "failed to serialize block's commitment ID")
+	}
+
+	b.SetSignature(pair.PrivateKey.Sign(byteutils.ConcatBytes(issuingTimeBytes, commitmentIDBytes, contentHash[:])))
+	return nil
+}
+
+// VerifySignature verifies the Signature of the block.
+func (b *Block) VerifySignature() (valid bool, err error) {
+	contentHash, err := b.ContentHash()
+	if err != nil {
+		return false, errors.Wrap(err, "failed to obtain block content's hash")
+	}
+
+	issuingTimeBytes, err := serix.DefaultAPI.Encode(context.Background(), b.IssuingTime(), serix.WithValidation())
+	if err != nil {
+		return false, errors.Wrap(err, "failed to serialize block's issuing time")
+	}
+
+	commitmentIDBytes, err := b.Commitment().ID().Bytes()
+	if err != nil {
+		return false, errors.Wrap(err, "failed to serialize block's commitment ID")
+	}
+
+	return b.M.IssuerPublicKey.VerifySignature(byteutils.ConcatBytes(issuingTimeBytes, commitmentIDBytes, contentHash[:]), b.Signature()), nil
 }
 
 // Version returns the block Version.
@@ -158,6 +184,11 @@ func (b *Block) Parents() (parents []BlockID) {
 		parents = append(parents, parent.ID)
 	})
 	return
+}
+
+// StrongParents returns a copy of the strong parents of the block.
+func (b *Block) StrongParents() (strongParents []BlockID) {
+	return b.ParentsByType(StrongParentType).Slice()
 }
 
 // ForEachParentByType executes a consumer func for each strong parent.
@@ -234,12 +265,12 @@ func (b *Block) Nonce() uint64 {
 
 // Commitment returns the Commitment of the block.
 func (b *Block) Commitment() *commitment.Commitment {
-	return b.M.EpochCommitment
+	return b.M.SlotCommitment
 }
 
-// LatestConfirmedEpoch returns the LatestConfirmedEpoch of the block.
-func (b *Block) LatestConfirmedEpoch() epoch.Index {
-	return b.M.LatestConfirmedEpoch
+// LatestConfirmedSlot returns the LatestConfirmedSlot of the block.
+func (b *Block) LatestConfirmedSlot() slot.Index {
+	return b.M.LatestConfirmedSlot
 }
 
 // Signature returns the Signature of the block.
@@ -253,7 +284,7 @@ func (b *Block) SetSignature(signature ed25519.Signature) {
 }
 
 // DetermineID calculates and sets the block's BlockID and size.
-func (b *Block) DetermineID(blockIdentifier ...types.Identifier) (err error) {
+func (b *Block) DetermineID(slotTimeProvider *slot.TimeProvider, blockIdentifier ...types.Identifier) (err error) {
 	blkBytes, err := b.Bytes()
 	if err != nil {
 		return errors.Wrap(err, "failed to create block bytes")
@@ -261,10 +292,10 @@ func (b *Block) DetermineID(blockIdentifier ...types.Identifier) (err error) {
 	if len(blockIdentifier) > 0 {
 		b.SetID(BlockID{
 			Identifier: blockIdentifier[0],
-			EpochIndex: epoch.IndexFromTime(b.IssuingTime()),
+			SlotIndex:  slotTimeProvider.IndexFromTime(b.IssuingTime()),
 		})
 	} else {
-		b.SetID(DetermineID(blkBytes, epoch.IndexFromTime(b.IssuingTime())))
+		b.SetID(DetermineID(blkBytes, slotTimeProvider.IndexFromTime(b.IssuingTime())))
 	}
 
 	return nil
@@ -306,11 +337,11 @@ func (b *Block) String() string {
 }
 
 // DetermineID calculates the block's BlockID.
-func DetermineID(blkBytes []byte, epochIndex epoch.Index) BlockID {
+func DetermineID(blkBytes []byte, slotIndex slot.Index) BlockID {
 	contentHash := blake2b.Sum256(blkBytes[:len(blkBytes)-ed25519.SignatureSize])
 	signatureBytes := blkBytes[len(blkBytes)-ed25519.SignatureSize:]
 
-	return NewBlockID(contentHash, lo.Return1(ed25519.SignatureFromBytes(signatureBytes)), epochIndex)
+	return NewBlockID(contentHash, lo.Return1(ed25519.SignatureFromBytes(signatureBytes)), slotIndex)
 }
 
 // sortParents sorts given parents and returns a new slice with sorted parents.
@@ -408,15 +439,15 @@ func WithNonce(nonce uint64) options.Option[Block] {
 	}
 }
 
-func WithLatestConfirmedEpoch(epochIndex epoch.Index) options.Option[Block] {
+func WithLatestConfirmedSlot(index slot.Index) options.Option[Block] {
 	return func(b *Block) {
-		b.M.LatestConfirmedEpoch = epochIndex
+		b.M.LatestConfirmedSlot = index
 	}
 }
 
 func WithCommitment(cm *commitment.Commitment) options.Option[Block] {
 	return func(b *Block) {
-		b.M.EpochCommitment = cm
+		b.M.SlotCommitment = cm
 	}
 }
 

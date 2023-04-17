@@ -3,18 +3,17 @@ package conflicttracker
 import (
 	"fmt"
 
-	"github.com/iotaledger/hive.go/core/generics/constraints"
-	"github.com/iotaledger/hive.go/core/generics/set"
-	"github.com/iotaledger/hive.go/core/identity"
-
-	"github.com/iotaledger/goshimmer/packages/core/memstorage"
 	"github.com/iotaledger/goshimmer/packages/core/votes"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
-	"github.com/iotaledger/goshimmer/packages/protocol/ledger/conflictdag"
+	"github.com/iotaledger/hive.go/constraints"
+	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/ds/shrinkingmap"
 )
 
 type ConflictTracker[ConflictIDType, ResourceIDType comparable, VotePowerType constraints.Comparable[VotePowerType]] struct {
-	votes *memstorage.Storage[ConflictIDType, *votes.Votes[ConflictIDType, VotePowerType]]
+	votes *shrinkingmap.ShrinkingMap[ConflictIDType, *votes.Votes[ConflictIDType, VotePowerType]]
 
 	conflictDAG *conflictdag.ConflictDAG[ConflictIDType, ResourceIDType]
 	validators  *sybilprotection.WeightedSet
@@ -23,14 +22,17 @@ type ConflictTracker[ConflictIDType, ResourceIDType comparable, VotePowerType co
 
 func NewConflictTracker[ConflictIDType, ResourceIDType comparable, VotePowerType constraints.Comparable[VotePowerType]](conflictDAG *conflictdag.ConflictDAG[ConflictIDType, ResourceIDType], validators *sybilprotection.WeightedSet) *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType] {
 	return &ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]{
-		votes:       memstorage.New[ConflictIDType, *votes.Votes[ConflictIDType, VotePowerType]](),
+		votes:       shrinkingmap.New[ConflictIDType, *votes.Votes[ConflictIDType, VotePowerType]](),
 		conflictDAG: conflictDAG,
 		validators:  validators,
 		Events:      NewEvents[ConflictIDType](),
 	}
 }
 
-func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) TrackVote(initialVote *set.AdvancedSet[ConflictIDType], voterID identity.ID, power VotePowerType) (added, invalid bool) {
+func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) TrackVote(initialVote *advancedset.AdvancedSet[ConflictIDType], voterID identity.ID, power VotePowerType) (added, invalid bool) {
+	c.conflictDAG.WeightsMutex.RLock()
+	defer c.conflictDAG.WeightsMutex.RUnlock()
+
 	addedConflictIDs, revokedConflictIDs, invalid := c.conflictDAG.DetermineVotes(initialVote)
 	if invalid {
 		return false, true
@@ -46,51 +48,70 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) TrackVo
 	return true, false
 }
 
-func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) Voters(conflict ConflictIDType) (voters *set.AdvancedSet[identity.ID]) {
+func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) Voters(conflict ConflictIDType) (voters *advancedset.AdvancedSet[identity.ID]) {
 	votesObj, exists := c.votes.Get(conflict)
 	if !exists {
-		return set.NewAdvancedSet[identity.ID]()
+		return advancedset.New[identity.ID]()
 	}
 
 	return votesObj.Voters()
 }
 
-func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) AddSupportToForkedConflict(forkedConflictID ConflictIDType, parentConflictIDs *set.AdvancedSet[ConflictIDType], voterID identity.ID, power VotePowerType) {
+func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) AddSupportToForkedConflict(forkedConflictID ConflictIDType, parentConflictIDs *advancedset.AdvancedSet[ConflictIDType], voterID identity.ID, power VotePowerType) {
+	c.conflictDAG.WeightsMutex.RLock()
+	defer c.conflictDAG.WeightsMutex.RUnlock()
+
+	// Do not track decided conflicts.
+	if !c.conflictPending(forkedConflictID) {
+		return
+	}
+
 	// We need to make sure that the voter supports all the conflict's parents.
 	if !c.voterSupportsAllConflicts(voterID, parentConflictIDs) {
 		return
 	}
 
 	vote := votes.NewVote[ConflictIDType](voterID, power, votes.Like).WithConflictID(forkedConflictID)
-
-	votesObj, _ := c.votes.RetrieveOrCreate(forkedConflictID, votes.NewVotes[ConflictIDType, VotePowerType])
+	votesObj, _ := c.votes.GetOrCreate(forkedConflictID, votes.NewVotes[ConflictIDType, VotePowerType])
 	if added, opinionChanged := votesObj.Add(vote); added && opinionChanged {
 		c.Events.VoterAdded.Trigger(&VoterEvent[ConflictIDType]{Voter: voterID, ConflictID: forkedConflictID})
 	}
 }
 
-func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) applyVotes(defaultVote *votes.Vote[ConflictIDType, VotePowerType], conflictIDs *set.AdvancedSet[ConflictIDType]) (collectedEvents []*VoterEvent[ConflictIDType]) {
+func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) applyVotes(defaultVote *votes.Vote[ConflictIDType, VotePowerType], conflictIDs *advancedset.AdvancedSet[ConflictIDType]) (collectedEvents []*VoterEvent[ConflictIDType]) {
 	for it := conflictIDs.Iterator(); it.HasNext(); {
-		conflict := it.Next()
-		votesObj, created := c.votes.RetrieveOrCreate(conflict, votes.NewVotes[ConflictIDType, VotePowerType])
+		conflictID := it.Next()
 
-		conflictVote := defaultVote.WithConflictID(conflict)
+		// Do not track decided conflicts.
+		if !c.conflictPending(conflictID) {
+			continue
+		}
+
+		votesObj, created := c.votes.GetOrCreate(conflictID, votes.NewVotes[ConflictIDType, VotePowerType])
+
+		conflictVote := defaultVote.WithConflictID(conflictID)
 
 		// Only handle Like opinion because dislike should always be created and exist before.
 		if created && conflictVote.Opinion == votes.Like {
-			if votePower, dislikeInstead := c.revokeConflictInstead(conflict, conflictVote); dislikeInstead {
+			if votePower, dislikeInstead := c.revokeConflictInstead(conflictID, conflictVote); dislikeInstead {
 				conflictVote = conflictVote.WithOpinion(votes.Dislike).WithVotePower(votePower)
 			}
 		}
 
 		if added, opinionChanged := votesObj.Add(conflictVote); added && opinionChanged {
-			collectedEvents = append(collectedEvents, &VoterEvent[ConflictIDType]{Voter: conflictVote.Voter, ConflictID: conflict, Opinion: conflictVote.Opinion})
+			collectedEvents = append(collectedEvents, &VoterEvent[ConflictIDType]{Voter: conflictVote.Voter, ConflictID: conflictID, Opinion: conflictVote.Opinion})
 		}
 	}
 	return collectedEvents
 }
 
-func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) voterSupportsAllConflicts(voter identity.ID, conflictIDs *set.AdvancedSet[ConflictIDType]) (allConflictsSupported bool) {
+func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) conflictPending(conflictID ConflictIDType) bool {
+	conflict, exists := c.conflictDAG.Conflict(conflictID)
+	// TODO: this depends on how we treat orphaned conflicts -> do we delete them?
+	return !exists || conflict.ConfirmationState().IsPending()
+}
+
+func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) voterSupportsAllConflicts(voter identity.ID, conflictIDs *advancedset.AdvancedSet[ConflictIDType]) (allConflictsSupported bool) {
 	for it := conflictIDs.Iterator(); it.HasNext(); {
 		conflictID := it.Next()
 
@@ -116,8 +137,12 @@ func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) voterSu
 }
 
 func (c *ConflictTracker[ConflictIDType, ResourceIDType, VotePowerType]) revokeConflictInstead(conflictID ConflictIDType, vote *votes.Vote[ConflictIDType, VotePowerType]) (votePower VotePowerType, revokeInstead bool) {
-	c.conflictDAG.Utils.ForEachConflictingConflictID(conflictID, func(conflictingConflictID ConflictIDType) bool {
-		votesObj, conflictVotesExist := c.votes.Get(conflictingConflictID)
+	conflict, exists := c.conflictDAG.Conflict(conflictID)
+	if !exists {
+		return
+	}
+	conflict.ForEachConflictingConflict(func(conflictingConflict *conflictdag.Conflict[ConflictIDType, ResourceIDType]) bool {
+		votesObj, conflictVotesExist := c.votes.Get(conflictingConflict.ID())
 		if !conflictVotesExist {
 			revokeInstead = false
 			return false

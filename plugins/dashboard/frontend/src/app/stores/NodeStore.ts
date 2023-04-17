@@ -25,7 +25,7 @@ class TangleTime {
     RCTT: number;
     acceptedBlockID: string;
     confirmedBlockID: string;
-    confirmedEpoch: number;
+    confirmedSlot: number;
 }
 
 class MemoryMetrics {

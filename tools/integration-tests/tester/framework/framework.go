@@ -11,16 +11,13 @@ import (
 	"time"
 
 	"github.com/docker/docker/client"
-	"github.com/iotaledger/hive.go/core/generics/lo"
-	"github.com/iotaledger/hive.go/core/generics/orderedmap"
-	"github.com/iotaledger/hive.go/core/identity"
-	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
 	"github.com/iotaledger/goshimmer/packages/protocol"
-	"github.com/iotaledger/goshimmer/packages/storage"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxoledger"
 	"github.com/iotaledger/goshimmer/tools/integration-tests/tester/framework/config"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 var (
@@ -143,46 +140,24 @@ func (f *Framework) CreateNetworkNoAutomaticManualPeering(ctx context.Context, n
 	return network, nil
 }
 
-func createTempStorage() (s *storage.Storage) {
-	return storage.New(lo.PanicOnErr(os.MkdirTemp(os.TempDir(), "*")), protocol.DatabaseVersion)
-}
-
-func createSnapshot(snapshotInfo SnapshotInfo, startSynced bool) error {
-	nodesToPledgeMap, err := createPledgeMap(snapshotInfo)
+func createSnapshot(snapshotInfo []options.Option[snapshotcreator.Options], startSynced bool) error {
+	defaultOpts := []options.Option[snapshotcreator.Options]{
+		snapshotcreator.WithFilePath("/assets/snapshot.bin"),
+		snapshotcreator.WithDatabaseVersion(protocol.DatabaseVersion),
+		snapshotcreator.WithLedgerProvider(utxoledger.NewProvider()),
+		snapshotcreator.WithAttestAll(startSynced),
+		snapshotcreator.WithGenesisSeed(GenesisSeedBytes),
+		snapshotcreator.WithGenesisUnixTime(time.Now().Unix()),
+		snapshotcreator.WithSlotDuration(10),
+	}
+	err := snapshotcreator.CreateSnapshot(
+		append(defaultOpts, snapshotInfo...)...,
+	)
 	if err != nil {
-		return err
+		panic(err)
 	}
-
-	if nodesToPledgeMap.Size() == 0 {
-		return errors.New("no nodes to pledge specified in SnapshotInfo")
-	}
-
-	// default to /assets/snapshot.bin
-	if snapshotInfo.FilePath == "" {
-		snapshotInfo.FilePath = "/assets/snapshot.bin"
-	}
-
-	snapshotcreator.CreateSnapshotForIntegrationTest(createTempStorage(), snapshotInfo.FilePath, snapshotInfo.GenesisTokenAmount, GenesisSeedBytes, nodesToPledgeMap, startSynced)
 
 	return nil
-}
-
-// createPledgeMap creates a pledge map according to snapshotInfo
-func createPledgeMap(snapshotInfo SnapshotInfo) (nodesToPledge *orderedmap.OrderedMap[identity.ID, uint64], err error) {
-	nodesToPledge = orderedmap.New[identity.ID, uint64]()
-
-	for i, peerSeedBase58 := range snapshotInfo.PeersSeedBase58 {
-		seedBytes, err := base58.Decode(peerSeedBase58)
-		if err != nil {
-			return nil, err
-		}
-
-		var seed [32]byte
-		copy(seed[:], seedBytes)
-		nodesToPledge.Set(seed, snapshotInfo.PeersAmountsPledged[i])
-	}
-
-	return nodesToPledge, nil
 }
 
 // CreateNetworkWithPartitions creates and returns a network that contains numPeers GoShimmer nodes

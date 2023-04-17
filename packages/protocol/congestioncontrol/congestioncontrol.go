@@ -3,39 +3,27 @@ package congestioncontrol
 import (
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/generics/event"
-	"github.com/iotaledger/hive.go/core/generics/options"
-	"github.com/iotaledger/hive.go/core/workerpool"
-
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/options"
 )
 
 type CongestionControl struct {
 	Events *Events
 
-	workerPool     *workerpool.UnboundedWorkerPool
 	scheduler      *scheduler.Scheduler
 	schedulerMutex sync.RWMutex
 
 	optsSchedulerOptions []options.Option[scheduler.Scheduler]
 }
 
-func New(opts ...options.Option[CongestionControl]) (congestionControl *CongestionControl) {
-	congestionControl = options.Apply(&CongestionControl{
-		Events:     NewEvents(),
-		workerPool: workerpool.NewUnboundedWorkerPool(1),
+func New(opts ...options.Option[CongestionControl]) *CongestionControl {
+	return options.Apply(&CongestionControl{
+		Events: NewEvents(),
 	}, opts)
-
-	return congestionControl
-}
-
-func (c *CongestionControl) Run() {
-	c.schedulerMutex.RLock()
-	defer c.schedulerMutex.RUnlock()
-
-	c.workerPool.Start()
 }
 
 func (c *CongestionControl) Shutdown() {
@@ -43,7 +31,6 @@ func (c *CongestionControl) Shutdown() {
 	defer c.schedulerMutex.RUnlock()
 
 	c.scheduler.Shutdown()
-	c.workerPool.Shutdown()
 }
 
 func (c *CongestionControl) LinkTo(engine *engine.Engine) {
@@ -56,32 +43,29 @@ func (c *CongestionControl) LinkTo(engine *engine.Engine) {
 
 	c.scheduler = scheduler.New(
 		engine.EvictionState,
-		engine.Consensus.BlockGadget.IsBlockAccepted,
+		engine.SlotTimeProvider(),
+		engine.Consensus.BlockGadget().IsBlockAccepted,
 		engine.ThroughputQuota.BalanceByIDs,
 		engine.ThroughputQuota.TotalBalance,
 		c.optsSchedulerOptions...,
 	)
-	engine.Tangle.Events.VirtualVoting.BlockTracked.AttachWithWorkerPool(event.NewClosure(c.scheduler.AddBlock), c.workerPool)
-	// engine.Tangle.Events.VirtualVoting.BlockTracked.Attach(event.NewClosure(func(block *virtualvoting.Block) {
-	//	registerBlock, err := c.scheduler.GetOrRegisterBlock(block)
-	//	if err != nil {
-	//		panic(err)
-	//	}
-	//	c.Events.Scheduler.BlockScheduled.Trigger(registerBlock)
-	// }))
-	engine.Tangle.Events.BlockDAG.BlockOrphaned.AttachWithWorkerPool(event.NewClosure(c.scheduler.HandleOrphanedBlock), c.workerPool)
-	engine.Consensus.Events.BlockGadget.BlockAccepted.AttachWithWorkerPool(event.NewClosure(c.scheduler.HandleAcceptedBlock), c.workerPool)
-
 	c.Events.Scheduler.LinkTo(c.scheduler.Events)
 
+	wp := engine.Workers.CreatePool("Scheduler", 2)
+	engine.HookStopped(lo.Batch(
+		engine.Events.Tangle.Booker.BlockTracked.Hook(c.scheduler.AddBlock, event.WithWorkerPool(wp)).Unhook,
+		// event.AttachWithWorkerPool(engine.Tangle.Events.VirtualVoting.BlockTracked, func(block *booker.Block) {
+		//	registerBlock, err := c.scheduler.GetOrRegisterBlock(block)
+		//	if err != nil {
+		//		panic(err)
+		//	}
+		//	c.Events.Scheduler.BlockScheduled.Trigger(registerBlock)
+		// }, wp)
+		engine.Events.Tangle.BlockDAG.BlockOrphaned.Hook(c.scheduler.HandleOrphanedBlock, event.WithWorkerPool(wp)).Unhook,
+		engine.Consensus.Events().BlockGadget.BlockAccepted.Hook(c.scheduler.HandleAcceptedBlock, event.WithWorkerPool(wp)).Unhook,
+	))
+
 	c.scheduler.Start()
-}
-
-func (c *CongestionControl) WorkerPool() *workerpool.UnboundedWorkerPool {
-	c.schedulerMutex.RLock()
-	defer c.schedulerMutex.RUnlock()
-
-	return c.workerPool
 }
 
 func (c *CongestionControl) Scheduler() *scheduler.Scheduler {

@@ -3,13 +3,13 @@ package scheduler
 import (
 	"net/http"
 
-	"github.com/iotaledger/hive.go/core/autopeering/peer"
-	"github.com/iotaledger/hive.go/core/node"
-	"github.com/labstack/echo"
+	"github.com/labstack/echo/v4"
 	"go.uber.org/dig"
 
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol"
+	"github.com/iotaledger/hive.go/autopeering/peer"
 )
 
 // PluginName is the name of the web API info endpoint plugin.
@@ -46,7 +46,7 @@ func getSchedulerInfo(c echo.Context) error {
 
 	deficit, _ := scheduler.Deficit(deps.Local.ID()).Float64()
 	return c.JSON(http.StatusOK, jsonmodels.Scheduler{
-		Running:           scheduler.Running(),
+		Running:           scheduler.IsRunning(),
 		Rate:              scheduler.Rate().String(),
 		MaxBufferSize:     scheduler.MaxBufferSize(),
 		CurrentBufferSize: scheduler.BufferSize(),

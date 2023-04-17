@@ -6,14 +6,15 @@ import (
 	"io"
 	"sync"
 
-	"github.com/iotaledger/hive.go/core/serix"
-	"github.com/iotaledger/hive.go/core/types"
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
-	"github.com/iotaledger/goshimmer/packages/core/epoch"
 	"github.com/iotaledger/goshimmer/packages/core/storable"
-	"github.com/iotaledger/goshimmer/packages/core/traits"
+	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/ds/types"
+	"github.com/iotaledger/hive.go/runtime/module"
+	"github.com/iotaledger/hive.go/serializer/v2/serix"
+	"github.com/iotaledger/hive.go/stringify"
 )
 
 // region Settings /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -22,128 +23,187 @@ type Settings struct {
 	*settingsModel
 	mutex sync.RWMutex
 
-	traits.Initializable
+	slotTimeProvider *slot.TimeProvider
+
+	module.Module
 }
 
 func NewSettings(path string) (settings *Settings) {
-	return &Settings{
-		Initializable: traits.NewInitializable(),
-
+	s := &Settings{
 		settingsModel: storable.InitStruct(&settingsModel{
-			SnapshotImported:         false,
-			LatestCommitment:         commitment.New(0, commitment.ID{}, types.Identifier{}, 0),
-			LatestStateMutationEpoch: 0,
-			LatestConfirmedEpoch:     0,
-			ChainID:                  commitment.ID{},
+			SnapshotImported:        false,
+			GenesisUnixTime:         0,
+			SlotDuration:            0,
+			LatestCommitment:        commitment.New(0, commitment.ID{}, types.Identifier{}, 0),
+			LatestStateMutationSlot: 0,
+			LatestConfirmedSlot:     0,
+			ChainID:                 commitment.ID{},
 		}, path),
 	}
+
+	s.UpdateSlotTimeProvider()
+
+	return s
 }
 
-func (c *Settings) SnapshotImported() (initialized bool) {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
+func (s *Settings) SlotTimeProvider() *slot.TimeProvider {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
 
-	return c.settingsModel.SnapshotImported
+	if s.settingsModel.SlotDuration == 0 || s.settingsModel.GenesisUnixTime == 0 {
+		panic("SlotTimeProvider not initialized yet")
+	}
+
+	return s.slotTimeProvider
 }
 
-func (c *Settings) SetSnapshotImported(initialized bool) (err error) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
+func (s *Settings) SnapshotImported() (initialized bool) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
 
-	c.settingsModel.SnapshotImported = initialized
+	return s.settingsModel.SnapshotImported
+}
 
-	if err = c.ToFile(); err != nil {
+func (s *Settings) SetSnapshotImported(initialized bool) (err error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	s.settingsModel.SnapshotImported = initialized
+
+	if err = s.ToFile(); err != nil {
 		return errors.Wrap(err, "failed to persist initialized flag")
 	}
 
 	return nil
 }
 
-func (c *Settings) LatestCommitment() (latestCommitment *commitment.Commitment) {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
+func (s *Settings) GenesisUnixTime() int64 {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
 
-	return c.settingsModel.LatestCommitment
+	return s.settingsModel.GenesisUnixTime
 }
 
-func (c *Settings) SetLatestCommitment(latestCommitment *commitment.Commitment) (err error) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
+func (s *Settings) SetGenesisUnixTime(unixTime int64) (err error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
-	c.settingsModel.LatestCommitment = latestCommitment
+	s.settingsModel.GenesisUnixTime = unixTime
+	s.UpdateSlotTimeProvider()
 
-	if err = c.ToFile(); err != nil {
+	if err = s.ToFile(); err != nil {
+		return errors.Wrap(err, "failed to persist initialized flag")
+	}
+
+	return nil
+}
+
+func (s *Settings) SlotDuration() int64 {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	return s.settingsModel.SlotDuration
+}
+
+func (s *Settings) SetSlotDuration(duration int64) (err error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	s.settingsModel.SlotDuration = duration
+	s.UpdateSlotTimeProvider()
+
+	if err = s.ToFile(); err != nil {
+		return errors.Wrap(err, "failed to persist initialized flag")
+	}
+
+	return nil
+}
+
+func (s *Settings) LatestCommitment() (latestCommitment *commitment.Commitment) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	return s.settingsModel.LatestCommitment
+}
+
+func (s *Settings) SetLatestCommitment(latestCommitment *commitment.Commitment) (err error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	s.settingsModel.LatestCommitment = latestCommitment
+
+	if err = s.ToFile(); err != nil {
 		return errors.Wrap(err, "failed to persist latest commitment")
 	}
 
 	return nil
 }
 
-func (c *Settings) LatestStateMutationEpoch() (latestStateMutationEpoch epoch.Index) {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
+func (s *Settings) LatestStateMutationSlot() slot.Index {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
 
-	return c.settingsModel.LatestStateMutationEpoch
+	return s.settingsModel.LatestStateMutationSlot
 }
 
-func (c *Settings) SetLatestStateMutationEpoch(latestStateMutationEpoch epoch.Index) (err error) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
+func (s *Settings) SetLatestStateMutationSlot(latestStateMutationSlot slot.Index) (err error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
-	c.settingsModel.LatestStateMutationEpoch = latestStateMutationEpoch
+	s.settingsModel.LatestStateMutationSlot = latestStateMutationSlot
 
-	if err = c.ToFile(); err != nil {
-		return errors.Wrap(err, "failed to persist latest state mutation epoch")
+	if err = s.ToFile(); err != nil {
+		return errors.Wrap(err, "failed to persist latest state mutation slot")
 	}
 
 	return nil
 }
 
-func (c *Settings) LatestConfirmedEpoch() (latestConfirmedEpoch epoch.Index) {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
+func (s *Settings) LatestConfirmedSlot() slot.Index {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
 
-	return c.settingsModel.LatestConfirmedEpoch
+	return s.settingsModel.LatestConfirmedSlot
 }
 
-func (c *Settings) SetLatestConfirmedEpoch(latestConfirmedEpoch epoch.Index) (err error) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
+func (s *Settings) SetLatestConfirmedSlot(latestConfirmedSlot slot.Index) (err error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
-	c.settingsModel.LatestConfirmedEpoch = latestConfirmedEpoch
+	s.settingsModel.LatestConfirmedSlot = latestConfirmedSlot
 
-	if err = c.ToFile(); err != nil {
-		return errors.Wrap(err, "failed to persist latest confirmed epoch")
+	if err = s.ToFile(); err != nil {
+		return errors.Wrap(err, "failed to persist latest confirmed slot")
 	}
 
 	return nil
 }
 
-func (c *Settings) ChainID() commitment.ID {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
+func (s *Settings) ChainID() commitment.ID {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
 
-	return c.settingsModel.ChainID
+	return s.settingsModel.ChainID
 }
 
-func (c *Settings) SetChainID(id commitment.ID) (err error) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
+func (s *Settings) SetChainID(id commitment.ID) (err error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
-	c.settingsModel.ChainID = id
+	s.settingsModel.ChainID = id
 
-	if err = c.ToFile(); err != nil {
+	if err = s.ToFile(); err != nil {
 		return errors.Wrap(err, "failed to persist chain ID")
 	}
 
 	return nil
 }
 
-func (c *Settings) Export(writer io.WriteSeeker) (err error) {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
+func (s *Settings) Export(writer io.WriteSeeker) (err error) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
 
-	settingsBytes, err := c.Bytes()
+	settingsBytes, err := s.Bytes()
 	if err != nil {
 		return errors.Wrap(err, "failed to convert settings to bytes")
 	}
@@ -159,19 +219,35 @@ func (c *Settings) Export(writer io.WriteSeeker) (err error) {
 	return nil
 }
 
-func (c *Settings) Import(reader io.ReadSeeker) (err error) {
-	if err = c.tryImport(reader); err != nil {
+func (s *Settings) Import(reader io.ReadSeeker) (err error) {
+	if err = s.tryImport(reader); err != nil {
 		return errors.Wrap(err, "failed to import settings")
 	}
 
-	c.TriggerInitialized()
+	s.TriggerInitialized()
 
 	return
 }
 
-func (c *Settings) tryImport(reader io.ReadSeeker) (err error) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
+func (s *Settings) String() string {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	builder := stringify.NewStructBuilder("Settings", stringify.NewStructField("path", s.FilePath()))
+	builder.AddField(stringify.NewStructField("SnapshotImported", s.settingsModel.SnapshotImported))
+	builder.AddField(stringify.NewStructField("GenesisUnixTime", s.settingsModel.GenesisUnixTime))
+	builder.AddField(stringify.NewStructField("SlotDuration", s.settingsModel.SlotDuration))
+	builder.AddField(stringify.NewStructField("LatestCommitment", s.settingsModel.LatestCommitment))
+	builder.AddField(stringify.NewStructField("LatestStateMutationSlot", s.settingsModel.LatestStateMutationSlot))
+	builder.AddField(stringify.NewStructField("LatestConfirmedSlot", s.settingsModel.LatestConfirmedSlot))
+	builder.AddField(stringify.NewStructField("ChainID", s.settingsModel.ChainID))
+
+	return builder.String()
+}
+
+func (s *Settings) tryImport(reader io.ReadSeeker) (err error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
 	var settingsSize uint32
 	if err = binary.Read(reader, binary.LittleEndian, &settingsSize); err != nil {
@@ -183,19 +259,25 @@ func (c *Settings) tryImport(reader io.ReadSeeker) (err error) {
 		return errors.Wrap(err, "failed to read settings bytes")
 	}
 
-	if consumedBytes, fromBytesErr := c.FromBytes(settingsBytes); fromBytesErr != nil {
+	if consumedBytes, fromBytesErr := s.FromBytes(settingsBytes); fromBytesErr != nil {
 		return errors.Wrapf(fromBytesErr, "failed to read settings")
 	} else if consumedBytes != len(settingsBytes) {
 		return errors.Errorf("failed to read settings: consumed bytes (%d) != expected bytes (%d)", consumedBytes, len(settingsBytes))
 	}
 
-	c.settingsModel.SnapshotImported = true
+	s.settingsModel.SnapshotImported = true
 
-	if err = c.settingsModel.ToFile(); err != nil {
+	s.UpdateSlotTimeProvider()
+
+	if err = s.settingsModel.ToFile(); err != nil {
 		return errors.Wrap(err, "failed to persist chain ID")
 	}
 
 	return
+}
+
+func (s *Settings) UpdateSlotTimeProvider() {
+	s.slotTimeProvider = slot.NewTimeProvider(s.settingsModel.GenesisUnixTime, s.settingsModel.SlotDuration)
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -203,11 +285,13 @@ func (c *Settings) tryImport(reader io.ReadSeeker) (err error) {
 // region settingsModel ////////////////////////////////////////////////////////////////////////////////////////////////
 
 type settingsModel struct {
-	SnapshotImported         bool                   `serix:"0"`
-	LatestCommitment         *commitment.Commitment `serix:"1"`
-	LatestStateMutationEpoch epoch.Index            `serix:"2"`
-	LatestConfirmedEpoch     epoch.Index            `serix:"3"`
-	ChainID                  commitment.ID          `serix:"4"`
+	SnapshotImported        bool                   `serix:"0"`
+	GenesisUnixTime         int64                  `serix:"1"`
+	SlotDuration            int64                  `serix:"2"`
+	LatestCommitment        *commitment.Commitment `serix:"3"`
+	LatestStateMutationSlot slot.Index             `serix:"4"`
+	LatestConfirmedSlot     slot.Index             `serix:"5"`
+	ChainID                 commitment.ID          `serix:"6"`
 
 	storable.Struct[settingsModel, *settingsModel]
 }
