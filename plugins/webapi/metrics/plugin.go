@@ -72,8 +72,8 @@ func GetGlobalMetrics(c echo.Context) (err error) {
 		ConfirmationDelay:  confirmationDelay.String(),
 		ActiveManaRatio:    activeManaRatio(),
 		OnlineNodes:        len(deps.Discovery.GetVerifiedPeers()),
-		// ConflictsResolved:  dashboardmetrics.FinalizedConflictCountDB(),
-		// TotalConflicts:     dashboardmetrics.TotalConflictCountDB(),
+		ConflictsResolved:  dashboardmetrics.FinalizedConflictCountDB(),
+		TotalConflicts:     dashboardmetrics.TotalConflictCountDB(),
 	})
 }
 

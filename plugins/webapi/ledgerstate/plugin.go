@@ -138,8 +138,8 @@ func run(*node.Plugin) {
 	deps.Server.GET("ledgerstate/transactions/:transactionID/metadata", GetTransactionMetadata)
 	deps.Server.GET("ledgerstate/transactions/:transactionID/attachments", GetTransactionAttachments)
 	deps.Server.POST("ledgerstate/transactions", PostTransaction)
-	deps.Server.POST("ledgerstate/transactions/structure", PostTransactionStructure)
-	deps.Server.POST("ledgerstate/transactions/serialization", SerializeTransactionEssence)
+	// deps.Server.POST("ledgerstate/transactions/structure", PostTransactionStructure)
+	// deps.Server.POST("ledgerstate/transactions/serialization", SerializeTransactionEssence)
 }
 
 func worker(ctx context.Context) {

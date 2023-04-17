@@ -6,7 +6,10 @@ import (
 
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
 
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
@@ -16,6 +19,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/hive.go/app/daemon"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/selection"
@@ -55,6 +59,7 @@ func configure(_ *node.Plugin) {
 func run(plugin *node.Plugin) {
 	log.Infof("Starting %s ...", PluginName)
 	registerLocalMetrics(plugin)
+	measureInitialConflictStats()
 
 	// create a background worker that update the metrics every second
 	if err := daemon.BackgroundWorker("Metrics Updater", func(ctx context.Context) {
@@ -105,33 +110,44 @@ func registerLocalMetrics(plugin *node.Plugin) {
 		increaseFinalizedBlkPerTypeCounter(blockType)
 	})
 
-	// deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictCreated.Attach(event.NewClosure(func(event *conflictdag.ConflictCreatedEvent[utxo.TransactionID, utxo.OutputID]) {
-	// 	conflictID := event.ID
+	deps.Protocol.Events.Engine.Tangle.Booker.BlockBooked.Hook(func(bbe *booker.BlockBookedEvent) {
+		if bbe.Block.Payload().Type() == devnetvm.TransactionType {
+			increaseBookedTransactionCounter()
+		}
+	})
 
-	// 	added := addActiveConflict(conflictID)
-	// 	if added {
-	// 		conflictTotalCountDB.Inc()
-	// 	}
-	// }))
+	deps.Protocol.Events.CongestionControl.Scheduler.BlockScheduled.Hook(func(b *scheduler.Block) {
+		increasePerComponentCounter(collector.Scheduled)
+	})
 
-	// deps.Protocol.Events.Engine.Ledger.ConflictDAG.ConflictAccepted.Attach(event.NewClosure(func(conflictID utxo.TransactionID) {
-	// 	removed := removeActiveConflict(conflictID)
-	// 	if !removed {
-	// 		return
-	// 	}
+	deps.Protocol.Events.Engine.Ledger.MemPool.ConflictDAG.ConflictCreated.Hook(func(event *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+		conflictID := event.ID()
 
-	// 	firstAttachment := deps.Protocol.Engine().Tangle.GetEarliestAttachment(conflictID)
-	// 	deps.Protocol.Engine().Ledger.ConflictDAG.Utils.ForEachConflictingConflictID(conflictID, func(conflictingConflictID utxo.TransactionID) bool {
-	// 		if _, exists := activeConflicts[conflictID]; exists && conflictingConflictID != conflictID {
-	// 			finalizedConflictCountDB.Inc()
-	// 			removeActiveConflict(conflictingConflictID)
-	// 		}
-	// 		return true
-	// 	})
+		added := addActiveConflict(conflictID)
+		if added {
+			conflictTotalCountDB.Inc()
+		}
+	})
 
-	// 	finalizedConflictCountDB.Inc()
-	// 	confirmedConflictCount.Inc()
-	// 	conflictConfirmationTotalTime.Add(uint64(time.Since(firstAttachment.IssuingTime()).Milliseconds()))
-	// }))
+	deps.Protocol.Events.Engine.Ledger.MemPool.ConflictDAG.ConflictAccepted.Hook(func(event *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+		removed := removeActiveConflict(event.ID())
+		if !removed {
+			return
+		}
+
+		firstAttachment := deps.Protocol.Engine().Tangle.Booker().GetEarliestAttachment(event.ID())
+		event.ForEachConflictingConflict(func(conflictingConflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) bool {
+			conflictingID := conflictingConflict.ID()
+			if _, exists := activeConflicts[event.ID()]; exists && conflictingID != event.ID() {
+				finalizedConflictCountDB.Inc()
+				removeActiveConflict(conflictingID)
+			}
+			return true
+		})
+
+		finalizedConflictCountDB.Inc()
+		confirmedConflictCount.Inc()
+		conflictConfirmationTotalTime.Add(uint64(time.Since(firstAttachment.IssuingTime()).Milliseconds()))
+	})
 
 }
