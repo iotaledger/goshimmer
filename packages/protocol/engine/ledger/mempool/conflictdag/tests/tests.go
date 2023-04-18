@@ -1,65 +1,47 @@
-package newconflictdag
+package tests
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/acceptance"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/vote"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
-	"github.com/iotaledger/hive.go/crypto/identity"
-	"github.com/iotaledger/hive.go/ds/advancedset"
-	"github.com/iotaledger/hive.go/kvstore/mapdb"
-	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/goshimmer/packages/core/acceptance"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
 )
 
-func TestConflictDAG_UpdateConflictParents(t *testing.T) {
-	tf := NewTestFramework(t)
-
-	conflict1, err1 := tf.CreateConflict("conflict1", []string{}, []string{"resource1"}, tf.Weight().SetCumulativeWeight(5))
-	require.NoError(t, err1)
-
-	conflict2, err2 := tf.CreateConflict("conflict2", []string{}, []string{"resource2"}, tf.Weight().SetCumulativeWeight(5))
-	require.NoError(t, err2)
-
-	conflict3, err3 := tf.CreateConflict("conflict3", []string{"conflict1", "conflict2"}, []string{"resource1", "resource2"}, tf.Weight().SetCumulativeWeight(5))
-	require.NoError(t, err3)
-
-	require.Equal(t, 1, conflict1.Children.Size())
-	require.True(t, conflict1.Children.Has(conflict3))
-
-	require.Equal(t, 1, conflict2.Children.Size())
-	require.True(t, conflict2.Children.Has(conflict3))
-
-	require.Equal(t, 2, conflict3.Parents.Size())
-	require.True(t, conflict3.Parents.Has(conflict1))
-	require.True(t, conflict3.Parents.Has(conflict2))
-
-	conflict25, err25 := tf.CreateConflict("conflict2.5", []string{"conflict1", "conflict2"}, []string{"conflict2.5"}, tf.Weight().SetCumulativeWeight(5))
-	require.NoError(t, err25)
-
-	require.NoError(t, tf.UpdateConflictParents("conflict3", "conflict2.5", "conflict1", "conflict2"))
-
-	require.Equal(t, 1, conflict1.Children.Size())
-	require.True(t, conflict1.Children.Has(conflict25))
-
-	require.Equal(t, 1, conflict2.Children.Size())
-	require.True(t, conflict2.Children.Has(conflict25))
-
-	require.Equal(t, 1, conflict3.Parents.Size())
-	require.True(t, conflict3.Parents.Has(conflict25))
-
-	require.Equal(t, 2, conflict25.Parents.Size())
-	require.True(t, conflict25.Parents.Has(conflict1))
-	require.True(t, conflict25.Parents.Has(conflict2))
-
-	require.Equal(t, 1, conflict25.Children.Size())
-	require.True(t, conflict25.Children.Has(conflict3))
+func Run[ConflictID, ResourceID conflictdag.IDType, VotePower conflictdag.VotePowerType[VotePower]](test *testing.T, testFrameworkProvider func(t2 *testing.T) *TestFramework[ConflictID, ResourceID, VotePower]) {
+	for testName, testCase := range map[string]func(*testing.T, *TestFramework[ConflictID, ResourceID, VotePower]){
+		"JoinConflictSets":      JoinConflictSets[ConflictID, ResourceID, VotePower],
+		"UpdateConflictParents": UpdateConflictParents[ConflictID, ResourceID, VotePower],
+	} {
+		test.Run(testName, func(t *testing.T) { testCase(t, testFrameworkProvider(t)) })
+	}
 }
 
+func JoinConflictSets[ConflictID, ResourceID conflictdag.IDType, VotePower conflictdag.VotePowerType[VotePower]](t *testing.T, tf *TestFramework[ConflictID, ResourceID, VotePower]) {
+	require.NoError(tf.test, tf.CreateConflict("A", nil, []string{"A"}, acceptance.Pending))
+}
+
+func UpdateConflictParents[ConflictID, ResourceID conflictdag.IDType, VotePower conflictdag.VotePowerType[VotePower]](t *testing.T, tf *TestFramework[ConflictID, ResourceID, VotePower]) {
+	require.NoError(t, tf.CreateConflict("conflict1", []string{}, []string{"resource1"}))
+	require.NoError(t, tf.CreateConflict("conflict2", []string{}, []string{"resource2"}))
+
+	require.NoError(t, tf.CreateConflict("conflict3", []string{"conflict1", "conflict2"}, []string{"resource1", "resource2"}))
+	tf.AssertChildren("conflict1", "conflict3")
+	tf.AssertParents("conflict3", "conflict1", "conflict2")
+
+	require.NoError(t, tf.CreateConflict("conflict2.5", []string{"conflict1", "conflict2"}, []string{"conflict2.5"}))
+	require.NoError(t, tf.UpdateConflictParents("conflict3", "conflict2.5", "conflict1", "conflict2"))
+	tf.AssertChildren("conflict1", "conflict2.5")
+	tf.AssertChildren("conflict2", "conflict2.5")
+	tf.AssertChildren("conflict2.5", "conflict3")
+	tf.AssertParents("conflict3", "conflict2.5")
+	tf.AssertParents("conflict2.5", "conflict1", "conflict2")
+}
+
+/*
 func TestConflictDAG_JoinConflictSets(t *testing.T) {
-	tf := NewTestFramework(t)
+	tf := tests.NewTestFramework(t)
 
 	_, err1 := tf.CreateConflict("conflict1", []string{}, []string{"resource1"}, tf.Weight().SetCumulativeWeight(5))
 	require.NoError(t, err1)
@@ -70,10 +52,10 @@ func TestConflictDAG_JoinConflictSets(t *testing.T) {
 	conflict2.setAcceptanceState(acceptance.Rejected)
 
 	// test to modify non-existing conflict
-	require.ErrorIs(t, tf.ConflictDAG.JoinConflictSets(NewTestID("conflict3"), NewTestIDs("resource2")), ErrEntityEvicted)
+	require.ErrorIs(t, tf.Instance.JoinConflictSets(conflictdag.NewTestID("conflict3"), conflictdag.NewTestIDs("resource2")), conflictdag.ErrEntityEvicted)
 
 	// test to modify conflict with non-existing resource
-	require.ErrorIs(t, tf.ConflictDAG.JoinConflictSets(NewTestID("conflict2"), NewTestIDs("resource2")), ErrEntityEvicted)
+	require.ErrorIs(t, tf.Instance.JoinConflictSets(conflictdag.NewTestID("conflict2"), conflictdag.NewTestIDs("resource2")), conflictdag.ErrEntityEvicted)
 
 	_, err3 := tf.CreateConflict("conflict3", []string{}, []string{"resource2"}, tf.Weight().SetCumulativeWeight(1))
 	require.NoError(t, err3)
@@ -108,7 +90,7 @@ func TestConflictDAG_CastVotes(t *testing.T) {
 		})
 	}
 
-	tf := NewTestFramework(t, WithWeights(weights))
+	tf := tests.NewTestFramework(t, conflictdag.WithWeights(weights))
 
 	conflict1, err1 := tf.CreateConflict("conflict1", []string{}, []string{"resource1"}, tf.Weight().SetCumulativeWeight(5))
 	require.NoError(t, err1)
@@ -122,11 +104,11 @@ func TestConflictDAG_CastVotes(t *testing.T) {
 	conflict4, err4 := tf.CreateConflict("conflict4", []string{"conflict1"}, []string{"resource2"}, tf.Weight().SetCumulativeWeight(1))
 	require.NoError(t, err4)
 
-	require.NoError(t, tf.CastVotes(vote.NewVote(nodesByIdentity["nodeID1"], vote.MockedPower(10)), "conflict2"))
+	require.NoError(t, tf.CastVotes(vote2.NewVote(nodesByIdentity["nodeID1"], vote2.MockedPower(10)), "conflict2"))
 
-	require.NoError(t, tf.CastVotes(vote.NewVote(nodesByIdentity["nodeID2"], vote.MockedPower(10)), "conflict2"))
+	require.NoError(t, tf.CastVotes(vote2.NewVote(nodesByIdentity["nodeID2"], vote2.MockedPower(10)), "conflict2"))
 
-	require.NoError(t, tf.CastVotes(vote.NewVote(nodesByIdentity["nodeID3"], vote.MockedPower(10)), "conflict2"))
+	require.NoError(t, tf.CastVotes(vote2.NewVote(nodesByIdentity["nodeID3"], vote2.MockedPower(10)), "conflict2"))
 
 	require.Contains(t, tf.LikedInstead("conflict1"), conflict2)
 
@@ -135,7 +117,7 @@ func TestConflictDAG_CastVotes(t *testing.T) {
 	require.True(t, conflict3.IsRejected())
 	require.True(t, conflict4.IsRejected())
 
-	require.Error(t, tf.CastVotes(vote.NewVote(nodesByIdentity["nodeID3"], vote.MockedPower(10)), "conflict1", "conflict2"))
+	require.Error(t, tf.CastVotes(vote2.NewVote(nodesByIdentity["nodeID3"], vote2.MockedPower(10)), "conflict1", "conflict2"))
 }
 
 func TestConflictDAG_CreateAcceptedConflict(t *testing.T) {
@@ -160,7 +142,7 @@ func TestConflictDAG_CreateAcceptedConflict(t *testing.T) {
 		})
 	}
 
-	tf := NewTestFramework(t, WithWeights(weights))
+	tf := tests.NewTestFramework(t, conflictdag.WithWeights(weights))
 	conflict1, err1 := tf.CreateConflict("conflict1", []string{}, []string{"resource1"}, tf.Weight().SetCumulativeWeight(5))
 	require.NoError(t, err1)
 	conflict2, err2 := tf.CreateConflict("conflict2", []string{}, []string{"resource1"}, tf.Weight().SetCumulativeWeight(1))
@@ -209,7 +191,7 @@ func TestConflictDAG_CastVotes2(t *testing.T) {
 		})
 	}
 
-	tf := NewTestFramework(t, WithWeights(weights))
+	tf := tests.NewTestFramework(t, conflictdag.WithWeights(weights))
 
 	conflict1, err1 := tf.CreateConflict("conflict1", []string{}, []string{"resource1"}, tf.Weight().SetCumulativeWeight(5))
 	require.NoError(t, err1)
@@ -221,23 +203,23 @@ func TestConflictDAG_CastVotes2(t *testing.T) {
 	require.NoError(t, err4)
 
 	// casting a vote from non-relevant validator before any relevant validators increases cumulative weight
-	require.NoError(t, tf.CastVotes(vote.NewVote(nodesByIdentity["nodeID4"], vote.MockedPower(1)), "conflict3"))
-	tf.ConflictDAG.pendingTasks.WaitIsZero()
+	require.NoError(t, tf.CastVotes(vote2.NewVote(nodesByIdentity["nodeID4"], vote2.MockedPower(1)), "conflict3"))
+	tf.Instance.pendingTasks.WaitIsZero()
 
 	require.EqualValues(t, 1, conflict3.Weight.Value().CumulativeWeight())
 	require.EqualValues(t, 6, conflict1.Weight.Value().CumulativeWeight())
 
 	// casting a vote from a validator updates the validator weight
-	require.NoError(t, tf.CastVotes(vote.NewVote(nodesByIdentity["nodeID1"], vote.MockedPower(10)), "conflict4"))
-	tf.ConflictDAG.pendingTasks.WaitIsZero()
+	require.NoError(t, tf.CastVotes(vote2.NewVote(nodesByIdentity["nodeID1"], vote2.MockedPower(10)), "conflict4"))
+	tf.Instance.pendingTasks.WaitIsZero()
 
 	require.EqualValues(t, 10, conflict1.Weight.Value().ValidatorsWeight())
 	require.EqualValues(t, 0, conflict3.Weight.Value().ValidatorsWeight())
 	require.EqualValues(t, 10, conflict4.Weight.Value().ValidatorsWeight())
 
 	// casting a vote from non-relevant validator after processing a vote from relevant validator doesn't increase cumulative weight
-	require.NoError(t, tf.CastVotes(vote.NewVote(nodesByIdentity["nodeID4"], vote.MockedPower(1)), "conflict3"))
-	tf.ConflictDAG.pendingTasks.WaitIsZero()
+	require.NoError(t, tf.CastVotes(vote2.NewVote(nodesByIdentity["nodeID4"], vote2.MockedPower(1)), "conflict3"))
+	tf.Instance.pendingTasks.WaitIsZero()
 
 	require.EqualValues(t, 10, conflict1.Weight.Value().ValidatorsWeight())
 	require.EqualValues(t, 0, conflict3.Weight.Value().ValidatorsWeight())
@@ -245,24 +227,24 @@ func TestConflictDAG_CastVotes2(t *testing.T) {
 	require.EqualValues(t, 6, conflict1.Weight.Value().CumulativeWeight())
 
 	// casting vote with lower vote power doesn't change the weights of conflicts
-	require.NoError(t, tf.CastVotes(vote.NewVote(nodesByIdentity["nodeID1"], vote.MockedPower(5)), "conflict3"))
-	tf.ConflictDAG.pendingTasks.WaitIsZero()
+	require.NoError(t, tf.CastVotes(vote2.NewVote(nodesByIdentity["nodeID1"], vote2.MockedPower(5)), "conflict3"))
+	tf.Instance.pendingTasks.WaitIsZero()
 
 	require.EqualValues(t, 10, conflict1.Weight.Value().ValidatorsWeight())
 	require.EqualValues(t, 0, conflict3.Weight.Value().ValidatorsWeight())
 	require.EqualValues(t, 10, conflict4.Weight.Value().ValidatorsWeight())
 
 	// casting a vote with higher power doesn't change weights
-	require.NoError(t, tf.CastVotes(vote.NewVote(nodesByIdentity["nodeID1"], vote.MockedPower(11)), "conflict4"))
-	tf.ConflictDAG.pendingTasks.WaitIsZero()
+	require.NoError(t, tf.CastVotes(vote2.NewVote(nodesByIdentity["nodeID1"], vote2.MockedPower(11)), "conflict4"))
+	tf.Instance.pendingTasks.WaitIsZero()
 
 	require.EqualValues(t, 10, conflict1.Weight.Value().ValidatorsWeight())
 	require.EqualValues(t, 0, conflict3.Weight.Value().ValidatorsWeight())
 	require.EqualValues(t, 10, conflict4.Weight.Value().ValidatorsWeight())
 
 	// casting a vote with higher power on a different conflict changes the weights
-	require.NoError(t, tf.CastVotes(vote.NewVote(nodesByIdentity["nodeID1"], vote.MockedPower(12)), "conflict3"))
-	tf.ConflictDAG.pendingTasks.WaitIsZero()
+	require.NoError(t, tf.CastVotes(vote2.NewVote(nodesByIdentity["nodeID1"], vote2.MockedPower(12)), "conflict3"))
+	tf.Instance.pendingTasks.WaitIsZero()
 	require.True(t, conflict4.IsPending())
 	require.True(t, conflict1.IsPending())
 	require.EqualValues(t, 10, conflict1.Weight.Value().ValidatorsWeight())
@@ -292,7 +274,7 @@ func TestConflictDAG_CastVotes1(t *testing.T) {
 		})
 	}
 
-	tf := NewTestFramework(t, WithWeights(weights))
+	tf := tests.NewTestFramework(t, conflictdag.WithWeights(weights))
 	conflict1, err1 := tf.CreateConflict("conflict1", []string{}, []string{"resource1"}, tf.Weight().SetCumulativeWeight(5))
 	require.NoError(t, err1)
 
@@ -305,11 +287,11 @@ func TestConflictDAG_CastVotes1(t *testing.T) {
 	conflict4, err4 := tf.CreateConflict("conflict4", []string{"conflict1"}, []string{"resource2"}, tf.Weight().SetCumulativeWeight(1))
 	require.NoError(t, err4)
 
-	require.NoError(t, tf.CastVotes(vote.NewVote(nodesByIdentity["nodeID1"], vote.MockedPower(10)), "conflict3"))
+	require.NoError(t, tf.CastVotes(vote2.NewVote(nodesByIdentity["nodeID1"], vote2.MockedPower(10)), "conflict3"))
 
-	require.NoError(t, tf.CastVotes(vote.NewVote(nodesByIdentity["nodeID2"], vote.MockedPower(10)), "conflict3"))
+	require.NoError(t, tf.CastVotes(vote2.NewVote(nodesByIdentity["nodeID2"], vote2.MockedPower(10)), "conflict3"))
 
-	require.NoError(t, tf.CastVotes(vote.NewVote(nodesByIdentity["nodeID3"], vote.MockedPower(10)), "conflict3"))
+	require.NoError(t, tf.CastVotes(vote2.NewVote(nodesByIdentity["nodeID3"], vote2.MockedPower(10)), "conflict3"))
 
 	require.Equal(t, 0, len(tf.LikedInstead("conflict1")))
 
@@ -320,7 +302,7 @@ func TestConflictDAG_CastVotes1(t *testing.T) {
 }
 
 func TestConflictDAG_CreateConflict(t *testing.T) {
-	tf := NewTestFramework(t)
+	tf := tests.NewTestFramework(t)
 	conflict1, err1 := tf.CreateConflict("conflict1", []string{}, []string{"resource1"}, tf.Weight().SetCumulativeWeight(5))
 	require.NoError(t, err1)
 
@@ -338,14 +320,14 @@ func TestConflictDAG_CreateConflict(t *testing.T) {
 	require.Errorf(t, lo.Return2(tf.CreateConflict("conflict3", []string{}, []string{}, tf.Weight())), "conflict with id conflict3 already exists")
 	require.Errorf(t, lo.Return2(tf.CreateConflict("conflict4", []string{}, []string{}, tf.Weight())), "conflict with id conflict4 already exists")
 
-	require.True(t, conflict1.Parents.Equal(advancedset.New[*Conflict[TestID, TestID, vote.MockedPower]]()))
-	require.True(t, conflict2.Parents.Equal(advancedset.New[*Conflict[TestID, TestID, vote.MockedPower]]()))
-	require.True(t, conflict3.Parents.Equal(advancedset.New[*Conflict[TestID, TestID, vote.MockedPower]](conflict1)))
-	require.True(t, conflict4.Parents.Equal(advancedset.New[*Conflict[TestID, TestID, vote.MockedPower]](conflict1)))
+	require.True(t, conflict1.Parents.Equal(advancedset.New[*Conflict[conflictdag.TestID, conflictdag.TestID, vote2.MockedPower]]()))
+	require.True(t, conflict2.Parents.Equal(advancedset.New[*Conflict[conflictdag.TestID, conflictdag.TestID, vote2.MockedPower]]()))
+	require.True(t, conflict3.Parents.Equal(advancedset.New[*Conflict[conflictdag.TestID, conflictdag.TestID, vote2.MockedPower]](conflict1)))
+	require.True(t, conflict4.Parents.Equal(advancedset.New[*Conflict[conflictdag.TestID, conflictdag.TestID, vote2.MockedPower]](conflict1)))
 }
 
 func TestConflictDAG_LikedInstead(t *testing.T) {
-	tf := NewTestFramework(t)
+	tf := tests.NewTestFramework(t)
 
 	conflict1, err := tf.CreateConflict("conflict1", []string{}, []string{"resource1"}, tf.Weight().SetCumulativeWeight(5))
 	require.NoError(t, err)
@@ -367,10 +349,11 @@ func TestConflictDAG_LikedInstead(t *testing.T) {
 	requireConflicts(t, tf.LikedInstead("conflict1", "conflict2", "conflict3", "conflict4"), conflict1, conflict4)
 }
 
-func requireConflicts(t *testing.T, conflicts []*Conflict[TestID, TestID, vote.MockedPower], expectedConflicts ...*Conflict[TestID, TestID, vote.MockedPower]) {
+func requireConflicts(t *testing.T, conflicts []*Conflict[conflictdag.TestID, conflictdag.TestID, vote2.MockedPower], expectedConflicts ...*Conflict[conflictdag.TestID, conflictdag.TestID, vote2.MockedPower]) {
 	require.Equalf(t, len(expectedConflicts), len(conflicts), "number of liked conflicts incorrect")
 
 	for _, expectedConflict := range expectedConflicts {
 		require.Contains(t, conflicts, expectedConflict, "conflict %s must be liked", expectedConflict.ID)
 	}
 }
+*/

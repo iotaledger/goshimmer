@@ -1,18 +1,18 @@
-package newconflictdag
+package conflictdagv1
 
 import (
 	"bytes"
 	"sync"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/acceptance"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/weight"
-	"github.com/iotaledger/hive.go/constraints"
+	"github.com/iotaledger/goshimmer/packages/core/acceptance"
+	"github.com/iotaledger/goshimmer/packages/core/weight"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/event"
 )
 
 // sortedConflict is a wrapped Conflict that contains additional information for the SortedConflicts.
-type sortedConflict[ConflictID, ResourceID IDType, VotePower constraints.Comparable[VotePower]] struct {
+type sortedConflict[ConflictID, ResourceID conflictdag.IDType, VotePower conflictdag.VotePowerType[VotePower]] struct {
 	// sortedSet is the SortedConflicts that contains this sortedConflict.
 	sortedSet *SortedConflicts[ConflictID, ResourceID, VotePower]
 
@@ -53,7 +53,7 @@ type sortedConflict[ConflictID, ResourceID IDType, VotePower constraints.Compara
 }
 
 // newSortedConflict creates a new sortedConflict.
-func newSortedConflict[ConflictID, ResourceID IDType, VotePower constraints.Comparable[VotePower]](set *SortedConflicts[ConflictID, ResourceID, VotePower], conflict *Conflict[ConflictID, ResourceID, VotePower]) *sortedConflict[ConflictID, ResourceID, VotePower] {
+func newSortedConflict[ConflictID, ResourceID conflictdag.IDType, VotePower conflictdag.VotePowerType[VotePower]](set *SortedConflicts[ConflictID, ResourceID, VotePower], conflict *Conflict[ConflictID, ResourceID, VotePower]) *sortedConflict[ConflictID, ResourceID, VotePower] {
 	s := &sortedConflict[ConflictID, ResourceID, VotePower]{
 		sortedSet:               set,
 		currentWeight:           conflict.Weight.Value(),

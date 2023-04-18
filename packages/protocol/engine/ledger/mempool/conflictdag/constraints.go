@@ -1,4 +1,8 @@
-package newconflictdag
+package conflictdag
+
+import (
+	"github.com/iotaledger/hive.go/constraints"
+)
 
 // IDType is the constraint for the identifier of a conflict or a resource.
 type IDType interface {
@@ -11,3 +15,5 @@ type IDType interface {
 	// String returns a human-readable version of the ID.
 	String() string
 }
+
+type VotePowerType[T any] constraints.Comparable[T]

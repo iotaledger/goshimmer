@@ -7,12 +7,12 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/xerrors"
 
+	"github.com/iotaledger/goshimmer/packages/core/vote"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/slottracker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/vote"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
@@ -299,8 +299,8 @@ func (b *Booker) BlockFloor(marker markers.Marker) (floorMarker markers.Marker, 
 
 // MarkerVotersTotalWeight retrieves Validators supporting a given marker.
 func (b *Booker) MarkerVotersTotalWeight(marker markers.Marker) (totalWeight int64) {
-	//b.sequenceEvictionMutex.RLock()
-	//defer b.sequenceEvictionMutex.RUnlock()
+	// b.sequenceEvictionMutex.RLock()
+	// defer b.sequenceEvictionMutex.RUnlock()
 
 	_ = b.sequenceTracker.Voters(marker).ForEach(func(id identity.ID) error {
 		if weight, exists := b.validators.Get(id); exists {
@@ -315,8 +315,8 @@ func (b *Booker) MarkerVotersTotalWeight(marker markers.Marker) (totalWeight int
 
 // SlotVotersTotalWeight retrieves the total weight of the Validators voting for a given slot.
 func (b *Booker) SlotVotersTotalWeight(slotIndex slot.Index) (totalWeight int64) {
-	//b.sequenceEvictionMutex.RLock()
-	//defer b.sequenceEvictionMutex.RUnlock()
+	// b.sequenceEvictionMutex.RLock()
+	// defer b.sequenceEvictionMutex.RUnlock()
 
 	_ = b.slotTracker.Voters(slotIndex).ForEach(func(id identity.ID) error {
 		if weight, exists := b.validators.Get(id); exists {

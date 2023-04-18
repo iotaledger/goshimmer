@@ -5,12 +5,11 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/iotaledger/goshimmer/packages/core/acceptance"
 	"github.com/iotaledger/goshimmer/packages/core/cerrors"
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/acceptance"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/weight"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
 	"github.com/iotaledger/hive.go/core/dataflow"
@@ -105,7 +104,7 @@ func (b *booker) inheritConflictIDs(ctx context.Context, txID utxo.TransactionID
 		return nil
 	})
 
-	if err := b.ledger.conflictDAG.CreateConflict(txID, parentConflictIDs, conflictingInputIDs, weight.New(b.ledger.sybilProtectionWeights).WithAcceptanceState(lo.Cond(anyConflictAccepted, acceptance.Rejected, acceptance.Pending))); err != nil {
+	if err := b.ledger.conflictDAG.CreateConflict(txID, parentConflictIDs, conflictingInputIDs, lo.Cond(anyConflictAccepted, acceptance.Rejected, acceptance.Pending)); err != nil {
 		panic(err) // TODO: handle that case when eviction is done
 	}
 
@@ -158,15 +157,10 @@ func (b *booker) forkTransaction(ctx context.Context, txID utxo.TransactionID, o
 		conflictingInputs := b.ledger.Utils().ResolveInputs(tx.Inputs()).Intersect(outputsSpentByConflictingTx)
 		parentConflicts := txMetadata.ConflictIDs()
 
-		if err := b.ledger.conflictDAG.CreateConflict(
-			txID,
-			parentConflicts,
-			conflictingInputs,
-			weight.New(b.ledger.sybilProtectionWeights).WithAcceptanceState(acceptanceState(confirmationState)),
-		); err != nil {
+		if err := b.ledger.conflictDAG.CreateConflict(txID, parentConflicts, conflictingInputs, acceptanceState(confirmationState)); err != nil {
 			defer b.ledger.mutex.Unlock(txID)
 
-			if errors.Is(err, newconflictdag.ErrConflictExists) {
+			if errors.Is(err, conflictdag.ErrConflictExists) {
 				if joiningErr := b.ledger.conflictDAG.JoinConflictSets(txID, conflictingInputs); joiningErr != nil {
 					panic(joiningErr) // TODO: handle that case when eviction is done
 				}

@@ -1,4 +1,4 @@
-package newconflictdag
+package conflictdagv1
 
 import (
 	"sync"
@@ -6,10 +6,12 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/xerrors"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/acceptance"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/vote"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/weight"
-	"github.com/iotaledger/hive.go/constraints"
+	"github.com/iotaledger/goshimmer/packages/core/acceptance"
+	"github.com/iotaledger/goshimmer/packages/core/vote"
+	"github.com/iotaledger/goshimmer/packages/core/weight"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/ds/shrinkingmap"
@@ -20,12 +22,12 @@ import (
 
 // ConflictDAG represents a data structure that tracks causal relationships between Conflicts and that allows to
 // efficiently manage these Conflicts (and vote on their fate).
-type ConflictDAG[ConflictID, ResourceID IDType, VotePower constraints.Comparable[VotePower]] struct {
-	// Events contains the Events of the ConflictDAG.
-	Events *Events[ConflictID, ResourceID]
+type ConflictDAG[ConflictID, ResourceID conflictdag.IDType, VotePower conflictdag.VotePowerType[VotePower]] struct {
+	// events contains the events of the ConflictDAG.
+	events *conflictdag.Events[ConflictID, ResourceID]
 
-	// acceptanceThresholdProvider is the function that is used to retrieve the acceptance threshold of the committee.
-	acceptanceThresholdProvider func() int64
+	// validatorSet is the set of validators that are allowed to vote on Conflicts.
+	validatorSet *sybilprotection.WeightedSet
 
 	// conflictsByID is a mapping of ConflictIDs to Conflicts.
 	conflictsByID *shrinkingmap.ShrinkingMap[ConflictID, *Conflict[ConflictID, ResourceID, VotePower]]
@@ -46,67 +48,77 @@ type ConflictDAG[ConflictID, ResourceID IDType, VotePower constraints.Comparable
 }
 
 // New creates a new ConflictDAG.
-func New[ConflictID, ResourceID IDType, VotePower constraints.Comparable[VotePower]](acceptanceThresholdProvider func() int64) *ConflictDAG[ConflictID, ResourceID, VotePower] {
+func New[ConflictID, ResourceID conflictdag.IDType, VotePower conflictdag.VotePowerType[VotePower]](validatorSet *sybilprotection.WeightedSet) *ConflictDAG[ConflictID, ResourceID, VotePower] {
 	return &ConflictDAG[ConflictID, ResourceID, VotePower]{
-		Events: NewEvents[ConflictID, ResourceID](),
+		events: conflictdag.NewEvents[ConflictID, ResourceID](),
 
-		acceptanceThresholdProvider: acceptanceThresholdProvider,
-		conflictsByID:               shrinkingmap.New[ConflictID, *Conflict[ConflictID, ResourceID, VotePower]](),
-		conflictUnhooks:             shrinkingmap.New[ConflictID, func()](),
-		conflictSetsByID:            shrinkingmap.New[ResourceID, *ConflictSet[ConflictID, ResourceID, VotePower]](),
-		pendingTasks:                syncutils.NewCounter(),
-		votingMutex:                 syncutils.NewDAGMutex[identity.ID](),
+		validatorSet:     validatorSet,
+		conflictsByID:    shrinkingmap.New[ConflictID, *Conflict[ConflictID, ResourceID, VotePower]](),
+		conflictUnhooks:  shrinkingmap.New[ConflictID, func()](),
+		conflictSetsByID: shrinkingmap.New[ResourceID, *ConflictSet[ConflictID, ResourceID, VotePower]](),
+		pendingTasks:     syncutils.NewCounter(),
+		votingMutex:      syncutils.NewDAGMutex[identity.ID](),
 	}
 }
 
+var _ conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID, vote.MockedPower] = &ConflictDAG[utxo.TransactionID, utxo.OutputID, vote.MockedPower]{}
+
+// Events returns the events of the ConflictDAG.
+func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) Events() *conflictdag.Events[ConflictID, ResourceID] {
+	return c.events
+}
+
 // CreateConflict creates a new Conflict that is conflicting over the given ResourceIDs and that has the given parents.
-func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) CreateConflict(id ConflictID, parentIDs *advancedset.AdvancedSet[ConflictID], resourceIDs *advancedset.AdvancedSet[ResourceID], initialWeight *weight.Weight) error {
+func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) CreateConflict(id ConflictID, parentIDs *advancedset.AdvancedSet[ConflictID], resourceIDs *advancedset.AdvancedSet[ResourceID], initialAcceptanceState acceptance.State) error {
 	err := func() error {
 		c.mutex.RLock()
 		defer c.mutex.RUnlock()
 
-		parents, err := c.conflicts(parentIDs, !initialWeight.AcceptanceState().IsRejected())
+		parents, err := c.conflicts(parentIDs, !initialAcceptanceState.IsRejected())
 		if err != nil {
 			return xerrors.Errorf("failed to create conflict: %w", err)
 		}
 
-		conflictSets, err := c.conflictSets(resourceIDs, !initialWeight.AcceptanceState().IsRejected())
+		conflictSets, err := c.conflictSets(resourceIDs, !initialAcceptanceState.IsRejected())
 		if err != nil {
 			return xerrors.Errorf("failed to create conflict: %w", err)
 		}
 
 		if _, isNew := c.conflictsByID.GetOrCreate(id, func() *Conflict[ConflictID, ResourceID, VotePower] {
-			newConflict := NewConflict[ConflictID, ResourceID, VotePower](id, parents, conflictSets, initialWeight, c.pendingTasks, c.acceptanceThresholdProvider)
+			initialWeight := weight.New(c.validatorSet.Weights)
+			initialWeight.SetAcceptanceState(initialAcceptanceState)
+
+			newConflict := NewConflict[ConflictID, ResourceID, VotePower](id, parents, conflictSets, initialWeight, c.pendingTasks, acceptance.ThresholdProvider(c.validatorSet.TotalWeight))
 
 			// attach to the acceptance state updated event and propagate that event to the outside.
 			// also need to remember the unhook method to properly evict the conflict.
 			c.conflictUnhooks.Set(id, newConflict.AcceptanceStateUpdated.Hook(func(oldState, newState acceptance.State) {
 				if newState.IsAccepted() {
-					c.Events.ConflictAccepted.Trigger(newConflict.ID)
+					c.events.ConflictAccepted.Trigger(newConflict.ID)
 					return
 				}
 				if newState.IsRejected() {
-					c.Events.ConflictRejected.Trigger(newConflict.ID)
+					c.events.ConflictRejected.Trigger(newConflict.ID)
 				}
 			}).Unhook)
 
 			return newConflict
 		}); !isNew {
-			return xerrors.Errorf("tried to create conflict with %s twice: %w", id, ErrConflictExists)
+			return xerrors.Errorf("tried to create conflict with %s twice: %w", id, conflictdag.ErrConflictExists)
 		}
 
 		return nil
 	}()
 
 	if err == nil {
-		c.Events.ConflictCreated.Trigger(id)
+		c.events.ConflictCreated.Trigger(id)
 	}
 
 	return err
 }
 
 // ReadConsistent write locks the ConflictDAG and exposes read-only methods to the callback to perform multiple reads while maintaining the same ConflictDAG state.
-func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) ReadConsistent(callback func(conflictDAG ReadLockedConflictDAG[ConflictID, ResourceID, VotePower]) error) error {
+func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) ReadConsistent(callback func(conflictDAG conflictdag.ReadLockedConflictDAG[ConflictID, ResourceID, VotePower]) error) error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -123,7 +135,7 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) JoinConflictSets(confli
 
 		currentConflict, exists := c.conflictsByID.Get(conflictID)
 		if !exists {
-			return nil, xerrors.Errorf("tried to modify evicted conflict with %s: %w", conflictID, ErrEntityEvicted)
+			return nil, xerrors.Errorf("tried to modify evicted conflict with %s: %w", conflictID, conflictdag.ErrEntityEvicted)
 		}
 
 		conflictSets, err := c.conflictSets(resourceIDs, !currentConflict.IsRejected())
@@ -143,7 +155,7 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) JoinConflictSets(confli
 	}
 
 	if !joinedConflictSets.IsEmpty() {
-		c.Events.ConflictingResourcesAdded.Trigger(conflictID, joinedConflictSets)
+		c.events.ConflictingResourcesAdded.Trigger(conflictID, joinedConflictSets)
 	}
 
 	return nil
@@ -159,7 +171,7 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) UpdateConflictParents(c
 
 		currentConflict, currentConflictExists := c.conflictsByID.Get(conflictID)
 		if !currentConflictExists {
-			return false, xerrors.Errorf("tried to modify evicted conflict with %s: %w", conflictID, ErrEntityEvicted)
+			return false, xerrors.Errorf("tried to modify evicted conflict with %s: %w", conflictID, conflictdag.ErrEntityEvicted)
 		}
 
 		addedParent, addedParentExists := c.conflictsByID.Get(addedParentID)
@@ -167,10 +179,10 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) UpdateConflictParents(c
 			if !currentConflict.IsRejected() {
 				// UpdateConflictParents is only called when a Conflict is forked, which means that the added parent
 				// must exist (unless it was forked on top of a rejected branch, just before eviction).
-				return false, xerrors.Errorf("tried to add non-existent parent with %s: %w", addedParentID, ErrFatal)
+				return false, xerrors.Errorf("tried to add non-existent parent with %s: %w", addedParentID, conflictdag.ErrFatal)
 			}
 
-			return false, xerrors.Errorf("tried to add evicted parent with %s to rejected conflict with %s: %w", addedParentID, conflictID, ErrEntityEvicted)
+			return false, xerrors.Errorf("tried to add evicted parent with %s to rejected conflict with %s: %w", addedParentID, conflictID, conflictdag.ErrEntityEvicted)
 		}
 
 		removedParents, err := c.conflicts(removedParentIDs, !currentConflict.IsRejected())
@@ -193,7 +205,7 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) UpdateConflictParents(c
 	}
 
 	if updated {
-		c.Events.ConflictParentsUpdated.Trigger(conflictID, newParents)
+		c.events.ConflictParentsUpdated.Trigger(conflictID, newParents)
 	}
 
 	return nil
@@ -356,13 +368,13 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) AcceptanceState(conflic
 	if err := conflictIDs.ForEach(func(conflictID ConflictID) error {
 		conflict, exists := c.conflictsByID.Get(conflictID)
 		if !exists {
-			return xerrors.Errorf("tried to retrieve non-existing conflict: %w", ErrFatal)
+			return xerrors.Errorf("tried to retrieve non-existing conflict: %w", conflictdag.ErrFatal)
 		}
 
 		if conflict.IsRejected() {
 			lowestObservedState = acceptance.Rejected
 
-			return ErrExpected
+			return conflictdag.ErrExpected
 		}
 
 		if conflict.IsPending() {
@@ -370,7 +382,7 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) AcceptanceState(conflic
 		}
 
 		return nil
-	}); err != nil && !errors.Is(err, ErrExpected) {
+	}); err != nil && !errors.Is(err, conflictdag.ErrExpected) {
 		panic(err)
 	}
 
@@ -433,7 +445,7 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) EvictConflict(conflictI
 
 	// trigger the ConflictEvicted event
 	for _, evictedConflictID := range evictedConflictIDs {
-		c.Events.ConflictEvicted.Trigger(evictedConflictID)
+		c.events.ConflictEvicted.Trigger(evictedConflictID)
 	}
 
 	return nil
@@ -450,7 +462,7 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) conflicts(ids *advanced
 			conflicts.Add(existingConflict)
 		}
 
-		return lo.Cond(exists || ignoreMissing, nil, xerrors.Errorf("tried to retrieve an evicted conflict with %s: %w", id, ErrEntityEvicted))
+		return lo.Cond(exists || ignoreMissing, nil, xerrors.Errorf("tried to retrieve an evicted conflict with %s: %w", id, conflictdag.ErrEntityEvicted))
 	})
 }
 
@@ -472,7 +484,7 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) conflictSets(resourceID
 			return nil
 		}
 
-		return xerrors.Errorf("tried to create a Conflict with evicted Resource: %w", ErrEntityEvicted)
+		return xerrors.Errorf("tried to create a Conflict with evicted Resource: %w", conflictdag.ErrEntityEvicted)
 	})
 }
 

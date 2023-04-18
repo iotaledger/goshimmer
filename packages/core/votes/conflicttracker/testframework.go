@@ -7,6 +7,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag/tests"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/hive.go/constraints"
@@ -22,11 +23,11 @@ type TestFramework[VotePowerType constraints.Comparable[VotePowerType]] struct {
 	test        *testing.T
 	Instance    *ConflictTracker[utxo.TransactionID, utxo.OutputID, VotePowerType]
 	Votes       *votes.TestFramework
-	ConflictDAG *conflictdag.TestFramework
+	ConflictDAG *tests.TestFramework
 }
 
 // NewTestFramework is the constructor of the TestFramework.
-func NewTestFramework[VotePowerType constraints.Comparable[VotePowerType]](test *testing.T, votesTF *votes.TestFramework, conflictDAGTF *conflictdag.TestFramework, conflictTracker *ConflictTracker[utxo.TransactionID, utxo.OutputID, VotePowerType]) *TestFramework[VotePowerType] {
+func NewTestFramework[VotePowerType constraints.Comparable[VotePowerType]](test *testing.T, votesTF *votes.TestFramework, conflictDAGTF *tests.TestFramework, conflictTracker *ConflictTracker[utxo.TransactionID, utxo.OutputID, VotePowerType]) *TestFramework[VotePowerType] {
 	t := &TestFramework[VotePowerType]{
 		test:        test,
 		Instance:    conflictTracker,
@@ -45,7 +46,7 @@ func NewTestFramework[VotePowerType constraints.Comparable[VotePowerType]](test 
 
 func NewDefaultFramework[VotePowerType constraints.Comparable[VotePowerType]](t *testing.T) *TestFramework[VotePowerType] {
 	votesTF := votes.NewTestFramework(t, sybilprotection.NewWeights(mapdb.NewMapDB()).NewWeightedSet())
-	conflictDAGTF := conflictdag.NewTestFramework(t, conflictdag.New[utxo.TransactionID, utxo.OutputID]())
+	conflictDAGTF := tests.NewTestFramework(t, conflictdag.New[utxo.TransactionID, utxo.OutputID]())
 	return NewTestFramework(t,
 		votesTF,
 		conflictDAGTF,

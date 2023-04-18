@@ -1,7 +1,7 @@
-package newconflictdag
+package conflictdagv1
 
 import (
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/vote"
+	"github.com/iotaledger/goshimmer/packages/core/vote"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 )
 

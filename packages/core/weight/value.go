@@ -1,7 +1,7 @@
 package weight
 
 import (
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/acceptance"
+	"github.com/iotaledger/goshimmer/packages/core/acceptance"
 	"github.com/iotaledger/hive.go/stringify"
 )
 

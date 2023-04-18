@@ -1,4 +1,4 @@
-package newconflictdag
+package conflictdagv1
 
 import (
 	"math/rand"
@@ -9,9 +9,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/blake2b"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/acceptance"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/vote"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/weight"
+	"github.com/iotaledger/goshimmer/packages/core/acceptance"
+	"github.com/iotaledger/goshimmer/packages/core/vote"
+	"github.com/iotaledger/goshimmer/packages/core/weight"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"

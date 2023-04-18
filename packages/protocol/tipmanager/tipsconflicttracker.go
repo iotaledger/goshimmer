@@ -5,7 +5,7 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/ds/advancedset"
@@ -105,7 +105,7 @@ func (c *TipsConflictTracker) RemoveTip(block *scheduler.Block) {
 	}
 }
 
-func (c *TipsConflictTracker) MissingConflicts(amount int, conflictDAG newconflictdag.ReadLockedConflictDAG[utxo.TransactionID, utxo.OutputID, models.BlockVotePower]) (missingConflicts utxo.TransactionIDs) {
+func (c *TipsConflictTracker) MissingConflicts(amount int, conflictDAG conflictdag.ReadLockedConflictDAG[utxo.TransactionID, utxo.OutputID, models.BlockVotePower]) (missingConflicts utxo.TransactionIDs) {
 	c.Lock()
 	defer c.Unlock()
 

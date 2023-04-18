@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
-	conflictdag "github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -25,7 +25,7 @@ type MemPool interface {
 	Utils() Utils
 
 	// ConflictDAG is a reference to the ConflictDAG that is used by this MemPool.
-	ConflictDAG() conflictdag.Interface[utxo.TransactionID, utxo.OutputID, models.BlockVotePower]
+	ConflictDAG() conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID, models.BlockVotePower]
 
 	// StoreAndProcessTransaction stores and processes the given Transaction.
 	StoreAndProcessTransaction(ctx context.Context, tx utxo.Transaction) (err error)

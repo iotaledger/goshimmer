@@ -3,7 +3,7 @@ package mempool
 import (
 	"context"
 
-	conflictdag "github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/ds/advancedset"

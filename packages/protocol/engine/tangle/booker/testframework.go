@@ -11,7 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
-	conflictdag "github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag/tests"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
@@ -30,7 +30,7 @@ type TestFramework struct {
 	Instance        Booker
 	Ledger          *mempool.TestFramework
 	BlockDAG        *blockdag.TestFramework
-	ConflictDAG     *conflictdag.TestFramework
+	ConflictDAG     *tests.TestFramework[utxo.TransactionID, utxo.OutputID, models.BlockVotePower]
 	SequenceTracker *sequencetracker.TestFramework[models.BlockVotePower]
 	Votes           *votes.TestFramework
 
@@ -46,7 +46,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, instance Booke
 		Workers:  workers,
 		Instance: instance,
 		BlockDAG: blockdag.NewTestFramework(test, workers.CreateGroup("BlockDAG"), blockDAG, slotTimeProviderFunc),
-		//ConflictDAG: conflictdag.NewTestFramework(test, memPool.ConflictDAG()),
+		// ConflictDAG: conflictdag.NewTestFramework(test, memPool.ConflictDAG()),
 		Ledger: mempool.NewTestFramework(test, memPool),
 	}
 
@@ -176,25 +176,25 @@ func (t *TestFramework) CheckMarkers(expectedMarkers map[string]*markers.Markers
 }
 
 func (t *TestFramework) CheckNormalizedConflictIDsContained(expectedContainedConflictIDs map[string]utxo.TransactionIDs) {
-	//for blockAlias, blockExpectedConflictIDs := range expectedContainedConflictIDs {
+	// for blockAlias, blockExpectedConflictIDs := range expectedContainedConflictIDs {
 	//	_, retrievedConflictIDs := t.Instance.BlockBookingDetails(t.Block(blockAlias))
 	//
-	//normalizedRetrievedConflictIDs := retrievedConflictIDs.Clone()
-	//for it := retrievedConflictIDs.Iterator(); it.HasNext(); {
+	// normalizedRetrievedConflictIDs := retrievedConflictIDs.Clone()
+	// for it := retrievedConflictIDs.Iterator(); it.HasNext(); {
 	//	conflict, exists := t.Ledger.Instance.ConflictDAG().Conflict(it.Next())
 	//	require.True(t.Test, exists, "conflict %s does not exist", conflict.ID())
 	//	normalizedRetrievedConflictIDs.DeleteAll(conflict.Parents())
-	//}
+	// }
 	//
-	//normalizedExpectedConflictIDs := blockExpectedConflictIDs.Clone()
-	//for it := blockExpectedConflictIDs.Iterator(); it.HasNext(); {
+	// normalizedExpectedConflictIDs := blockExpectedConflictIDs.Clone()
+	// for it := blockExpectedConflictIDs.Iterator(); it.HasNext(); {
 	//	conflict, exists := t.Ledger.Instance.ConflictDAG().Conflict(it.Next())
 	//	require.True(t.Test, exists, "conflict %s does not exist", conflict.ID())
 	//	normalizedExpectedConflictIDs.DeleteAll(conflict.Parents())
-	//}
+	// }
 	//
 	//	//require.True(t.Test, normalizedExpectedConflictIDs.Intersect(normalizedRetrievedConflictIDs).Size() == normalizedExpectedConflictIDs.Size(), "ConflictID of %s should be %s but is %s", blockAlias, normalizedExpectedConflictIDs, normalizedRetrievedConflictIDs)
-	//}
+	// }
 }
 
 func (t *TestFramework) CheckBlockMetadataDiffConflictIDs(expectedDiffConflictIDs map[string][]utxo.TransactionIDs) {

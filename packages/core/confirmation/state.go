@@ -1,6 +1,8 @@
 package confirmation
 
-import "github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/acceptance"
+import (
+	"github.com/iotaledger/goshimmer/packages/core/acceptance"
+)
 
 const (
 	// Undefined is the default confirmation state.

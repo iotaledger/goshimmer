@@ -9,7 +9,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
-	conflictdag "github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/markers"
@@ -68,14 +68,14 @@ func (t *TestFramework) setupEvents() {
 		atomic.AddUint32(&(t.confirmedBlocks), 1)
 	})
 
-	t.Tangle.Booker.ConflictDAG.ConflictDAG.Events.ConflictAccepted.Hook(func(conflictID conflictdag.TestID) {
+	t.Tangle.Booker.ConflictDAG.Instance.Events().ConflictAccepted.Hook(func(conflictID utxo.TransactionID) {
 		if debug.GetEnabled() {
 			t.test.Logf("CONFLICT ACCEPTED: %s", conflictID)
 		}
 		atomic.AddUint32(&(t.conflictsAccepted), 1)
 	})
 
-	t.Tangle.Booker.ConflictDAG.ConflictDAG.Events.ConflictRejected.Hook(func(conflictID conflictdag.TestID) {
+	t.Tangle.Booker.ConflictDAG.Instance.Events().ConflictRejected.Hook(func(conflictID utxo.TransactionID) {
 		if debug.GetEnabled() {
 			t.test.Logf("CONFLICT REJECTED: %s", conflictID)
 		}
@@ -123,7 +123,7 @@ func (t *TestFramework) ValidateAcceptedMarker(expectedConflictIDs map[markers.M
 
 func (t *TestFramework) ValidateConflictAcceptance(expectedConflictIDs map[string]confirmation.State) {
 	for conflictIDAlias, conflictExpectedState := range expectedConflictIDs {
-		actualMarkerAccepted := t.Tangle.Booker.ConflictDAG.ConflictDAG.AcceptanceState(advancedset.New(conflictdag.TestID{TransactionID: t.Tangle.MemPool.Transaction(conflictIDAlias).ID()}))
+		actualMarkerAccepted := t.Tangle.Booker.ConflictDAG.Instance.AcceptanceState(advancedset.New(t.Tangle.MemPool.Transaction(conflictIDAlias).ID()))
 		require.Equal(t.test, conflictExpectedState, actualMarkerAccepted, "%s should be accepted=%s but is %s", conflictIDAlias, conflictExpectedState, actualMarkerAccepted)
 	}
 }

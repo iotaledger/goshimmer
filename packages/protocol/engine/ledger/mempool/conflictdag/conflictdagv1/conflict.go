@@ -1,4 +1,4 @@
-package newconflictdag
+package conflictdagv1
 
 import (
 	"bytes"
@@ -7,10 +7,10 @@ import (
 	"go.uber.org/atomic"
 	"golang.org/x/xerrors"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/acceptance"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/vote"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/weight"
-	"github.com/iotaledger/hive.go/constraints"
+	"github.com/iotaledger/goshimmer/packages/core/acceptance"
+	"github.com/iotaledger/goshimmer/packages/core/vote"
+	"github.com/iotaledger/goshimmer/packages/core/weight"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/ds/shrinkingmap"
@@ -22,7 +22,7 @@ import (
 )
 
 // Conflict is a conflict that is part of a Conflict DAG.
-type Conflict[ConflictID, ResourceID IDType, VotePower constraints.Comparable[VotePower]] struct {
+type Conflict[ConflictID, ResourceID conflictdag.IDType, VotePower conflictdag.VotePowerType[VotePower]] struct {
 	// ID is the identifier of the Conflict.
 	ID ConflictID
 
@@ -91,7 +91,7 @@ type Conflict[ConflictID, ResourceID IDType, VotePower constraints.Comparable[Vo
 }
 
 // NewConflict creates a new Conflict.
-func NewConflict[ConflictID, ResourceID IDType, VotePower constraints.Comparable[VotePower]](id ConflictID, parents *advancedset.AdvancedSet[*Conflict[ConflictID, ResourceID, VotePower]], conflictSets *advancedset.AdvancedSet[*ConflictSet[ConflictID, ResourceID, VotePower]], initialWeight *weight.Weight, pendingTasksCounter *syncutils.Counter, acceptanceThresholdProvider func() int64) *Conflict[ConflictID, ResourceID, VotePower] {
+func NewConflict[ConflictID, ResourceID conflictdag.IDType, VotePower conflictdag.VotePowerType[VotePower]](id ConflictID, parents *advancedset.AdvancedSet[*Conflict[ConflictID, ResourceID, VotePower]], conflictSets *advancedset.AdvancedSet[*ConflictSet[ConflictID, ResourceID, VotePower]], initialWeight *weight.Weight, pendingTasksCounter *syncutils.Counter, acceptanceThresholdProvider func() int64) *Conflict[ConflictID, ResourceID, VotePower] {
 	c := &Conflict[ConflictID, ResourceID, VotePower]{
 		ID:                      id,
 		Parents:                 advancedset.New[*Conflict[ConflictID, ResourceID, VotePower]](),
@@ -138,7 +138,7 @@ func NewConflict[ConflictID, ResourceID IDType, VotePower constraints.Comparable
 // JoinConflictSets registers the Conflict with the given ConflictSets.
 func (c *Conflict[ConflictID, ResourceID, VotePower]) JoinConflictSets(conflictSets *advancedset.AdvancedSet[*ConflictSet[ConflictID, ResourceID, VotePower]]) (joinedConflictSets *advancedset.AdvancedSet[ResourceID], err error) {
 	if c.evicted.Load() {
-		return nil, xerrors.Errorf("tried to join conflict sets of evicted conflict: %w", ErrEntityEvicted)
+		return nil, xerrors.Errorf("tried to join conflict sets of evicted conflict: %w", conflictdag.ErrEntityEvicted)
 	}
 
 	registerConflictingConflict := func(c, conflict *Conflict[ConflictID, ResourceID, VotePower]) {
@@ -288,7 +288,7 @@ func (c *Conflict[ConflictID, ResourceID, VotePower]) Evict() (evictedConflicts 
 
 	switch c.Weight.AcceptanceState() {
 	case acceptance.Pending:
-		return nil, xerrors.Errorf("tried to evict pending conflict with %s: %w", c.ID, ErrFatal)
+		return nil, xerrors.Errorf("tried to evict pending conflict with %s: %w", c.ID, conflictdag.ErrFatal)
 	case acceptance.Accepted:
 		// remove evicted conflict from parents of children (merge to master)
 		c.Children.Range(func(childConflict *Conflict[ConflictID, ResourceID, VotePower]) {

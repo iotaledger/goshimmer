@@ -1,4 +1,4 @@
-package newconflictdag
+package conflictdag
 
 import "golang.org/x/xerrors"
 

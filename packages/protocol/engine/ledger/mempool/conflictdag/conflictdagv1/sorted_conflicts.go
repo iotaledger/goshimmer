@@ -1,11 +1,11 @@
-package newconflictdag
+package conflictdagv1
 
 import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/newconflictdag/weight"
-	"github.com/iotaledger/hive.go/constraints"
+	"github.com/iotaledger/goshimmer/packages/core/weight"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
 	"github.com/iotaledger/hive.go/ds/shrinkingmap"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/syncutils"
@@ -13,7 +13,7 @@ import (
 )
 
 // SortedConflicts is a set of Conflicts that is sorted by their weight.
-type SortedConflicts[ConflictID, ResourceID IDType, VotePower constraints.Comparable[VotePower]] struct {
+type SortedConflicts[ConflictID, ResourceID conflictdag.IDType, VotePower conflictdag.VotePowerType[VotePower]] struct {
 	// owner is the Conflict that owns this SortedConflicts.
 	owner *sortedConflict[ConflictID, ResourceID, VotePower]
 
@@ -57,7 +57,7 @@ type SortedConflicts[ConflictID, ResourceID IDType, VotePower constraints.Compar
 }
 
 // NewSortedConflicts creates a new SortedConflicts that is owned by the given Conflict.
-func NewSortedConflicts[ConflictID, ResourceID IDType, VotePower constraints.Comparable[VotePower]](owner *Conflict[ConflictID, ResourceID, VotePower], pendingUpdatesCounter *syncutils.Counter) *SortedConflicts[ConflictID, ResourceID, VotePower] {
+func NewSortedConflicts[ConflictID, ResourceID conflictdag.IDType, VotePower conflictdag.VotePowerType[VotePower]](owner *Conflict[ConflictID, ResourceID, VotePower], pendingUpdatesCounter *syncutils.Counter) *SortedConflicts[ConflictID, ResourceID, VotePower] {
 	s := &SortedConflicts[ConflictID, ResourceID, VotePower]{
 		members:                        shrinkingmap.New[ConflictID, *sortedConflict[ConflictID, ResourceID, VotePower]](),
 		pendingWeightUpdates:           shrinkingmap.New[ConflictID, *sortedConflict[ConflictID, ResourceID, VotePower]](),

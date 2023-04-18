@@ -1,16 +1,16 @@
-package newconflictdag
+package conflictdagv1
 
 import (
 	"sync"
 
 	"go.uber.org/atomic"
 
-	"github.com/iotaledger/hive.go/constraints"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
 	"github.com/iotaledger/hive.go/ds/advancedset"
 )
 
 // ConflictSet represents a set of Conflicts that are conflicting with each other over a common Resource.
-type ConflictSet[ConflictID, ResourceID IDType, VotePower constraints.Comparable[VotePower]] struct {
+type ConflictSet[ConflictID, ResourceID conflictdag.IDType, VotePower conflictdag.VotePowerType[VotePower]] struct {
 	// ID is the ID of the Resource that the Conflicts in this ConflictSet are conflicting over.
 	ID ResourceID
 
@@ -23,7 +23,7 @@ type ConflictSet[ConflictID, ResourceID IDType, VotePower constraints.Comparable
 }
 
 // NewConflictSet creates a new ConflictSet of Conflicts that are conflicting with each other over the given Resource.
-func NewConflictSet[ConflictID, ResourceID IDType, VotePower constraints.Comparable[VotePower]](id ResourceID) *ConflictSet[ConflictID, ResourceID, VotePower] {
+func NewConflictSet[ConflictID, ResourceID conflictdag.IDType, VotePower conflictdag.VotePowerType[VotePower]](id ResourceID) *ConflictSet[ConflictID, ResourceID, VotePower] {
 	return &ConflictSet[ConflictID, ResourceID, VotePower]{
 		ID:      id,
 		members: advancedset.New[*Conflict[ConflictID, ResourceID, VotePower]](),
