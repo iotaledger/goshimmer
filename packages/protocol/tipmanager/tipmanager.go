@@ -134,7 +134,7 @@ func (t *TipManager) DeleteTip(block *scheduler.Block) (deleted bool) {
 	return t.deleteTip(block)
 }
 
-// RemoveStrongParents removes all tips that are parents of the given block.
+// RemoveStrongParents removes all tips that are strong parents of the given block.
 func (t *TipManager) RemoveStrongParents(block *models.Block) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
@@ -142,12 +142,14 @@ func (t *TipManager) RemoveStrongParents(block *models.Block) {
 	t.removeStrongParents(block)
 }
 
-// RemoveStrongParents removes all tips that are parents of the given block.
+// removeStrongParents removes all tips that are strong parents of the given block.
 func (t *TipManager) removeStrongParents(block *models.Block) {
-	block.ForEachParent(func(parent models.Parent) {
-		if parentBlock, exists := t.schedulerBlockRetrieverFunc(parent.ID); exists {
+	block.ForEachParentByType(models.StrongParentType, func(parentID models.BlockID) bool {
+		if parentBlock, exists := t.schedulerBlockRetrieverFunc(parentID); exists {
 			t.deleteTip(parentBlock)
 		}
+
+		return true
 	})
 }
 
