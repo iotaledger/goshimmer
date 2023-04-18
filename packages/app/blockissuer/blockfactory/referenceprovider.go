@@ -259,7 +259,7 @@ func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, exclude
 		return false, models.EmptyBlockID, nil
 	}
 
-	err = likedConflictID.ForEach(func(likedConflictID utxo.TransactionID) (err error) {
+	if err = likedConflictID.ForEach(func(likedConflictID utxo.TransactionID) (err error) {
 		attachment, err := r.latestValidAttachment(likedConflictID)
 		// TODO: make sure that timestamp monotonicity is held
 		if err != nil {
@@ -271,10 +271,8 @@ func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, exclude
 		excludedConflictIDs.AddAll(engineInstance.Ledger.MemPool().Utils().ConflictIDsInFutureCone(lo.Return1(conflictDAG.ConflictingConflicts(likedConflictID))))
 
 		return nil
-	})
-
-	if err != nil {
-
+	}); err != nil {
+		return false, models.EmptyBlockID, err
 	}
 
 	return true, attachmentID, nil
