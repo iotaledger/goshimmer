@@ -754,7 +754,7 @@ func (b *Booker) propagateToBlock(block *booker.Block, addedConflictID utxo.Tran
 	b.bookingMutex.Lock(block.ID())
 	defer b.bookingMutex.Unlock(block.ID())
 
-	updated, propagateFurther, forkErr := b.propagateForkedConflict(block, addedConflictID, removedConflictIDs)
+	updated, _, forkErr := b.propagateForkedConflict(block, addedConflictID, removedConflictIDs)
 	if forkErr != nil {
 		return false, errors.Wrapf(forkErr, "failed to propagate forked ConflictID %s to future cone of %s", addedConflictID, block.ID())
 	}
@@ -803,7 +803,7 @@ func (b *Booker) updateBlockConflicts(block *booker.Block, addedConflict utxo.Tr
 	_, conflictIDs := b.blockBookingDetails(block)
 
 	// if a block does not already support all parent conflicts of a conflict A, then it cannot vote for a more specialize conflict of A
-	if !conflictIDs.HasAll(parentConflicts) {
+	if !conflictIDs.HasAll(b.MemPool.ConflictDAG().UnacceptedConflicts(parentConflicts)) {
 		return false
 	}
 

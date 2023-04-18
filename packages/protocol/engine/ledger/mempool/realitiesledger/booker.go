@@ -155,7 +155,7 @@ func (b *booker) forkTransaction(ctx context.Context, txID utxo.TransactionID, o
 
 		confirmationState = txMetadata.ConfirmationState()
 		conflictingInputs := b.ledger.Utils().ResolveInputs(tx.Inputs()).Intersect(outputsSpentByConflictingTx)
-		parentConflicts := txMetadata.ConflictIDs()
+		parentConflicts := b.ledger.conflictDAG.UnacceptedConflicts(txMetadata.ConflictIDs())
 
 		if err := b.ledger.conflictDAG.CreateConflict(txID, parentConflicts, conflictingInputs, acceptanceState(confirmationState)); err != nil {
 			defer b.ledger.mutex.Unlock(txID)
