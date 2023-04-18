@@ -26,7 +26,7 @@ var (
 	Plugin *node.Plugin
 	deps   = new(dependencies)
 
-	currentSlotCommitment     *commitment.Commitment
+	currentSlotCommitment     = commitment.NewEmptyCommitment()
 	currentSlotCommitmentLock sync.RWMutex
 )
 
