@@ -222,7 +222,7 @@ type PostTransactionRequest struct {
 // PostTransactionResponse is the HTTP response from sending transaction.
 type PostTransactionResponse struct {
 	TransactionID string `json:"transactionID,omitempty"`
-	BlockID       string `json:"block_id,omitempty"`
+	BlockID       string `json:"blockID,omitempty"`
 	Error         string `json:"error,omitempty"`
 }
 

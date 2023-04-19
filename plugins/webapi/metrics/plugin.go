@@ -1,7 +1,6 @@
 package metrics
 
 import (
-	"errors"
 	"net/http"
 	"sync/atomic"
 	"time"
@@ -79,14 +78,18 @@ func GetGlobalMetrics(c echo.Context) (err error) {
 
 // GetNodesMetrics is the handler for the /metrics/nodes endpoint.
 func GetNodesMetrics(c echo.Context) (err error) {
-	cmanas := dashboardmetrics.ConsensusManaMap().ToIssuerStrList()
+	cManaMap := lo.PanicOnErr(deps.Protocol.Engine().SybilProtection.Weights().Map())
+	cManaIssuerMap := manamodels.IssuerMap{}
+	for k, v := range cManaMap {
+		cManaIssuerMap[k] = v
+	}
 
 	if maxBPS == 0 {
 		maxBPS = 1 / deps.Protocol.CongestionControl.Scheduler().Rate().Seconds()
 	}
 
 	return c.JSON(http.StatusOK, jsonmodels.NodesMetricsResponse{
-		Cmanas:          cmanas,
+		Cmanas:          cManaIssuerMap.ToIssuerStrList(),
 		ActiveManaRatio: activeManaRatio(),
 		OnlineNodes:     len(deps.Discovery.GetVerifiedPeers()),
 		MaxBPS:          maxBPS,
@@ -95,19 +98,8 @@ func GetNodesMetrics(c echo.Context) (err error) {
 }
 
 func activeManaRatio() float64 {
-	var totalActive int64
-	for _, am := range dashboardmetrics.ConsensusManaMap() {
-		totalActive += am
-	}
+	totalActive := deps.Protocol.Engine().SybilProtection.Validators().TotalWeight()
+	totalCMana := deps.Protocol.Engine().SybilProtection.Weights().TotalWeight()
 
-	consensusManaList, _, err := manamodels.GetHighestManaIssuers(0, lo.PanicOnErr(deps.Protocol.Engine().SybilProtection.Weights().Map()))
-	if err != nil && !errors.Is(err, manamodels.ErrQueryNotAllowed) {
-		return 0
-	}
-
-	var totalConsensusMana int64
-	for i := 0; i < len(consensusManaList); i++ {
-		totalConsensusMana += consensusManaList[i].Mana
-	}
-	return float64(totalActive) / float64(totalConsensusMana)
+	return float64(totalActive) / float64(totalCMana)
 }

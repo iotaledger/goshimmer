@@ -76,21 +76,6 @@ func run(plugin *node.Plugin) {
 	}, shutdown.PriorityMetrics); err != nil {
 		log.Panicf("Failed to start as daemon: %s", err)
 	}
-
-	if err := daemon.BackgroundWorker("Metrics Mana Updater", func(ctx context.Context) {
-		if deps.P2Pmgr == nil {
-			return
-		}
-		defer log.Infof("Stopping Metrics Mana Updater ... done")
-		timeutil.NewTicker(func() {
-			measureMana()
-		}, Parameters.ManaUpdateInterval, ctx)
-		// Wait before terminating so we get correct log blocks from the daemon regarding the shutdown order.
-		<-ctx.Done()
-		log.Infof("Stopping Metrics Mana Updater ...")
-	}, shutdown.PriorityMetrics); err != nil {
-		log.Panicf("Failed to start as daemon: %s", err)
-	}
 }
 
 func registerLocalMetrics(plugin *node.Plugin) {

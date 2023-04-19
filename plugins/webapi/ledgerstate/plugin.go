@@ -520,11 +520,6 @@ func PostTransaction(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, &jsonmodels.PostTransactionResponse{Error: err.Error()})
 	}
 
-	return verifyAndIssueTransaction(c, tx)
-}
-
-func verifyAndIssueTransaction(c echo.Context, tx *devnetvm.Transaction) error {
-	var err error
 	// if filter is enabled check if it would introduce a double spend known to the node locally
 	has, conflictingID := FilterHasConflict(tx.Essence().Inputs())
 	if has {
