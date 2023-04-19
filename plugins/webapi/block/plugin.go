@@ -2,6 +2,7 @@ package block
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/pkg/errors"
@@ -12,6 +13,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
 	"github.com/iotaledger/goshimmer/packages/app/retainer"
 	"github.com/iotaledger/goshimmer/packages/node"
+	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/protocol/models/payload"
@@ -32,6 +34,7 @@ type dependencies struct {
 	Server      *echo.Echo
 	Retainer    *retainer.Retainer
 	BlockIssuer *blockissuer.BlockIssuer
+	Protocol    *protocol.Protocol
 }
 
 func init() {
@@ -42,6 +45,8 @@ func configure(_ *node.Plugin) {
 	deps.Server.GET("blocks/:blockID", GetBlock)
 	deps.Server.GET("blocks/:blockID/metadata", GetBlockMetadata)
 	deps.Server.POST("blocks/payload", PostPayload)
+	deps.Server.POST("blocks", PostBlock)
+	deps.Server.GET("blocks/references", GetReferences)
 
 	// TODO: add markers to be retained by the retainer
 	// deps.Server.GET("blocks/sequences/:sequenceID", GetSequence)
@@ -95,6 +100,26 @@ func configure(_ *node.Plugin) {
 // }
 //
 // // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func GetReferences(c echo.Context) error {
+	var request jsonmodels.GetReferencesRequest
+	if err := c.Bind(&request); err != nil {
+		Plugin.LogInfo(err.Error())
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+	}
+
+	parsedPayload, _, err := payload.FromBytes(request.PayloadBytes)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+	}
+
+	references, err := deps.BlockIssuer.Factory.GetReferences(parsedPayload, request.ParentsCount)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+	}
+
+	return c.JSON(http.StatusOK, jsonmodels.NewGetReferencesResponse(references))
+}
 
 // region GetBlock ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -189,6 +214,29 @@ func PostPayload(c echo.Context) error {
 	return c.JSON(http.StatusOK, jsonmodels.NewPostPayloadResponse(blk))
 }
 
+// PostBlock is the handler for the /blocks endpoint.
+func PostBlock(c echo.Context) error {
+	var request jsonmodels.PostBlockRequest
+	if err := c.Bind(&request); err != nil {
+		Plugin.LogInfo(err.Error())
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+	}
+	parsedBlock := new(models.Block)
+	_, err := parsedBlock.FromBytes(request.BlockBytes)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+	}
+
+	if err = parsedBlock.DetermineID(deps.Protocol.SlotTimeProvider()); err != nil {
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+	}
+	err = deps.BlockIssuer.IssueBlockAndAwaitBlockToBeBooked(parsedBlock, time.Second)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(err))
+	}
+	return c.JSON(http.StatusOK, jsonmodels.NewPostBlockResponse(parsedBlock))
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // region blockIDFromContext /////////////////////////////////////////////////////////////////////////////////////////
@@ -217,12 +265,12 @@ func blockIDFromContext(c echo.Context) (blockID models.BlockID, err error) {
 // }
 
 func payloadFromBytes(payloadBytes []byte) (parsedPayload payload.Payload, err error) {
-	dptype, _, err := payload.TypeFromBytes(payloadBytes)
+	dp, _, err := payload.FromBytes(payloadBytes)
 	if err != nil {
 		return nil, err
 	}
 
-	switch dptype {
+	switch dp.Type() {
 	case payload.GenericDataPayloadType:
 		data := &payload.GenericDataPayload{}
 		_, err = data.FromBytes(payloadBytes)

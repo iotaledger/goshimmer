@@ -12,6 +12,8 @@ type InfoResponse struct {
 	NetworkVersion uint32 `json:"networkVersion,omitempty"`
 	// TangleTime sync status
 	TangleTime TangleTime `json:"tangleTime,omitempty"`
+	// TimeProvider contain the details for the time provider.
+	TimeProvider TimeProvider `json:"timeProvider,omitempty"`
 	// identity ID of the node encoded in base58
 	IdentityID string `json:"identityID,omitempty"`
 	// identity ID of the node encoded in base58 and truncated to its first 8 bytes
@@ -51,6 +53,12 @@ type TangleTime struct {
 	RCTT             int64  `json:"RCTT"`
 	Synced           bool   `json:"synced"`
 	Bootstrapped     bool   `json:"bootstrapped"`
+}
+
+// TimeProvider contains the details for the time provider.
+type TimeProvider struct {
+	GenesisTime  time.Time     `json:"genesisTime"`
+	SlotDuration time.Duration `json:"slotDuration"`
 }
 
 // Mana contains the different mana values of the node.

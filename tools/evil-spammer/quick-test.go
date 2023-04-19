@@ -42,7 +42,7 @@ func QuickTest(params *QuickTestParams) {
 	)
 
 	dsScenario := evilwallet.NewEvilScenario(
-		evilwallet.WithScenarioCustomConflicts(evilwallet.DoubleSpendBatch(2)),
+		evilwallet.WithScenarioCustomConflicts(evilwallet.NSpendBatch(2)),
 	)
 
 	//nolint:gocritic // we want a copy here

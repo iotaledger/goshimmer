@@ -8,13 +8,13 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/ads"
-	"github.com/iotaledger/hive.go/constraints"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/ds/shrinkingmap"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/event"
 	"github.com/iotaledger/hive.go/runtime/syncutils"
+	"github.com/iotaledger/hive.go/serializer/v2"
 )
 
 // SlotMutations is an in-memory data structure that enables the collection of mutations for uncommitted slots.
@@ -179,6 +179,6 @@ func (m *SlotMutations) evictUntil(index slot.Index) {
 }
 
 // newSet is a generic constructor for a new ads.Set.
-func newSet[K any, KPtr constraints.MarshalablePtr[K]]() *ads.Set[K, KPtr] {
+func newSet[K any, KPtr serializer.MarshalablePtr[K]]() *ads.Set[K, KPtr] {
 	return ads.NewSet[K, KPtr](mapdb.NewMapDB())
 }
