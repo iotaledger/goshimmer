@@ -14,3 +14,13 @@ func (m MockedPower) Compare(other MockedPower) int {
 		return 0
 	}
 }
+
+// Increase increases the MockedPower by one step
+func (m MockedPower) Increase() MockedPower {
+	return m + 1
+}
+
+// Decrease decreases the MockedPower by one step.
+func (m MockedPower) Decrease() MockedPower {
+	return m - 1
+}

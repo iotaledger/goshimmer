@@ -30,7 +30,7 @@ type TestFramework struct {
 	Instance        Booker
 	Ledger          *mempool.TestFramework
 	BlockDAG        *blockdag.TestFramework
-	ConflictDAG     *tests.TestFramework[utxo.TransactionID, utxo.OutputID, models.BlockVotePower]
+	ConflictDAG     *tests.Framework[utxo.TransactionID, utxo.OutputID, models.BlockVotePower]
 	SequenceTracker *sequencetracker.TestFramework[models.BlockVotePower]
 	Votes           *votes.TestFramework
 

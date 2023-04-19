@@ -23,3 +23,17 @@ func (v BlockVotePower) Compare(other BlockVotePower) int {
 		return v.blockID.CompareTo(other.blockID)
 	}
 }
+
+func (v BlockVotePower) Increase() BlockVotePower {
+	return BlockVotePower{
+		blockID: v.blockID,
+		time:    v.time.Add(time.Nanosecond),
+	}
+}
+
+func (v BlockVotePower) Decrease() BlockVotePower {
+	return BlockVotePower{
+		blockID: v.blockID,
+		time:    v.time.Add(-time.Nanosecond),
+	}
+}

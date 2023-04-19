@@ -13,17 +13,25 @@ import (
 	"github.com/iotaledger/hive.go/lo"
 )
 
+// TestConflictDAG runs the generic tests for the ConflictDAG.
 func TestConflictDAG(t *testing.T) {
-	tests.Run(t, newTestFramework)
+	tests.TestAll(t, newTestFramework)
 }
 
-func newTestFramework(t *testing.T) *tests.TestFramework[utxo.TransactionID, utxo.OutputID, vote.MockedPower] {
-	weights := sybilprotection.NewWeights(mapdb.NewMapDB())
-	conflictDAG := New[utxo.TransactionID, utxo.OutputID, vote.MockedPower](weights.NewWeightedSet())
+// newTestFramework creates a new instance of the TestFramework for internal unit tests.
+func newTestFramework(t *testing.T) *tests.Framework[utxo.TransactionID, utxo.OutputID, vote.MockedPower] {
+	validators := sybilprotection.NewWeights(mapdb.NewMapDB()).NewWeightedSet()
 
-	return tests.NewTestFramework[utxo.TransactionID, utxo.OutputID, vote.MockedPower](t, conflictDAG, transactionID, outputID)
+	return tests.NewFramework[utxo.TransactionID, utxo.OutputID, vote.MockedPower](
+		t,
+		New[utxo.TransactionID, utxo.OutputID, vote.MockedPower](validators),
+		sybilprotection.NewWeightedSetTestFramework(t, validators),
+		transactionID,
+		outputID,
+	)
 }
 
+// transactionID creates a (made up) TransactionID from the given alias.
 func transactionID(alias string) utxo.TransactionID {
 	hashedAlias := blake2b.Sum256([]byte(alias))
 
@@ -33,6 +41,7 @@ func transactionID(alias string) utxo.TransactionID {
 	return result
 }
 
+// outputID creates a (made up) OutputID from the given alias.
 func outputID(alias string) utxo.OutputID {
 	hashedAlias := blake2b.Sum256([]byte(alias))
 

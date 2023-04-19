@@ -28,7 +28,7 @@ type TestFramework struct {
 	// Instance contains a reference to the MemPool instance that the TestFramework is using.
 	Instance MemPool
 
-	ConflictDAG *tests.TestFramework[utxo.TransactionID, utxo.OutputID, models.BlockVotePower]
+	ConflictDAG *tests.Framework[utxo.TransactionID, utxo.OutputID, models.BlockVotePower]
 
 	// test contains a reference to the testing instance.
 	test *testing.T
@@ -52,7 +52,7 @@ func NewTestFramework(test *testing.T, instance MemPool) *TestFramework {
 	t := &TestFramework{
 		test:     test,
 		Instance: instance,
-		// ConflictDAG:         conflictdag.NewTestFramework(test, instance.ConflictDAG()),
+		// ConflictDAG:         conflictdag.NewFramework(test, instance.ConflictDAG()),
 		transactionsByAlias: make(map[string]*mockedvm.MockedTransaction),
 		outputIDsByAlias:    make(map[string]utxo.OutputID),
 	}
