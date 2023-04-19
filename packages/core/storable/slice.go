@@ -8,14 +8,14 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotaledger/hive.go/constraints"
 	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/serializer/v2"
 	"github.com/iotaledger/hive.go/serializer/v2/serix"
 )
 
 const SliceOffsetAuto = ^int(0)
 
-type Slice[A any, B constraints.MarshalablePtr[A]] struct {
+type Slice[A any, B serializer.MarshalablePtr[A]] struct {
 	fileHandle  *os.File
 	startOffset int
 	entrySize   int
@@ -23,7 +23,7 @@ type Slice[A any, B constraints.MarshalablePtr[A]] struct {
 	sync.RWMutex
 }
 
-func NewSlice[A any, B constraints.MarshalablePtr[A]](fileName string, entrySize int, opts ...options.Option[Slice[A, B]]) (indexedFile *Slice[A, B], err error) {
+func NewSlice[A any, B serializer.MarshalablePtr[A]](fileName string, entrySize int, opts ...options.Option[Slice[A, B]]) (indexedFile *Slice[A, B], err error) {
 	return options.Apply(new(Slice[A, B]), opts, func(i *Slice[A, B]) {
 		if i.fileHandle, err = os.OpenFile(fileName, os.O_RDWR|os.O_CREATE, 0o666); err != nil {
 			err = errors.Wrap(err, "failed to open file")
@@ -138,7 +138,7 @@ func (i *Slice[A, B]) writeHeader() (err error) {
 	return i.fileHandle.Sync()
 }
 
-func WithOffset[A any, B constraints.MarshalablePtr[A]](offset int) options.Option[Slice[A, B]] {
+func WithOffset[A any, B serializer.MarshalablePtr[A]](offset int) options.Option[Slice[A, B]] {
 	return func(s *Slice[A, B]) {
 		s.startOffset = offset
 	}
