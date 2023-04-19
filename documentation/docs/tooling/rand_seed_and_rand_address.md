@@ -33,7 +33,7 @@ The script will output a Base58 string representing the newly generated address,
 
 You can use the `rand-address` tool to generate a text file with the following:
 
-* A [seed](../tutorials/send_transaction#seed), represented in Base64 and Base58.
+* A [seed](../tutorials/send_transaction.md#seed), represented in Base64 and Base58.
 * The seed's relative identity, as a Base58 string. 
 * The relative identity's public, key in Base58.
 
