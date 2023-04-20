@@ -134,5 +134,4 @@ func registerLocalMetrics(plugin *node.Plugin) {
 		confirmedConflictCount.Inc()
 		conflictConfirmationTotalTime.Add(uint64(time.Since(firstAttachment.IssuingTime()).Milliseconds()))
 	})
-
 }

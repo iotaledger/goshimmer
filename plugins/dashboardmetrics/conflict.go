@@ -3,10 +3,11 @@ package dashboardmetrics
 import (
 	"sync"
 
+	"go.uber.org/atomic"
+
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/hive.go/ds/types"
-	"go.uber.org/atomic"
 )
 
 var (
