@@ -216,13 +216,13 @@ func NewPostPayloadResponse(block *models.Block) *PostPayloadResponse {
 
 // PostTransactionRequest holds the transaction object(bytes) to send.
 type PostTransactionRequest struct {
-	TransactionBytes []byte `json:"txn_bytes"`
+	TransactionBytes []byte `json:"txBytes"`
 }
 
 // PostTransactionResponse is the HTTP response from sending transaction.
 type PostTransactionResponse struct {
-	TransactionID string `json:"transaction_id,omitempty"`
-	BlockID       string `json:"block_id,omitempty"`
+	TransactionID string `json:"transactionID,omitempty"`
+	BlockID       string `json:"blockID,omitempty"`
 	Error         string `json:"error,omitempty"`
 }
 

@@ -45,9 +45,9 @@ var Core = node.Plugins(
 	indexer.Plugin,
 	warpsync.Plugin,
 	faucet.Plugin,
+	blockissuer.Plugin,
 	dashboardmetrics.Plugin,
 	metrics.Plugin,
 	spammer.Plugin,
 	manainitializer.Plugin,
-	blockissuer.Plugin,
 )

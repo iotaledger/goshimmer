@@ -48,7 +48,7 @@ func processFaucetRequest(c echo.Context) error {
 
 	addr, err := devnetvm.AddressFromBase58EncodedString(request.Address)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, jsonmodels.FaucetRequestResponse{Error: "Invalid address"})
+		return c.JSON(http.StatusBadRequest, jsonmodels.FaucetAPIResponse{Error: "Invalid address"})
 	}
 
 	var accessManaPledgeID identity.ID

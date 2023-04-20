@@ -20,7 +20,7 @@ type Block struct {
 	CommitmentID         string   `json:"commitmentID"`
 	SlotIndex            uint64   `json:"slotIndex"`
 	CommitmentRootsID    string   `json:"commitmentRootsID"`
-	PrevCommitmentID     string   `json:"PrevCommitmentID"`
+	PrevCommitmentID     string   `json:"prevCommitmentID"`
 	Signature            string   `json:"signature"`
 	LatestConfirmedSlot  uint64   `json:"latestConfirmedSlot"`
 }

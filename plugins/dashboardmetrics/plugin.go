@@ -6,17 +6,24 @@ import (
 
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
+
 	"github.com/iotaledger/goshimmer/packages/app/blockissuer"
+	"github.com/iotaledger/goshimmer/packages/app/collector"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
 	"github.com/iotaledger/goshimmer/packages/network/p2p"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/hive.go/app/daemon"
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/autopeering/selection"
 	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/hive.go/runtime/event"
 	"github.com/iotaledger/hive.go/runtime/timeutil"
 )
 
@@ -52,6 +59,8 @@ func configure(_ *node.Plugin) {
 func run(plugin *node.Plugin) {
 	log.Infof("Starting %s ...", PluginName)
 	registerLocalMetrics(plugin)
+	measureInitialConflictStats()
+
 	// create a background worker that update the metrics every second
 	if err := daemon.BackgroundWorker("Metrics Updater", func(ctx context.Context) {
 		// Do not block until the Ticker is shutdown because we might want to start multiple Tickers and we can
@@ -72,8 +81,57 @@ func run(plugin *node.Plugin) {
 func registerLocalMetrics(plugin *node.Plugin) {
 	// increase received BPS counter whenever we attached a block
 	deps.Protocol.Events.Engine.Tangle.BlockDAG.BlockAttached.Hook(func(block *blockdag.Block) {
-		blockCountPerComponentMutex.Lock()
-		defer blockCountPerComponentMutex.Unlock()
 		increaseReceivedBPSCounter()
-	}, event.WithWorkerPool(plugin.WorkerPool))
+		increasePerComponentCounter(collector.Attached)
+	})
+
+	deps.Protocol.Events.Engine.Consensus.BlockGadget.BlockAccepted.Hook(func(block *blockgadget.Block) {
+		blockType := collector.DataBlock
+		if block.Payload().Type() == devnetvm.TransactionType {
+			blockType = collector.Transaction
+		}
+
+		increaseFinalizationIssuedTotalTime(blockType, uint64(time.Since(block.IssuingTime()).Milliseconds()))
+		increaseFinalizedBlkPerTypeCounter(blockType)
+	})
+
+	deps.Protocol.Events.Engine.Tangle.Booker.BlockBooked.Hook(func(bbe *booker.BlockBookedEvent) {
+		if bbe.Block.Payload().Type() == devnetvm.TransactionType {
+			increaseBookedTransactionCounter()
+		}
+	})
+
+	deps.Protocol.Events.CongestionControl.Scheduler.BlockScheduled.Hook(func(b *scheduler.Block) {
+		increasePerComponentCounter(collector.Scheduled)
+	})
+
+	deps.Protocol.Events.Engine.Ledger.MemPool.ConflictDAG.ConflictCreated.Hook(func(event *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+		conflictID := event.ID()
+
+		added := addActiveConflict(conflictID)
+		if added {
+			conflictTotalCountDB.Inc()
+		}
+	})
+
+	deps.Protocol.Events.Engine.Ledger.MemPool.ConflictDAG.ConflictAccepted.Hook(func(event *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+		removed := removeActiveConflict(event.ID())
+		if !removed {
+			return
+		}
+
+		firstAttachment := deps.Protocol.Engine().Tangle.Booker().GetEarliestAttachment(event.ID())
+		event.ForEachConflictingConflict(func(conflictingConflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) bool {
+			conflictingID := conflictingConflict.ID()
+			if _, exists := activeConflicts[event.ID()]; exists && conflictingID != event.ID() {
+				finalizedConflictCountDB.Inc()
+				removeActiveConflict(conflictingID)
+			}
+			return true
+		})
+
+		finalizedConflictCountDB.Inc()
+		confirmedConflictCount.Inc()
+		conflictConfirmationTotalTime.Add(uint64(time.Since(firstAttachment.IssuingTime()).Milliseconds()))
+	})
 }
