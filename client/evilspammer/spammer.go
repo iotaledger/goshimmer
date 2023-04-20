@@ -29,20 +29,30 @@ type State struct {
 	spamDuration time.Duration
 }
 
+type SpamType int
+
+const (
+	SpamEvilWallet SpamType = iota
+	SpamCommitments
+)
+
 // Spammer is a utility object for new spammer creations, can be modified by passing options.
 // Mandatory options: WithClients, WithSpammingFunc
 // Not mandatory options, if not provided spammer will use default settings:
 // WithSpamDetails, WithEvilWallet, WithErrorCounter, WithLogTickerInterval.
 type Spammer struct {
-	SpamDetails   *SpamDetails
-	State         *State
-	UseRateSetter bool
-	Clients       evilwallet.Connector
-	EvilWallet    *evilwallet.EvilWallet
-	EvilScenario  *evilwallet.EvilScenario
-	ErrCounter    *ErrorCounter
-	log           Logger
+	SpamDetails       *SpamDetails
+	State             *State
+	UseRateSetter     bool
+	SpamType          SpamType
+	Clients           evilwallet.Connector
+	EvilWallet        *evilwallet.EvilWallet
+	EvilScenario      *evilwallet.EvilScenario
+	IdentityManager   *IdentityManager
+	CommitmentManager *CommitmentManager
+	ErrCounter        *ErrorCounter
 
+	log Logger
 	// accessed from spamming functions
 	done     chan bool
 	shutdown chan types.Empty
@@ -60,22 +70,21 @@ func NewSpammer(options ...Options) *Spammer {
 		logTickTime:   time.Second * 30,
 	}
 	s := &Spammer{
-		SpamDetails:    &SpamDetails{},
-		spamFunc:       CustomConflictSpammingFunc,
-		State:          state,
-		EvilScenario:   evilwallet.NewEvilScenario(),
-		UseRateSetter:  true,
-		done:           make(chan bool),
-		shutdown:       make(chan types.Empty),
-		NumberOfSpends: 2,
+		SpamDetails:       &SpamDetails{},
+		spamFunc:          CustomConflictSpammingFunc,
+		State:             state,
+		SpamType:          SpamEvilWallet,
+		EvilScenario:      evilwallet.NewEvilScenario(),
+		IdentityManager:   NewIdentityManager(),
+		CommitmentManager: NewCommitmentManager(),
+		UseRateSetter:     true,
+		done:              make(chan bool),
+		shutdown:          make(chan types.Empty),
+		NumberOfSpends:    2,
 	}
 
 	for _, opt := range options {
 		opt(s)
-	}
-
-	if s.EvilWallet == nil {
-		s.EvilWallet = evilwallet.NewEvilWallet()
 	}
 
 	s.setup()
@@ -91,16 +100,24 @@ func (s *Spammer) BatchesPrepared() uint64 {
 }
 
 func (s *Spammer) setup() {
-	s.Clients = s.EvilWallet.Connector()
+	if s.log == nil {
+		s.initLogger()
+		s.IdentityManager.SetLogger(s.log)
+	}
 
+	switch s.SpamType {
+	case SpamEvilWallet:
+		if s.EvilWallet == nil {
+			s.EvilWallet = evilwallet.NewEvilWallet()
+		}
+		s.Clients = s.EvilWallet.Connector()
+	case SpamCommitments:
+		s.CommitmentManager.Setup(s.log)
+	}
 	s.setupSpamDetails()
 
 	s.State.spamTicker = s.initSpamTicker()
 	s.State.logTicker = s.initLogTicker()
-
-	if s.log == nil {
-		s.initLogger()
-	}
 
 	if s.ErrCounter == nil {
 		s.ErrCounter = NewErrorCount()
@@ -189,6 +206,7 @@ func (s *Spammer) StopSpamming() {
 	s.State.spamDuration = time.Since(s.State.spamStartTime)
 	s.State.spamTicker.Stop()
 	s.State.logTicker.Stop()
+	s.CommitmentManager.Shutdown()
 	s.shutdown <- types.Void
 }
 

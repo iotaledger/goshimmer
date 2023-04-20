@@ -26,8 +26,10 @@ var (
 	Plugin *node.Plugin
 	deps   = new(dependencies)
 
-	currentSlotCommitment     = commitment.NewEmptyCommitment()
-	currentSlotCommitmentLock sync.RWMutex
+	currentSlotCommitment         = commitment.NewEmptyCommitment()
+	currentSlotCommitmentLock     sync.RWMutex
+	currentLastConfirmedIndex     slot.Index
+	currentLastConfirmedIndexLock sync.RWMutex
 )
 
 type dependencies struct {
@@ -49,6 +51,7 @@ func configure(_ *node.Plugin) {
 	deps.Server.GET("slots/:index/utxos", GetUTXOs)
 	deps.Server.GET("slots/:index/blocks", GetBlocks)
 	deps.Server.GET("slots/:index/transactions", GetTransactions)
+	deps.Server.GET("latest-confirmed-index", GetLatestConfirmedIndex)
 	// deps.Server.GET("slots/:index/voters-weight", getVotersWeight)
 
 	deps.Protocol.Events.Engine.Notarization.SlotCommitted.Hook(func(e *notarization.SlotCommittedDetails) {
@@ -56,6 +59,13 @@ func configure(_ *node.Plugin) {
 		defer currentSlotCommitmentLock.Unlock()
 
 		currentSlotCommitment = e.Commitment
+	})
+
+	deps.Protocol.Engine().Events.Consensus.SlotGadget.SlotConfirmed.Hook(func(s slot.Index) {
+		currentLastConfirmedIndexLock.Lock()
+		defer currentLastConfirmedIndexLock.Unlock()
+
+		currentLastConfirmedIndex = s
 	})
 }
 
@@ -151,6 +161,12 @@ func GetTransactions(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, jsonmodels.SlotTransactionsResponse{Transactions: txs})
+}
+
+func GetLatestConfirmedIndex(c echo.Context) error {
+	latestConfirmedIndex := deps.Protocol.Engine().Storage.Settings.LatestConfirmedSlot()
+
+	return c.JSON(http.StatusOK, jsonmodels.LatestConfirmedIndexResponse{Index: uint64(latestConfirmedIndex)})
 }
 
 func getIndex(c echo.Context) (slot.Index, error) {

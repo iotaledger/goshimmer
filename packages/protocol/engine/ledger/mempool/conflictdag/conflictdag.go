@@ -2,7 +2,6 @@ package conflictdag
 
 import (
 	"fmt"
-	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/hive.go/ds/advancedset"
@@ -29,7 +28,7 @@ type ConflictDAG[ConflictIDType, ResourceIDType comparable] struct {
 	// It is used by different components, but it is placed here because it's easily accessible in all needed components.
 	// It serves more as a quick-fix, as eventually conflict tracking spread across multiple components
 	// (ConflictDAG, ConflictResolver, ConflictsTracker) will be refactored into a single component that handles locking nicely.
-	WeightsMutex sync.RWMutex
+	WeightsMutex syncutils.RWMutexFake
 
 	optsMergeToMaster bool
 }
@@ -191,83 +190,68 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) UnconfirmedConflicts(confl
 // SetConflictAccepted sets the ConfirmationState of the given Conflict to be Accepted - it automatically sets also the
 // conflicting conflicts to be rejected.
 func (c *ConflictDAG[ConflictIDType, ResourceIDType]) SetConflictAccepted(conflictID ConflictIDType) (modified bool) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
+	conflictsToAccept := advancedset.New[*Conflict[ConflictIDType, ResourceIDType]]()
 	conflictsToReject := advancedset.New[*Conflict[ConflictIDType, ResourceIDType]]()
 
-	for confirmationWalker := advancedset.New(conflictID).Iterator(); confirmationWalker.HasNext(); {
-		currentConflictID := confirmationWalker.Next()
-		conflict, exists := c.conflicts.Get(currentConflictID)
-		if !exists {
-			continue
-		}
+	func() {
+		c.mutex.Lock()
+		defer c.mutex.Unlock()
 
-		if conflict.ConfirmationState() != confirmation.NotConflicting {
-			if !conflict.setConfirmationState(confirmation.Accepted) {
+		for confirmationWalker := advancedset.New(conflictID).Iterator(); confirmationWalker.HasNext(); {
+			conflict, exists := c.conflicts.Get(confirmationWalker.Next())
+			if !exists {
 				continue
 			}
 
-			modified = true
+			if conflict.ConfirmationState() != confirmation.NotConflicting {
+				if !conflict.setConfirmationState(confirmation.Accepted) {
+					continue
+				}
 
-			c.Events.ConflictAccepted.Trigger(conflict)
+				modified = true
+				conflictsToAccept.Add(conflict)
+			}
+
+			confirmationWalker.PushAll(conflict.Parents().Slice()...)
+
+			conflict.ForEachConflictingConflict(func(conflictingConflict *Conflict[ConflictIDType, ResourceIDType]) bool {
+				conflictsToReject.Add(conflictingConflict)
+				return true
+			})
 		}
 
-		confirmationWalker.PushAll(conflict.Parents().Slice()...)
+		if rejectedConflicts := c.rejectConflictsWithFutureCone(conflictsToReject); !rejectedConflicts.IsEmpty() {
+			conflictsToReject.AddAll(rejectedConflicts)
+			modified = true
+		}
+	}()
 
-		conflict.ForEachConflictingConflict(func(conflictingConflict *Conflict[ConflictIDType, ResourceIDType]) bool {
-			conflictsToReject.Add(conflictingConflict)
-			return true
-		})
-	}
+	_ = conflictsToAccept.ForEach(func(conflict *Conflict[ConflictIDType, ResourceIDType]) (err error) {
+		c.Events.ConflictAccepted.Trigger(conflict)
+		return nil
+	})
 
-	modified = c.rejectConflictsWithFutureCone(conflictsToReject) || modified
-
-	// // Delete all resolved ConflictSets (don't have a pending conflict anymore).
-	// for it := conflictSets.Iterator(); it.HasNext(); {
-	//	conflictSet := it.Next()
-	//
-	//	pendingConflicts := false
-	//	for itConflict := conflictSet.Conflicts().Iterator(); itConflict.HasNext(); {
-	//		conflict := itConflict.Next()
-	//		if conflict.ConfirmationState() == confirmation.Pending {
-	//			pendingConflicts = true
-	//			continue
-	//		}
-	//		conflict.deleteConflictSet(conflictSet)
-	//	}
-	//
-	//	if !pendingConflicts {
-	//		c.conflictSets.Delete(conflictSet.ID())
-	//	}
-	// }
-	//
-	// // Delete all resolved Conflicts that are not part of any ConflictSet anymore.
-	// for it := conflicts.Iterator(); it.HasNext(); {
-	//	conflict := it.Next()
-	//	if conflict.ConflictSets().Size() == 0 {
-	//		c.conflicts.Delete(conflict.ID())
-	//	}
-	// }
+	_ = conflictsToReject.ForEach(func(conflict *Conflict[ConflictIDType, ResourceIDType]) (err error) {
+		c.Events.ConflictRejected.Trigger(conflict)
+		return nil
+	})
 
 	return modified
 }
 
-func (c *ConflictDAG[ConflictIDType, ResourceIDType]) rejectConflictsWithFutureCone(initialConflicts *advancedset.AdvancedSet[*Conflict[ConflictIDType, ResourceIDType]]) (modified bool) {
-	rejectionWalker := walker.New[*Conflict[ConflictIDType, ResourceIDType]]().PushAll(initialConflicts.Slice()...)
-	for rejectionWalker.HasNext() {
+func (c *ConflictDAG[ConflictIDType, ResourceIDType]) rejectConflictsWithFutureCone(initialConflicts *advancedset.AdvancedSet[*Conflict[ConflictIDType, ResourceIDType]]) *advancedset.AdvancedSet[*Conflict[ConflictIDType, ResourceIDType]] {
+	conflictsToReject := advancedset.New[*Conflict[ConflictIDType, ResourceIDType]]()
+
+	for rejectionWalker := initialConflicts.Iterator(); rejectionWalker.HasNext(); {
 		conflict := rejectionWalker.Next()
 		if !conflict.setConfirmationState(confirmation.Rejected) {
 			continue
 		}
-
-		modified = true
-
-		c.Events.ConflictRejected.Trigger(conflict)
+		conflictsToReject.Add(conflict)
 		rejectionWalker.PushAll(conflict.Children().Slice()...)
 	}
 
-	return modified
+	return conflictsToReject
 }
 
 // ConfirmationState returns the ConfirmationState of the given ConflictIDs.
@@ -429,8 +413,6 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) confirmationState(conflict
 // the named Conflict through a chain of intersecting conflicts.
 func (c *ConflictDAG[ConflictIDType, ResourceIDType]) ForEachConnectedConflictingConflictID(rootConflict *Conflict[ConflictIDType, ResourceIDType], callback func(conflictingConflict *Conflict[ConflictIDType, ResourceIDType])) {
 	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-
 	traversedConflicts := set.New[*Conflict[ConflictIDType, ResourceIDType]]()
 	conflictSetsWalker := walker.New[*ConflictSet[ConflictIDType, ResourceIDType]]()
 
@@ -450,6 +432,7 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) ForEachConnectedConflictin
 			processConflictAndQueueConflictSets(conflict)
 		}
 	}
+	c.mutex.RUnlock()
 
 	traversedConflicts.ForEach(callback)
 }
@@ -474,7 +457,9 @@ func (c *ConflictDAG[ConflictIDType, ResourceIDType]) HandleOrphanedConflict(con
 		return
 	}
 
-	c.rejectConflictsWithFutureCone(advancedset.New(initialConflict))
+	for it := c.rejectConflictsWithFutureCone(advancedset.New(initialConflict)).Iterator(); it.HasNext(); {
+		c.Events.ConflictRejected.Trigger(it.Next())
+	}
 
 	// iterate conflict's conflictSets. if only one conflict is pending, then mark it appropriately
 	for it := initialConflict.conflictSets.Iterator(); it.HasNext(); {

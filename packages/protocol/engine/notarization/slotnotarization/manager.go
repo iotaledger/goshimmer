@@ -2,7 +2,6 @@ package slotnotarization
 
 import (
 	"io"
-	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -18,9 +17,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/goshimmer/packages/storage"
 	"github.com/iotaledger/hive.go/core/slot"
-	"github.com/iotaledger/hive.go/runtime/event"
 	"github.com/iotaledger/hive.go/runtime/module"
 	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 const (
@@ -37,7 +36,7 @@ type Manager struct {
 
 	storage         *storage.Storage
 	ledgerState     ledger.Ledger
-	commitmentMutex sync.RWMutex
+	commitmentMutex syncutils.RWMutexFake
 
 	acceptedTimeFunc func() time.Time
 
@@ -50,6 +49,7 @@ func NewProvider(opts ...options.Option[Manager]) module.Provider[*engine.Engine
 	return module.Provide(func(e *engine.Engine) notarization.Notarization {
 		return options.Apply(&Manager{
 			events:                    notarization.NewEvents(),
+			acceptedTimeFunc:          e.Clock.Accepted().Time,
 			optsMinCommittableSlotAge: defaultMinSlotCommittableAge,
 		}, opts,
 			func(m *Manager) {
@@ -67,8 +67,8 @@ func NewProvider(opts ...options.Option[Manager]) module.Provider[*engine.Engine
 					m.ledgerState = e.Ledger
 					m.acceptedTimeFunc = e.Clock.Accepted().Time
 
-					wpBlocks := e.Workers.CreatePool("NotarizationManager.Blocks", 1)           // Using just 1 worker to avoid contention
-					wpCommitments := e.Workers.CreatePool("NotarizationManager.Commitments", 1) // Using just 1 worker to avoid contention
+					//wpBlocks := e.Workers.CreatePool("NotarizationManager.Blocks", 1)           // Using just 1 worker to avoid contention
+					//wpCommitments := e.Workers.CreatePool("NotarizationManager.Commitments", 1) // Using just 1 worker to avoid contention
 
 					// SlotMutations must be hooked because inclusion might be added before transaction are added.
 					e.Events.Ledger.MemPool.TransactionAccepted.Hook(func(event *mempool.TransactionEvent) {
@@ -86,15 +86,15 @@ func NewProvider(opts ...options.Option[Manager]) module.Provider[*engine.Engine
 						if err := e.Notarization.NotarizeAcceptedBlock(block.ModelsBlock); err != nil {
 							e.Events.Error.Trigger(errors.Wrapf(err, "failed to add accepted block %s to slot", block.ID()))
 						}
-					}, event.WithWorkerPool(wpBlocks))
+					} /*, event.WithWorkerPool(wpBlocks)*/)
 					e.Events.Tangle.BlockDAG.BlockOrphaned.Hook(func(block *blockdag.Block) {
 						if err := e.Notarization.NotarizeOrphanedBlock(block.ModelsBlock); err != nil {
 							e.Events.Error.Trigger(errors.Wrapf(err, "failed to remove orphaned block %s from slot", block.ID()))
 						}
-					}, event.WithWorkerPool(wpBlocks))
+					} /*, event.WithWorkerPool(wpBlocks)*/)
 
 					// Slots are committed whenever ATT advances, start committing only when bootstrapped.
-					e.Events.Clock.AcceptedTimeUpdated.Hook(m.TryCommitUntil, event.WithWorkerPool(wpCommitments))
+					e.Events.Clock.AcceptedTimeUpdated.Hook(m.TryCommitUntil /*, event.WithWorkerPool(wpCommitments)*/)
 
 					e.SybilProtection.HookInitialized(func() {
 						m.slotMutations = NewSlotMutations(e.SybilProtection.Weights(), e.Storage.Settings.LatestCommitment().Index())

@@ -29,13 +29,12 @@ type Payload interface {
 	String() string
 }
 
-// TypeFromBytes unmarshals a Payload from a sequence of bytes.
-func TypeFromBytes(data []byte) (payloadType Type, consumedBytes int, err error) {
-	_, err = serix.DefaultAPI.Decode(context.Background(), data, &payloadType)
+// FromBytes unmarshals a Payload from a sequence of bytes.
+func FromBytes(data []byte) (payload Payload, consumedBytes int, err error) {
+	_, err = serix.DefaultAPI.Decode(context.Background(), data, &payload)
 	if err != nil {
-		err = errors.Wrap(err, "failed to parse PayloadType")
+		err = errors.Wrap(err, "failed to parse Payload")
 		return
 	}
-
 	return
 }

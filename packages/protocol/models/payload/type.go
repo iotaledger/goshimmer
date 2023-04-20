@@ -3,7 +3,8 @@ package payload
 import (
 	"encoding/binary"
 	"strconv"
-	"sync"
+
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 // Type represents the Type of a payload.
@@ -14,7 +15,7 @@ var (
 	typeRegister = make(map[Type]string)
 
 	// typeRegisterMutex is used to make synchronize the access to the previously defined map.
-	typeRegisterMutex sync.RWMutex
+	typeRegisterMutex syncutils.RWMutexFake
 )
 
 // NewType creates and registers a new payload Type.

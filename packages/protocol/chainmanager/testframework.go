@@ -1,7 +1,6 @@
 package chainmanager
 
 import (
-	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -14,6 +13,7 @@ import (
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 type TestFramework struct {
@@ -27,7 +27,7 @@ type TestFramework struct {
 	missingCommitmentReceived int32
 	commitmentBelowRoot       int32
 
-	sync.RWMutex
+	syncutils.RWMutexFake
 }
 
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (testFramework *TestFramework) {

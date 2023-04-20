@@ -228,6 +228,27 @@ type PostTransactionResponse struct {
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// region PostBlock Req/Resp ///////////////////////////////////////////////////////////////////////////////////////////
+
+// PostBlockRequest holds the block object(bytes) to send.
+type PostBlockRequest struct {
+	BlockBytes []byte `json:"block_bytes"`
+}
+
+// PostBlockResponse is the HTTP response from sending block.
+type PostBlockResponse struct {
+	BlockID string `json:"block_id,omitempty"`
+	Error   string `json:"error,omitempty"`
+}
+
+func NewPostBlockResponse(block *models.Block) *PostBlockResponse {
+	return &PostBlockResponse{
+		BlockID: block.ID().Base58(),
+	}
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // region ErrorResponse ////////////////////////////////////////////////////////////////////////////////////////////////
 
 // ErrorResponse represents the JSON model of an error response from an API endpoint.

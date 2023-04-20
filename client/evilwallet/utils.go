@@ -1,10 +1,22 @@
 package evilwallet
 
 import (
+	"context"
+
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
+	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/serializer/v2/byteutils"
+	"github.com/iotaledger/hive.go/serializer/v2/serix"
+
+	"github.com/cockroachdb/errors"
+
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
 )
+
+// region utxo/tx realted functions ////////////////////////////////////////////////////////////////////////////////////////////
 
 // SplitBalanceEqually splits the balance equally between `splitNumber` outputs.
 func SplitBalanceEqually(splitNumber int, balance uint64) []uint64 {
@@ -42,17 +54,6 @@ func getOutputByJSON(jsonOutput *jsonmodels.Output) (output devnetvm.Output) {
 	return output
 }
 
-func getIotaColorAmount(balance *devnetvm.ColoredBalances) uint64 {
-	outBalance := uint64(0)
-	balance.ForEach(func(color devnetvm.Color, balance uint64) bool {
-		if color == devnetvm.ColorIOTA {
-			outBalance += balance
-		}
-		return true
-	})
-	return outBalance
-}
-
 // RateSetterSleep sleeps for the given rate.
 func RateSetterSleep(clt Client, useRateSetter bool) error {
 	if useRateSetter {
@@ -62,4 +63,22 @@ func RateSetterSleep(clt Client, useRateSetter bool) error {
 		}
 	}
 	return nil
+}
+
+// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func SignBlock(block *models.Block, localID *identity.LocalIdentity) (ed25519.Signature, error) {
+	contentHash, err := block.ContentHash()
+	if err != nil {
+		return ed25519.EmptySignature, errors.Wrap(err, "failed to obtain block content's hash")
+	}
+	issuingTimeBytes, err := serix.DefaultAPI.Encode(context.Background(), block.IssuingTime(), serix.WithValidation())
+	if err != nil {
+		return ed25519.EmptySignature, errors.Wrap(err, "failed to encode block issuing time")
+	}
+	commitmentIDBytes, err := block.Commitment().ID().Bytes()
+	if err != nil {
+		return ed25519.EmptySignature, errors.Wrap(err, "failed to encode block commitment")
+	}
+	return localID.Sign(byteutils.ConcatBytes(issuingTimeBytes, commitmentIDBytes, contentHash[:])), nil
 }

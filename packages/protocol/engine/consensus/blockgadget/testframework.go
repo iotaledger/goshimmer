@@ -1,7 +1,6 @@
 package blockgadget
 
 import (
-	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -21,6 +20,7 @@ import (
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/runtime/debug"
 	"github.com/iotaledger/hive.go/runtime/module"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 // region TestFramework //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -142,7 +142,7 @@ type MockBlockGadget struct {
 	AcceptedBlocks  models.BlockIDs
 	AcceptedMarkers *markers.Markers
 
-	mutex sync.RWMutex
+	mutex syncutils.RWMutexFake
 
 	module.Module
 }

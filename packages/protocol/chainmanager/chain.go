@@ -1,9 +1,8 @@
 package chainmanager
 
 import (
-	"sync"
-
 	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 type Chain struct {
@@ -12,7 +11,7 @@ type Chain struct {
 	latestCommitmentIndex slot.Index
 	commitmentsByIndex    map[slot.Index]*Commitment
 
-	sync.RWMutex
+	syncutils.RWMutexFake
 }
 
 func NewChain(forkingPoint *Commitment) (fork *Chain) {

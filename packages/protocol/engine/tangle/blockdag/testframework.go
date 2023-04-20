@@ -82,9 +82,9 @@ func (t *TestFramework) IssueBlocks(blockAliases ...string) *TestFramework {
 	for _, alias := range blockAliases {
 		currentBlock := t.ModelsTestFramework.Block(alias)
 
-		t.workerPool.Submit(func() {
-			_, _, _ = t.Instance.Attach(currentBlock)
-		})
+		// t.workerPool.Submit(func() {
+		_, _, _ = t.Instance.Attach(currentBlock)
+		// })
 	}
 
 	t.workers.WaitParents()

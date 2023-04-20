@@ -2,7 +2,8 @@ package p2p
 
 import (
 	"context"
-	"sync"
+
+	"go.uber.org/atomic"
 
 	"github.com/libp2p/go-libp2p/core/host"
 	libp2ppeer "github.com/libp2p/go-libp2p/core/peer"
@@ -12,7 +13,9 @@ import (
 
 	"github.com/iotaledger/hive.go/autopeering/peer"
 	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 // ConnectPeerOption defines an option for the DialPeer and AcceptPeer methods.
@@ -50,19 +53,18 @@ type Manager struct {
 	local      *peer.Local
 	libp2pHost host.Host
 
-	acceptMutex sync.RWMutex
+	acceptMutex syncutils.RWMutexFake
 	acceptMap   map[libp2ppeer.ID]*AcceptMatcher
 
 	log                 *logger.Logger
 	neighborGroupEvents map[NeighborsGroup]*NeighborGroupEvents
 
-	stopMutex sync.RWMutex
-	isStopped bool
+	isStopped atomic.Bool
 
 	neighbors      map[identity.ID]*Neighbor
-	neighborsMutex sync.RWMutex
+	neighborsMutex syncutils.RWMutexFake
 
-	registeredProtocolsMutex sync.RWMutex
+	registeredProtocolsMutex syncutils.RWMutexFake
 	registeredProtocols      map[protocol.ID]*ProtocolHandler
 }
 
@@ -84,13 +86,10 @@ func NewManager(libp2pHost host.Host, local *peer.Local, log *logger.Logger) *Ma
 
 // Stop stops the manager and closes all established connections.
 func (m *Manager) Stop() {
-	m.stopMutex.Lock()
-	defer m.stopMutex.Unlock()
-
-	if m.isStopped {
+	if m.isStopped.Swap(true) {
 		return
 	}
-	m.isStopped = true
+
 	m.dropAllNeighbors()
 }
 
@@ -214,6 +213,21 @@ func (m *Manager) GetNeighborsByID(ids []identity.ID) []*Neighbor {
 	return result
 }
 
+func (m *Manager) RegisteredProtocols() map[protocol.ID]*ProtocolHandler {
+	m.registeredProtocolsMutex.RLock()
+	defer m.registeredProtocolsMutex.RUnlock()
+
+	return lo.MergeMaps(map[protocol.ID]*ProtocolHandler{}, m.registeredProtocols)
+}
+
+func (m *Manager) RegisteredProtocol(protocolID protocol.ID) (*ProtocolHandler, bool) {
+	m.registeredProtocolsMutex.RLock()
+	defer m.registeredProtocolsMutex.RUnlock()
+
+	protocolHandler, exists := m.registeredProtocols[protocolID]
+	return protocolHandler, exists
+}
+
 // getNeighborWithGroup returns neighbor by ID and group.
 func (m *Manager) getNeighborWithGroup(id identity.ID, group NeighborsGroup) (*Neighbor, error) {
 	m.neighborsMutex.RLock()
@@ -232,11 +246,10 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 	if p.ID() == m.local.ID() {
 		return errors.WithStack(ErrLoopbackNeighbor)
 	}
-	m.stopMutex.RLock()
-	defer m.stopMutex.RUnlock()
-	if m.isStopped {
+	if m.isStopped.Load() {
 		return ErrNotRunning
 	}
+
 	if m.neighborExists(p.ID()) {
 		return errors.WithStack(ErrDuplicateNeighbor)
 	}
@@ -248,10 +261,7 @@ func (m *Manager) addNeighbor(ctx context.Context, p *peer.Peer, group Neighbors
 
 	// create and add the neighbor
 	nbr := NewNeighbor(p, group, streams, m.log, func(nbr *Neighbor, protocol protocol.ID, packet proto.Message) {
-		m.registeredProtocolsMutex.RLock()
-		defer m.registeredProtocolsMutex.RUnlock()
-
-		protocolHandler, isRegistered := m.registeredProtocols[protocol]
+		protocolHandler, isRegistered := m.RegisteredProtocol(protocol)
 		if !isRegistered {
 			nbr.Log.Errorw("Can't handle packet as the protocol is not registered", "protocol", protocol, "err", err)
 		}

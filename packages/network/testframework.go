@@ -2,12 +2,12 @@ package network
 
 import (
 	"fmt"
-	"sync"
 
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 // region MockedNetwork ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -16,7 +16,7 @@ const mainPartition = "main"
 
 type MockedNetwork struct {
 	dispatchersByPartition map[string]map[identity.ID]*MockedEndpoint
-	dispatchersMutex       sync.RWMutex
+	dispatchersMutex       syncutils.RWMutexFake
 }
 
 func NewMockedNetwork() (mockedNetwork *MockedNetwork) {
@@ -83,7 +83,7 @@ type MockedEndpoint struct {
 	network       *MockedNetwork
 	partition     string
 	handlers      map[string]func(identity.ID, proto.Message) error
-	handlersMutex sync.RWMutex
+	handlersMutex syncutils.RWMutexFake
 }
 
 func NewMockedEndpoint(id identity.ID, network *MockedNetwork, partition string) (newMockedNetwork *MockedEndpoint) {
