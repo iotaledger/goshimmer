@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/goshimmer/plugins/webapi/info"
 	"github.com/iotaledger/goshimmer/plugins/webapi/ledgerstate"
 	"github.com/iotaledger/goshimmer/plugins/webapi/mana"
+	"github.com/iotaledger/goshimmer/plugins/webapi/metrics"
 	"github.com/iotaledger/goshimmer/plugins/webapi/ratesetter"
 	"github.com/iotaledger/goshimmer/plugins/webapi/scheduler"
 	"github.com/iotaledger/goshimmer/plugins/webapi/slot"
@@ -36,4 +37,5 @@ var WebAPI = node.Plugins(
 	weightprovider.Plugin,
 	ratesetter.Plugin,
 	scheduler.Plugin,
+	metrics.Plugin,
 )

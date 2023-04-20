@@ -74,7 +74,7 @@ type Scheduler struct {
 	Running           bool           `json:"running"`
 	Rate              string         `json:"rate"`
 	MaxBufferSize     int            `json:"maxBufferSize"`
-	CurrentBufferSize int            `json:"currentBufferSizer"`
+	CurrentBufferSize int            `json:"currentBufferSize"`
 	NodeQueueSizes    map[string]int `json:"nodeQueueSizes"`
 	Deficit           float64        `json:"deficit"`
 }
