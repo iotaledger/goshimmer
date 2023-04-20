@@ -15,6 +15,7 @@ import (
 	"github.com/iotaledger/hive.go/runtime/event"
 	"github.com/iotaledger/hive.go/serializer/v2"
 	"github.com/iotaledger/hive.go/runtime/syncutils"
+	"github.com/iotaledger/hive.go/serializer/v2"
 )
 
 // SlotMutations is an in-memory data structure that enables the collection of mutations for uncommitted slots.

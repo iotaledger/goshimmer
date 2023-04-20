@@ -2,6 +2,8 @@ package jsonmodels
 
 import (
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
+	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/ds/types"
 )
 
 type SlotInfo struct {
@@ -47,4 +49,24 @@ type SlotBlocksResponse struct {
 type SlotTransactionsResponse struct {
 	Transactions []string `json:"transactions"`
 	Error        string   `json:"error,omitempty"`
+}
+
+type LatestConfirmedIndexResponse struct {
+	Index uint64 `json:"latestConfirmedIndex"`
+	Error string `json:"error,omitempty"`
+}
+
+func CommitmentFromSlotInfo(s *SlotInfo) (*commitment.Commitment, error) {
+	prevID := commitment.ID{}
+	err := prevID.FromBase58(s.PrevID)
+	if err != nil {
+		return nil, err
+	}
+	rootsID := types.Identifier{}
+	err = rootsID.FromBase58(s.RootsID)
+	if err != nil {
+		return nil, err
+	}
+	comm := commitment.New(slot.Index(s.Index), prevID, rootsID, s.CumulativeWeight)
+	return comm, nil
 }

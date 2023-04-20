@@ -11,6 +11,8 @@ const (
 	routeBlock         = "blocks/"
 	routeBlockMetadata = "/metadata"
 	routeSendPayload   = "blocks/payload"
+	routeSendBlock     = "blocks"
+	routeGetReferences = "blocks/references"
 )
 
 // GetBlock is the handler for the /blocks/:blockID endpoint.
@@ -56,4 +58,28 @@ func (api *GoShimmerAPI) SendPayload(payload []byte) (string, error) {
 	}
 
 	return res.ID, nil
+}
+
+// SendBlock sends a block provided in form of bytes.
+func (api *GoShimmerAPI) SendBlock(blockBytes []byte) (string, error) {
+	res := &jsonmodels.PostBlockResponse{}
+	if err := api.do(http.MethodPost, routeSendBlock,
+		&jsonmodels.PostBlockRequest{BlockBytes: blockBytes}, res); err != nil {
+		return "", err
+	}
+	return res.BlockID, nil
+}
+
+// GetReferences returns the parent references selected by the node for a given payload.
+func (api *GoShimmerAPI) GetReferences(payload []byte, parentsCount int) (resp *jsonmodels.GetReferencesResponse, err error) {
+	res := &jsonmodels.GetReferencesResponse{}
+	if err := api.do(http.MethodGet, routeGetReferences,
+		&jsonmodels.GetReferencesRequest{
+			PayloadBytes: payload,
+			ParentsCount: parentsCount,
+		}, res); err != nil {
+		return nil, err
+	}
+
+	return res, nil
 }

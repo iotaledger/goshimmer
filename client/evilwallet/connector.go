@@ -7,10 +7,12 @@ import (
 	"github.com/iotaledger/goshimmer/client"
 	"github.com/iotaledger/goshimmer/client/wallet"
 	"github.com/iotaledger/goshimmer/packages/app/jsonmodels"
+	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/crypto/identity"
 )
 
@@ -165,7 +167,7 @@ func (c *WebClients) SetPledgeID(id *identity.ID) {
 }
 
 type Client interface {
-	// Url returns a client API url.
+	// URL returns a client API url.
 	URL() (cltID string)
 	// GetRateSetterEstimate returns a rate setter estimate.
 	GetRateSetterEstimate() (estimate time.Duration, err error)
@@ -175,6 +177,8 @@ type Client interface {
 	PostTransaction(tx *devnetvm.Transaction) (utxo.TransactionID, models.BlockID, error)
 	// PostData sends the given data (payload) by creating a block in the backend.
 	PostData(data []byte) (blkID string, err error)
+	// PostBlock sends the given block bytes.
+	PostBlock(data []byte) (blkID string, err error)
 	// GetUnspentOutputForAddress gets the first unspent outputs of a given address.
 	GetUnspentOutputForAddress(addr devnetvm.Address) *jsonmodels.WalletOutput
 	// GetAddressUnspentOutputs gets the unspent outputs of an address.
@@ -193,6 +197,18 @@ type Client interface {
 	GetTransaction(txID string) (resp *jsonmodels.Transaction, err error)
 	// GetOutputSolidity checks if the transaction is solid.
 	GetOutputSolidity(outID string) (solid bool, err error)
+	// GetLatestCommitment returns the latest commitment and data needed to create a new block.
+	GetLatestCommitment() (commitment *commitment.Commitment, err error)
+	// GetCommitment returns the commitment for a given epoch and data needed to create a new block.
+	GetCommitment(epochIndex int) (commitment *commitment.Commitment, err error)
+	// GetLatestConfirmedIndex returns the latest confirmed index.
+	GetLatestConfirmedIndex() (index slot.Index, err error)
+	// GetReferences returns the references selected for a given payload.
+	GetReferences(payload []byte, parentsCount int) (refs models.ParentBlockIDs, err error)
+	// GetLatestCommittedSlot returns the latest committed slot.
+	GetLatestCommittedSlot() (slot.Index, error)
+	// GetTimeProvider returns the time provider info such as genesis time and slot duration.
+	GetTimeProvider() (time.Time, time.Duration, error)
 }
 
 // WebClient contains a GoShimmer web API to interact with a node.
@@ -263,6 +279,16 @@ func (c *WebClient) PostTransaction(tx *devnetvm.Transaction) (txID utxo.Transac
 // PostData sends the given data (payload) by creating a block in the backend.
 func (c *WebClient) PostData(data []byte) (blkID string, err error) {
 	resp, err := c.api.Data(data)
+	if err != nil {
+		return
+	}
+
+	return resp, nil
+}
+
+// PostBlock sends the given block bytes.
+func (c *WebClient) PostBlock(data []byte) (blkID string, err error) {
+	resp, err := c.api.SendBlock(data)
 	if err != nil {
 		return
 	}
@@ -352,6 +378,65 @@ func (c *WebClient) GetOutputSolidity(outID string) (solid bool, err error) {
 		return
 	}
 	solid = resp.OutputID.Base58 != ""
+	return
+}
+
+func (c *WebClient) GetLatestCommitment() (comm *commitment.Commitment, err error) {
+	resp, err := c.api.GetLatestCommittedSlotInfo()
+	if err != nil {
+		return
+	}
+	comm, err = jsonmodels.CommitmentFromSlotInfo(resp)
+	if err != nil {
+		return
+	}
+	return
+}
+
+func (c *WebClient) GetCommitment(epochIndex int) (comm *commitment.Commitment, err error) {
+	resp, err := c.api.GetSlotInfo(epochIndex)
+	if err != nil {
+		return
+	}
+	comm, err = jsonmodels.CommitmentFromSlotInfo(resp)
+	if err != nil {
+		return
+	}
+	return
+}
+
+func (c *WebClient) GetLatestConfirmedIndex() (index slot.Index, err error) {
+	index, err = c.api.GetLatestConfirmedIndex()
+	if err != nil {
+		return
+	}
+	return
+}
+
+func (c *WebClient) GetReferences(payload []byte, parentsCount int) (blockIDs models.ParentBlockIDs, err error) {
+	resp, err := c.api.GetReferences(payload, parentsCount)
+	if err != nil {
+		return
+	}
+	blockIDs = resp.References()
+	return blockIDs, nil
+}
+
+func (c *WebClient) GetLatestCommittedSlot() (slotIndex slot.Index, err error) {
+	resp, err := c.api.GetLatestCommittedSlotInfo()
+	if err != nil {
+		return
+	}
+	return slot.Index(resp.Index), nil
+}
+
+func (c *WebClient) GetTimeProvider() (genesisTime time.Time, slotDuration time.Duration, err error) {
+	resp, err := c.api.Info()
+	if err != nil {
+		return
+	}
+	genesisTime = resp.TimeProvider.GenesisTime
+	slotDuration = resp.TimeProvider.SlotDuration
 	return
 }
 

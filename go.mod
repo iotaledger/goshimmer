@@ -13,20 +13,20 @@ require (
 	github.com/go-resty/resty/v2 v2.6.0
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/websocket v1.4.2
-	github.com/iotaledger/hive.go/ads v0.0.0-20230417113736-1e450e13c023
-	github.com/iotaledger/hive.go/app v0.0.0-20230417113736-1e450e13c023
-	github.com/iotaledger/hive.go/autopeering v0.0.0-20230417113736-1e450e13c023
-	github.com/iotaledger/hive.go/constraints v0.0.0-20230417113736-1e450e13c023
-	github.com/iotaledger/hive.go/core v1.0.0-rc.3.0.20230417113736-1e450e13c023
-	github.com/iotaledger/hive.go/crypto v0.0.0-20230417113736-1e450e13c023
-	github.com/iotaledger/hive.go/ds v0.0.0-20230417113736-1e450e13c023
-	github.com/iotaledger/hive.go/kvstore v0.0.0-20230417113736-1e450e13c023
-	github.com/iotaledger/hive.go/lo v0.0.0-20230417113736-1e450e13c023
-	github.com/iotaledger/hive.go/logger v0.0.0-20230417113736-1e450e13c023
-	github.com/iotaledger/hive.go/objectstorage v0.0.0-20230417113736-1e450e13c023
-	github.com/iotaledger/hive.go/runtime v0.0.0-20230417113736-1e450e13c023
-	github.com/iotaledger/hive.go/serializer/v2 v2.0.0-rc.1.0.20230417113736-1e450e13c023
-	github.com/iotaledger/hive.go/stringify v0.0.0-20230417113736-1e450e13c023
+	github.com/iotaledger/hive.go/ads v0.0.0-20230417125513-e2e89991217f
+	github.com/iotaledger/hive.go/app v0.0.0-20230417125513-e2e89991217f
+	github.com/iotaledger/hive.go/autopeering v0.0.0-20230417125513-e2e89991217f
+	github.com/iotaledger/hive.go/constraints v0.0.0-20230417125513-e2e89991217f
+	github.com/iotaledger/hive.go/core v1.0.0-rc.3.0.20230417125513-e2e89991217f
+	github.com/iotaledger/hive.go/crypto v0.0.0-20230417125513-e2e89991217f
+	github.com/iotaledger/hive.go/ds v0.0.0-20230417125513-e2e89991217f
+	github.com/iotaledger/hive.go/kvstore v0.0.0-20230417125513-e2e89991217f
+	github.com/iotaledger/hive.go/lo v0.0.0-20230417125513-e2e89991217f
+	github.com/iotaledger/hive.go/logger v0.0.0-20230417125513-e2e89991217f
+	github.com/iotaledger/hive.go/objectstorage v0.0.0-20230417125513-e2e89991217f
+	github.com/iotaledger/hive.go/runtime v0.0.0-20230417125513-e2e89991217f
+	github.com/iotaledger/hive.go/serializer/v2 v2.0.0-rc.1.0.20230417125513-e2e89991217f
+	github.com/iotaledger/hive.go/stringify v0.0.0-20230417125513-e2e89991217f
 	github.com/jellydator/ttlcache/v2 v2.11.1
 	github.com/labstack/echo/v4 v4.10.0
 	github.com/libp2p/go-libp2p v0.27.1
@@ -97,7 +97,7 @@ require (
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
 	github.com/kevinburke/ssh_config v0.0.0-20190725054713-01f96b0aa0cd // indirect
-	github.com/klauspost/compress v1.16.4 // indirect
+	github.com/klauspost/compress v1.16.5 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.4 // indirect
 	github.com/knadh/koanf v1.5.0 // indirect
 	github.com/koron/go-ssdp v0.0.4 // indirect
