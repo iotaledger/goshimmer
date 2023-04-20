@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 const minimumWindowSize = 10
@@ -42,7 +43,7 @@ type Manager struct {
 	validationLock       sync.RWMutex
 
 	syncingInProgress bool
-	syncingLock       sync.RWMutex
+	syncingLock       syncutils.RWMutexFake
 	slotsChannels     map[slot.Index]*slotChannels
 
 	successfulSyncSlot slot.Index
@@ -51,7 +52,7 @@ type Manager struct {
 }
 
 type slotChannels struct {
-	sync.RWMutex
+	syncutils.RWMutexFake
 	startChan chan *slotSyncStart
 	blockChan chan *slotSyncBlock
 	endChan   chan *slotSyncEnd

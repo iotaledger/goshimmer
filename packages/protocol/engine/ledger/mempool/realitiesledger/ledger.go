@@ -15,7 +15,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/storage"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/ds/walker"
-	"github.com/iotaledger/hive.go/runtime/event"
 	"github.com/iotaledger/hive.go/runtime/module"
 	"github.com/iotaledger/hive.go/runtime/options"
 	"github.com/iotaledger/hive.go/runtime/syncutils"
@@ -42,7 +41,7 @@ type RealitiesLedger struct {
 	// conflictDAG is a reference to the conflictDAG that is used by this RealitiesLedger.
 	conflictDAG *conflictdag.ConflictDAG[utxo.TransactionID, utxo.OutputID]
 
-	workerPool *workerpool.WorkerPool
+	//workerPool *workerpool.WorkerPool
 
 	// dataFlow is a RealitiesLedger component that defines the data flow (how the different commands are chained together)
 	dataFlow *dataFlow
@@ -122,23 +121,22 @@ func New(opts ...options.Option[RealitiesLedger]) *RealitiesLedger {
 
 func (l *RealitiesLedger) Initialize(workerPool *workerpool.WorkerPool, storage *storage.Storage) {
 	l.chainStorage = storage
-	l.workerPool = workerPool
+	//l.workerPool = workerPool
 
 	l.storage = newStorage(l, l.chainStorage.UnspentOutputs)
 
-	asyncOpt := event.WithWorkerPool(l.workerPool)
-
+	//asyncOpt := event.WithWorkerPool(l.workerPool)
 	// TODO: revisit whether we should make the process of setting conflict and transaction as accepted/rejected atomic
 	l.conflictDAG.Events.ConflictAccepted.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
 		l.propagateAcceptanceToIncludedTransactions(conflict.ID())
-	}, asyncOpt)
-	l.conflictDAG.Events.ConflictRejected.Hook(l.propagatedRejectionToTransactions, asyncOpt)
+	} /*, asyncOpt*/)
+	l.conflictDAG.Events.ConflictRejected.Hook(l.propagatedRejectionToTransactions /*, asyncOpt*/)
 	l.events.TransactionBooked.Hook(func(event *mempool.TransactionBookedEvent) {
 		l.processConsumingTransactions(event.Outputs.IDs())
-	}, asyncOpt)
+	} /*, asyncOpt*/)
 	l.events.TransactionInvalid.Hook(func(event *mempool.TransactionInvalidEvent) {
 		l.PruneTransaction(event.TransactionID, true)
-	}, asyncOpt)
+	} /*, asyncOpt*/)
 
 	l.TriggerInitialized()
 }
@@ -214,8 +212,8 @@ func (l *RealitiesLedger) PruneTransaction(txID utxo.TransactionID, pruneFutureC
 
 // Shutdown shuts down the stateful elements of the RealitiesLedger (the Storage and the conflictDAG).
 func (l *RealitiesLedger) Shutdown() {
-	l.workerPool.Shutdown()
-	l.workerPool.PendingTasksCounter.WaitIsZero()
+	//l.workerPool.Shutdown()
+	//l.workerPool.PendingTasksCounter.WaitIsZero()
 	l.storage.Shutdown()
 
 	l.TriggerStopped()

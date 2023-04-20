@@ -1,12 +1,11 @@
 package traits
 
 import (
-	"sync"
-
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/kvstore"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 // BatchCommittable is a trait that stores the latest commitment and metadata about batched state transitions.
@@ -37,7 +36,7 @@ type batchCommittable struct {
 	batchSlot slot.Index
 
 	// batchSlotMutex is used to synchronize access to batchSlot.
-	batchSlotMutex sync.RWMutex
+	batchSlotMutex syncutils.RWMutexFake
 
 	// Committable is the underlying committable trait.
 	Committable

@@ -17,7 +17,6 @@ import (
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/ds/shrinkingmap"
-	"github.com/iotaledger/hive.go/runtime/event"
 	"github.com/iotaledger/hive.go/runtime/module"
 	"github.com/iotaledger/hive.go/runtime/options"
 	"github.com/iotaledger/hive.go/runtime/timed"
@@ -71,9 +70,9 @@ func NewSybilProtection(engineInstance *engine.Engine, opts ...options.Option[Sy
 
 				s.engine.HookStopped(s.stopInactivityManager)
 
-				s.engine.Events.Tangle.BlockDAG.BlockSolid.Hook(func(block *blockdag.Block) {
+				s.engine.Events.Tangle.BlockDAG.BlockAttached.Hook(func(block *blockdag.Block) {
 					s.markValidatorActive(block.IssuerID(), block.IssuingTime())
-				}, event.WithWorkerPool(s.workers.CreatePool("SybilProtection", 2)))
+				} /*, event.WithWorkerPool(s.workers.CreatePool("SybilProtection", 2))*/)
 			})
 		})
 }
@@ -200,7 +199,12 @@ func (s *SybilProtection) markValidatorActive(id identity.ID, activityTime time.
 
 	s.lastActivities.Set(id, activityTime)
 
-	s.inactivityManager.ExecuteAfter(id, func() { s.markValidatorInactive(id) }, activityTime.Add(s.optsActivityWindow).Sub(s.engine.Clock.Accepted().RelativeTime()))
+	s.inactivityManager.ExecuteAfter(id, func() {
+		s.engine.ProcessingMutex.Lock()
+		defer s.engine.ProcessingMutex.Unlock()
+
+		s.markValidatorInactive(id)
+	}, activityTime.Add(s.optsActivityWindow).Sub(s.engine.Clock.Accepted().RelativeTime()))
 }
 
 func (s *SybilProtection) markValidatorInactive(id identity.ID) {

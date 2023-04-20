@@ -2,7 +2,6 @@ package tipmanager
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -17,6 +16,7 @@ import (
 	"github.com/iotaledger/hive.go/ds/randommap"
 	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
@@ -35,7 +35,7 @@ type TipManager struct {
 
 	walkerCache *memstorage.SlotStorage[models.BlockID, types.Empty]
 
-	mutex               sync.RWMutex
+	mutex               syncutils.RWMutexFake
 	tips                *randommap.RandomMap[models.BlockID, *scheduler.Block]
 	TipsConflictTracker *TipsConflictTracker
 
@@ -96,13 +96,15 @@ func (t *TipManager) AddTip(block *scheduler.Block) {
 
 func (t *TipManager) AddTipNonMonotonic(block *scheduler.Block) {
 	if block.IsSubjectivelyInvalid() {
+		fmt.Println(">> not adding subjectively invalid tip")
 		return
 	}
 
 	// Do not add a tip booked on a reject branch, we won't use it as a tip and it will otherwise remove parent tips.
 	blockConflictIDs := t.engine.Tangle.Booker().BlockConflicts(block.Block)
 	if t.engine.Ledger.MemPool().ConflictDAG().ConfirmationState(blockConflictIDs).IsRejected() {
-		return
+		fmt.Println(">> adding rejected tip")
+		// return
 	}
 
 	if t.addTip(block) {
@@ -151,6 +153,11 @@ func (t *TipManager) removeStrongParents(block *models.Block) {
 
 // Tips returns count number of tips, maximum MaxParentsCount.
 func (t *TipManager) Tips(countParents int) (parents models.BlockIDs) {
+	currentEngine := t.currentEngine()
+
+	currentEngine.ProcessingMutex.Lock()
+	defer currentEngine.ProcessingMutex.Unlock()
+
 	if countParents > models.MaxParentsCount {
 		countParents = models.MaxParentsCount
 	}
@@ -159,6 +166,13 @@ func (t *TipManager) Tips(countParents int) (parents models.BlockIDs) {
 	}
 
 	return t.selectTips(countParents)
+}
+
+func (t *TipManager) currentEngine() *engine.Engine {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+
+	return t.engine
 }
 
 func (t *TipManager) selectTips(count int) (parents models.BlockIDs) {

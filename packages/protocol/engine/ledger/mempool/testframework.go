@@ -15,6 +15,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/mockedvm"
 	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -35,7 +36,7 @@ type TestFramework struct {
 	transactionsByAlias map[string]*mockedvm.MockedTransaction
 
 	// transactionsByAliasMutex contains a mutex that is used to synchronize parallel access to the transactionsByAlias.
-	transactionsByAliasMutex sync.RWMutex
+	transactionsByAliasMutex syncutils.RWMutexFake
 
 	// outputIDsByAlias contains a dictionary that maps a human-readable alias to an OutputID.
 	outputIDsByAlias map[string]utxo.OutputID

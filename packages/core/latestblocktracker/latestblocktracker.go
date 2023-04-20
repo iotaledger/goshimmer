@@ -1,17 +1,17 @@
 package latestblocktracker
 
 import (
-	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 // LatestBlockTracker is a component that tracks the ID of the latest Block.
 type LatestBlockTracker struct {
 	blockID models.BlockID
 	time    time.Time
-	mutex   sync.RWMutex
+	mutex   syncutils.RWMutexFake
 }
 
 // New return a new LatestBlockTracker.

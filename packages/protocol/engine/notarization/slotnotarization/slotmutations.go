@@ -1,8 +1,6 @@
 package slotnotarization
 
 import (
-	"sync"
-
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
@@ -15,6 +13,7 @@ import (
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/event"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 	"github.com/iotaledger/hive.go/serializer/v2"
 )
 
@@ -33,7 +32,7 @@ type SlotMutations struct {
 	// latestCommittedIndex stores the index of the latest committed slot.
 	latestCommittedIndex slot.Index
 
-	evictionMutex sync.RWMutex
+	evictionMutex syncutils.RWMutexFake
 
 	// lastCommittedSlotCumulativeWeight stores the cumulative weight of the last committed slot
 	lastCommittedSlotCumulativeWeight uint64

@@ -2,16 +2,16 @@ package markermanager
 
 import (
 	"fmt"
-	"sync"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/markers"
 	"github.com/iotaledger/hive.go/ds/thresholdmap"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 type MarkerIndexConflictIDMapping struct {
 	t *thresholdmap.ThresholdMap[markers.Index, utxo.TransactionIDs]
-	sync.RWMutex
+	syncutils.RWMutexFake
 }
 
 // NewMarkerIndexConflictIDMapping creates a new MarkerIndexConflictIDMapping.

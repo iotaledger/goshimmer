@@ -17,6 +17,7 @@ import (
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/ioutils"
 	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 // region Manager //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -31,7 +32,7 @@ type Manager struct {
 	openDBsMutex    sync.Mutex
 
 	maxPruned      slot.Index
-	maxPrunedMutex sync.RWMutex
+	maxPrunedMutex syncutils.RWMutexFake
 
 	// The granularity of the DB instances (i.e. how many buckets/slots are stored in one DB).
 	optsGranularity int64

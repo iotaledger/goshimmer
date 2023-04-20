@@ -1,12 +1,11 @@
 package votes
 
 import (
-	"sync"
-
 	"github.com/iotaledger/hive.go/constraints"
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/ds/orderedmap"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 type Vote[ConflictIDType comparable, VotePowerType constraints.Comparable[VotePowerType]] struct {
@@ -60,7 +59,7 @@ func (v *Vote[ConflictIDType, VotePowerType]) WithVotePower(power VotePowerType)
 type Votes[ConflictIDType comparable, VotePowerType constraints.Comparable[VotePowerType]] struct {
 	o orderedmap.OrderedMap[identity.ID, *Vote[ConflictIDType, VotePowerType]]
 
-	m sync.RWMutex
+	m syncutils.RWMutexFake
 }
 
 func NewVotes[ConflictIDType comparable, VotePowerType constraints.Comparable[VotePowerType]]() *Votes[ConflictIDType, VotePowerType] {

@@ -116,7 +116,7 @@ func (o *OutputWithMetadata) IOTABalance() (balance uint64, exists bool) {
 	o.RLock()
 	defer o.RUnlock()
 
-	switch output := o.Output().(type) {
+	switch output := o.M.Output.(type) {
 	case devnetvm.Output:
 		return output.Balances().Get(devnetvm.ColorIOTA)
 	case *mockedvm.MockedOutput:

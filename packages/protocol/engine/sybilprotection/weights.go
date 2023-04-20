@@ -13,6 +13,7 @@ import (
 	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/kvstore"
 	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 const cacheSize = 1000
@@ -26,7 +27,7 @@ type Weights struct {
 	weightsCache *cache.Cache[identity.ID, *Weight]
 	cacheMutex   sync.Mutex
 	totalWeight  *Weight
-	mutex        sync.RWMutex
+	mutex        syncutils.RWMutexFake
 }
 
 // NewWeights creates a new Weights instance.

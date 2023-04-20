@@ -33,6 +33,7 @@ import (
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/module"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
@@ -46,7 +47,7 @@ type Node struct {
 	Protocol *protocol.Protocol
 
 	tf    *engine.TestFramework
-	mutex sync.RWMutex
+	mutex syncutils.RWMutexFake
 }
 
 func NewNode(t *testing.T, keyPair ed25519.KeyPair, network *network.MockedNetwork, partition string, snapshotPath string, ledgerProvider module.Provider[*engine.Engine, ledger.Ledger]) *Node {

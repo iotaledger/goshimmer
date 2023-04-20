@@ -2,7 +2,6 @@ package blockdag
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
@@ -10,6 +9,7 @@ import (
 	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 	"github.com/iotaledger/hive.go/stringify"
 )
 
@@ -25,7 +25,7 @@ type Block struct {
 	strongChildren       []*Block
 	weakChildren         []*Block
 	likedInsteadChildren []*Block
-	mutex                sync.RWMutex
+	mutex                syncutils.RWMutexFake
 
 	*ModelsBlock
 }
