@@ -25,7 +25,7 @@ type Block struct {
 	strongChildren       []*Block
 	weakChildren         []*Block
 	likedInsteadChildren []*Block
-	mutex                syncutils.RWMutexFake
+	mutex                syncutils.RWMutex
 
 	*ModelsBlock
 }

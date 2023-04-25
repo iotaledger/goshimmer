@@ -271,7 +271,7 @@ func TestBlockDAG_AttachBlockTwice_1(t *testing.T) {
 		err1         error
 		err2         error
 		started      uint8
-		startMutex   syncutils.RWMutexFake
+		startMutex   syncutils.RWMutex
 	)
 
 	loop := workers.CreatePool("Loop", 2)

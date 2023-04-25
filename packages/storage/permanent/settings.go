@@ -21,7 +21,7 @@ import (
 
 type Settings struct {
 	*settingsModel
-	mutex syncutils.RWMutexFake
+	mutex syncutils.RWMutex
 
 	slotTimeProvider *slot.TimeProvider
 

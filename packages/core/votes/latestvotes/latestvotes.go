@@ -15,7 +15,7 @@ type LatestVotes[EntityIndex constraints.Integer, VotePowerType constraints.Comp
 	voter identity.ID
 	t     *thresholdmap.ThresholdMap[EntityIndex, VotePowerType]
 
-	m syncutils.RWMutexFake
+	m syncutils.RWMutex
 }
 
 // NewLatestVotes creates a new NewLatestVotes instance associated with the given details.

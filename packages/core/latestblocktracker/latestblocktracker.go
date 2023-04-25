@@ -11,7 +11,7 @@ import (
 type LatestBlockTracker struct {
 	blockID models.BlockID
 	time    time.Time
-	mutex   syncutils.RWMutexFake
+	mutex   syncutils.RWMutex
 }
 
 // New return a new LatestBlockTracker.

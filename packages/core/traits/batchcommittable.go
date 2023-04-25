@@ -36,7 +36,7 @@ type batchCommittable struct {
 	batchSlot slot.Index
 
 	// batchSlotMutex is used to synchronize access to batchSlot.
-	batchSlotMutex syncutils.RWMutexFake
+	batchSlotMutex syncutils.RWMutex
 
 	// Committable is the underlying committable trait.
 	Committable

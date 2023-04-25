@@ -29,7 +29,7 @@ type cachedMetadata struct {
 	Acceptance    *blockWithTime[*blockgadget.Block]
 	Confirmation  *blockWithTime[*blockgadget.Block]
 
-	syncutils.RWMutexFake
+	syncutils.RWMutex
 }
 
 func newCachedMetadata() *cachedMetadata {

@@ -11,7 +11,7 @@ type Chain struct {
 	latestCommitmentIndex slot.Index
 	commitmentsByIndex    map[slot.Index]*Commitment
 
-	syncutils.RWMutexFake
+	syncutils.RWMutex
 }
 
 func NewChain(forkingPoint *Commitment) (fork *Chain) {

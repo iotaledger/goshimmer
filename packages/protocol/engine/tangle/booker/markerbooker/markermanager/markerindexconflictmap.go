@@ -11,7 +11,7 @@ import (
 
 type MarkerIndexConflictIDMapping struct {
 	t *thresholdmap.ThresholdMap[markers.Index, utxo.TransactionIDs]
-	syncutils.RWMutexFake
+	syncutils.RWMutex
 }
 
 // NewMarkerIndexConflictIDMapping creates a new MarkerIndexConflictIDMapping.

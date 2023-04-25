@@ -19,7 +19,7 @@ type RelativeTime struct {
 	timeUpdateOffset time.Time
 
 	// mutex is used to synchronize access to the time value.
-	mutex syncutils.RWMutexFake
+	mutex syncutils.RWMutex
 }
 
 // NewRelativeTime creates a new RelativeTime.

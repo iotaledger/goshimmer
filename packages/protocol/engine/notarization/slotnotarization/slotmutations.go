@@ -32,7 +32,7 @@ type SlotMutations struct {
 	// latestCommittedIndex stores the index of the latest committed slot.
 	latestCommittedIndex slot.Index
 
-	evictionMutex syncutils.RWMutexFake
+	evictionMutex syncutils.RWMutex
 
 	// lastCommittedSlotCumulativeWeight stores the cumulative weight of the last committed slot
 	lastCommittedSlotCumulativeWeight uint64

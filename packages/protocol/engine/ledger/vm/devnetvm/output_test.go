@@ -1294,7 +1294,7 @@ func TestAliasOutput_unlockedGovernanceByAliasIndex(t *testing.T) {
 
 	governingAlias := &AliasOutput{
 		outputID:           randOutputID(),
-		outputIDMutex:      syncutils.RWMutexFake{},
+		outputIDMutex:      syncutils.RWMutex{},
 		balances:           NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}),
 		aliasAddress:       *randAliasAddress(),
 		stateAddress:       governingAliasStateAddress,
@@ -1309,7 +1309,7 @@ func TestAliasOutput_unlockedGovernanceByAliasIndex(t *testing.T) {
 	aliasStateAddress := NewED25519Address(aliasStateKeyPair.PublicKey)
 	alias := &AliasOutput{
 		outputID:           randOutputID(),
-		outputIDMutex:      syncutils.RWMutexFake{},
+		outputIDMutex:      syncutils.RWMutex{},
 		balances:           NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}),
 		aliasAddress:       *randAliasAddress(),
 		stateAddress:       aliasStateAddress,
@@ -1409,7 +1409,7 @@ func TestAliasOutput_UnlockValid(t *testing.T) {
 	governingWallet := genRandomWallet()
 	alias := &AliasOutput{
 		outputID:           randOutputID(),
-		outputIDMutex:      syncutils.RWMutexFake{},
+		outputIDMutex:      syncutils.RWMutex{},
 		balances:           NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}),
 		aliasAddress:       *randAliasAddress(),
 		stateAddress:       w.address,
@@ -1561,7 +1561,7 @@ func TestAliasOutput_UnlockValid(t *testing.T) {
 		governingAliasStateWallet := genRandomWallet()
 		governingAlias := &AliasOutput{
 			outputID:           randOutputID(),
-			outputIDMutex:      syncutils.RWMutexFake{},
+			outputIDMutex:      syncutils.RWMutex{},
 			balances:           NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}),
 			aliasAddress:       *randAliasAddress(),
 			stateAddress:       governingAliasStateWallet.address,
@@ -1574,7 +1574,7 @@ func TestAliasOutput_UnlockValid(t *testing.T) {
 		aliasStateWallet := genRandomWallet()
 		governedAlias := &AliasOutput{
 			outputID:           randOutputID(),
-			outputIDMutex:      syncutils.RWMutexFake{},
+			outputIDMutex:      syncutils.RWMutex{},
 			balances:           NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}),
 			aliasAddress:       *randAliasAddress(),
 			stateAddress:       aliasStateWallet.address,
@@ -2130,7 +2130,7 @@ func TestExtendedLockedOutput_UnlockValid(t *testing.T) {
 		w := genRandomWallet()
 		alias := &AliasOutput{
 			outputID:      randOutputID(),
-			outputIDMutex: syncutils.RWMutexFake{},
+			outputIDMutex: syncutils.RWMutex{},
 			balances:      NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}),
 			aliasAddress:  *randAliasAddress(),
 			stateAddress:  w.address, // alias state controller is our wallet
@@ -2199,7 +2199,7 @@ func TestExtendedLockedOutput_UnlockValid(t *testing.T) {
 	t.Run("CASE: Referenced wrong alias", func(t *testing.T) {
 		alias := &AliasOutput{
 			outputID:      randOutputID(),
-			outputIDMutex: syncutils.RWMutexFake{},
+			outputIDMutex: syncutils.RWMutex{},
 			balances:      NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}),
 			aliasAddress:  *randAliasAddress(),
 			stateAddress:  randEd25119Address(), // alias state controller is our wallet
@@ -2339,7 +2339,7 @@ func dummyAliasOutput(origin ...bool) *AliasOutput {
 	}
 	return &AliasOutput{
 		outputID:           randOutputID(),
-		outputIDMutex:      syncutils.RWMutexFake{},
+		outputIDMutex:      syncutils.RWMutex{},
 		balances:           NewColoredBalances(map[Color]uint64{ColorIOTA: DustThresholdAliasOutputIOTA}),
 		aliasAddress:       *randAliasAddress(),
 		stateAddress:       randEd25119Address(),
@@ -2358,7 +2358,7 @@ func dummyAliasOutput(origin ...bool) *AliasOutput {
 func dummyExtendedLockedOutput() *ExtendedLockedOutput {
 	return &ExtendedLockedOutput{
 		id:               randOutputID(),
-		idMutex:          syncutils.RWMutexFake{},
+		idMutex:          syncutils.RWMutex{},
 		balances:         NewColoredBalances(map[Color]uint64{ColorIOTA: 1}),
 		address:          randEd25119Address(),
 		fallbackAddress:  randEd25119Address(),

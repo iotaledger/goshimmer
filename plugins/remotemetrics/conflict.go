@@ -1,7 +1,6 @@
 package remotemetrics
 
 import (
-	"sync"
 	"time"
 
 	"go.uber.org/atomic"
@@ -12,6 +11,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 var (
@@ -34,7 +34,7 @@ var (
 
 	// all active conflicts stored in this map, to avoid duplicated event triggers for conflict confirmation.
 	activeConflicts      *advancedset.AdvancedSet[utxo.TransactionID]
-	activeConflictsMutex sync.Mutex
+	activeConflictsMutex syncutils.Mutex
 )
 
 func onConflictConfirmed(conflictID utxo.TransactionID) {

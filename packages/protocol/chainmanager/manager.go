@@ -32,7 +32,7 @@ type Manager struct {
 	forkingPointsByCommitments *memstorage.SlotStorage[commitment.ID, commitment.ID]
 	forksByForkingPoint        *shrinkingmap.ShrinkingMap[commitment.ID, *Fork]
 
-	evictionMutex syncutils.RWMutexFake
+	evictionMutex syncutils.RWMutex
 
 	optsCommitmentRequester []options.Option[eventticker.EventTicker[commitment.ID]]
 

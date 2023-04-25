@@ -1,8 +1,6 @@
 package network
 
 import (
-	"sync"
-
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
@@ -19,6 +17,7 @@ import (
 	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
@@ -36,7 +35,7 @@ type Protocol struct {
 	duplicateBlockBytesFilter *bytesfilter.BytesFilter
 
 	requestedBlockHashes      *shrinkingmap.ShrinkingMap[types.Identifier, types.Empty]
-	requestedBlockHashesMutex sync.Mutex
+	requestedBlockHashesMutex syncutils.Mutex
 }
 
 func NewProtocol(network Endpoint, workerPool *workerpool.WorkerPool, slotTimeProvider *slot.TimeProvider, opts ...options.Option[Protocol]) (protocol *Protocol) {

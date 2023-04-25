@@ -15,7 +15,7 @@ var (
 	typeRegister = make(map[Type]string)
 
 	// typeRegisterMutex is used to make synchronize the access to the previously defined map.
-	typeRegisterMutex syncutils.RWMutexFake
+	typeRegisterMutex syncutils.RWMutex
 )
 
 // NewType creates and registers a new payload Type.

@@ -53,7 +53,7 @@ type Booker struct {
 	markerManager         *markermanager.MarkerManager[models.BlockID, *booker.Block]
 	bookingMutex          *syncutils.DAGMutex[models.BlockID]
 	sequenceMutex         *syncutils.DAGMutex[markers.SequenceID]
-	evictionMutex         syncutils.RWMutexFake
+	evictionMutex         syncutils.RWMutex
 	sequenceEvictionMutex *syncutils.StarvingMutex
 
 	optsMarkerManager []options.Option[markermanager.MarkerManager[models.BlockID, *booker.Block]]

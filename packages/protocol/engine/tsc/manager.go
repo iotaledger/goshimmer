@@ -2,7 +2,6 @@ package tsc
 
 import (
 	"container/heap"
-	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle"
@@ -11,6 +10,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/ds/generalheap"
 	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 	"github.com/iotaledger/hive.go/runtime/timed"
 )
 
@@ -24,7 +24,7 @@ type Manager struct {
 
 	optsTimeSinceConfirmationThreshold time.Duration
 
-	sync.Mutex
+	syncutils.Mutex
 }
 
 // New returns a new instance of Manager.

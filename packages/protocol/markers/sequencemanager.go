@@ -3,11 +3,11 @@ package markers
 import (
 	"fmt"
 	"math"
-	"sync"
 
 	"github.com/iotaledger/hive.go/ds/shrinkingmap"
 	"github.com/iotaledger/hive.go/ds/walker"
 	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 // region SequenceManager //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -17,7 +17,7 @@ import (
 type SequenceManager struct {
 	sequences              *shrinkingmap.ShrinkingMap[SequenceID, *Sequence]
 	sequenceIDCounter      SequenceID
-	sequenceIDCounterMutex sync.Mutex
+	sequenceIDCounterMutex syncutils.Mutex
 
 	// optsMaxPastMarkerDistance is a parameter for the SequenceManager that allows to specify how many consecutive blocks are
 	// allowed to not receive a new PastMaster before we create a new Sequence.

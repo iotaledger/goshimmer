@@ -59,7 +59,7 @@ func (v *Vote[ConflictIDType, VotePowerType]) WithVotePower(power VotePowerType)
 type Votes[ConflictIDType comparable, VotePowerType constraints.Comparable[VotePowerType]] struct {
 	o orderedmap.OrderedMap[identity.ID, *Vote[ConflictIDType, VotePowerType]]
 
-	m syncutils.RWMutexFake
+	m syncutils.RWMutex
 }
 
 func NewVotes[ConflictIDType comparable, VotePowerType constraints.Comparable[VotePowerType]]() *Votes[ConflictIDType, VotePowerType] {

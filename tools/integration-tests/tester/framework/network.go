@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
@@ -223,7 +222,7 @@ func (n *Network) Shutdown(ctx context.Context) error {
 
 	// stop all peers in parallel
 	var eg errgroup.Group
-	var exitStatusMutex sync.Mutex
+	var exitStatusMutex syncutils.Mutex
 	for _, peer := range n.peers {
 		peer := peer // capture range variable
 		eg.Go(func() error {

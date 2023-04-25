@@ -11,9 +11,9 @@ type WeightedSet struct {
 	Weights             *Weights
 	weightUpdatesDetach *event.Hook[func(*WeightsBatch)]
 	members             *advancedset.AdvancedSet[identity.ID]
-	membersMutex        syncutils.RWMutexFake
+	membersMutex        syncutils.RWMutex
 	totalWeight         int64
-	totalWeightMutex    syncutils.RWMutexFake
+	totalWeightMutex    syncutils.RWMutex
 }
 
 func NewWeightedSet(weights *Weights, optMembers ...identity.ID) (newWeightedSet *WeightedSet) {

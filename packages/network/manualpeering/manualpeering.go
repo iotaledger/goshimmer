@@ -72,10 +72,10 @@ type Manager struct {
 	startOnce         sync.Once
 	isStarted         atomic.Bool
 	stopOnce          sync.Once
-	stopMutex         syncutils.RWMutexFake
+	stopMutex         syncutils.RWMutex
 	isStopped         bool
 	reconnectInterval time.Duration
-	knownPeersMutex   syncutils.RWMutexFake
+	knownPeersMutex   syncutils.RWMutex
 	knownPeers        map[identity.ID]*knownPeer
 	workerPool        *workerpool.WorkerPool
 

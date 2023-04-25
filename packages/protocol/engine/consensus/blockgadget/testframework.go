@@ -142,7 +142,7 @@ type MockBlockGadget struct {
 	AcceptedBlocks  models.BlockIDs
 	AcceptedMarkers *markers.Markers
 
-	mutex syncutils.RWMutexFake
+	mutex syncutils.RWMutex
 
 	module.Module
 }

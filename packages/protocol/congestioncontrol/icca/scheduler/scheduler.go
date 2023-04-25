@@ -40,12 +40,12 @@ type Scheduler struct {
 	slotTimeProvider *slot.TimeProvider
 
 	blocks        *memstorage.SlotStorage[models.BlockID, *Block]
-	bufferMutex   syncutils.RWMutexFake
+	bufferMutex   syncutils.RWMutex
 	buffer        *BufferQueue
-	deficitsMutex syncutils.RWMutexFake
+	deficitsMutex syncutils.RWMutex
 	deficits      *shrinkingmap.ShrinkingMap[identity.ID, *big.Rat]
 	evictionState *eviction.State
-	evictionMutex syncutils.RWMutexFake
+	evictionMutex syncutils.RWMutex
 
 	totalAccessManaRetrieveFunc func() int64
 	accessManaMapRetrieverFunc  func() map[identity.ID]int64

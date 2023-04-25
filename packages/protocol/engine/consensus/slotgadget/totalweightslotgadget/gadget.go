@@ -21,7 +21,7 @@ type Gadget struct {
 	lastConfirmedSlot   slot.Index
 	totalWeightCallback func() int64
 
-	mutex syncutils.RWMutexFake
+	mutex syncutils.RWMutex
 
 	optsSlotConfirmationThreshold float64
 

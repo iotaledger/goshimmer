@@ -1,8 +1,6 @@
 package tresholdblockgadget
 
 import (
-	"sync"
-
 	"github.com/pkg/errors"
 
 	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
@@ -41,7 +39,7 @@ type Gadget struct {
 
 	blocks           *memstorage.SlotStorage[models.BlockID, *blockgadget.Block]
 	evictionState    *eviction.State
-	evictionMutex    syncutils.RWMutexFake
+	evictionMutex    syncutils.RWMutex
 	slotTimeProvider *slot.TimeProvider
 
 	workers             *workerpool.Group
@@ -49,11 +47,11 @@ type Gadget struct {
 	totalWeightCallback func() int64
 
 	lastAcceptedMarker              *shrinkingmap.ShrinkingMap[markers.SequenceID, markers.Index]
-	lastAcceptedMarkerMutex         sync.Mutex
+	lastAcceptedMarkerMutex         syncutils.Mutex
 	optsMarkerAcceptanceThreshold   float64
 	acceptanceOrder                 *causalordersync.CausalOrder[models.BlockID, *blockgadget.Block]
 	lastConfirmedMarker             *shrinkingmap.ShrinkingMap[markers.SequenceID, markers.Index]
-	lastConfirmedMarkerMutex        sync.Mutex
+	lastConfirmedMarkerMutex        syncutils.Mutex
 	optsMarkerConfirmationThreshold float64
 	confirmationOrder               *causalordersync.CausalOrder[models.BlockID, *blockgadget.Block]
 
