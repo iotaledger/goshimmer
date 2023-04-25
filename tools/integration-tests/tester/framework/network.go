@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/goshimmer/packages/core/snapshotcreator"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
