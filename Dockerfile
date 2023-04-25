@@ -9,7 +9,7 @@ ARG REMOTE_DEBUGGING=0
 FROM golang:1.20-bullseye AS build
 
 ARG RUN_TEST=0
-ARG BUILD_TAGS=rocksdb
+ARG BUILD_TAGS=rocksdb,fakemutex
 
 # Define second time inside the build stage to work in bash conditions.
 ARG REMOTE_DEBUGGING=0
