@@ -123,7 +123,7 @@ func registerLocalMetrics(plugin *node.Plugin) {
 		}
 
 		_ = conflictingConflictIDs.ForEach(func(conflictingID utxo.TransactionID) error {
-			if _, exists := activeConflicts[conflictID]; exists && conflictingID != conflictID {
+			if activeConflicts.Has(conflictID) && conflictingID != conflictID {
 				finalizedConflictCountDB.Inc()
 				removeActiveConflict(conflictingID)
 			}
