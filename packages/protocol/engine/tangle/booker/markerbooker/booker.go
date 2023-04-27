@@ -456,7 +456,7 @@ func (b *Booker) book(block *booker.Block) (inheritingErr error) {
 	votePower := models.NewBlockVotePower(block.ID(), block.IssuingTime())
 
 	if err := b.MemPool.ConflictDAG().CastVotes(vote.NewVote[models.BlockVotePower](block.IssuerID(), votePower), inheritedConflictIDs); err != nil {
-		fmt.Println("block is subjectively invalid", block.ID(), err)
+		//fmt.Println("block is subjectively invalid", block.ID(), err)
 		block.SetSubjectivelyInvalid(true)
 	} else {
 		b.sequenceTracker.TrackVotes(block.StructureDetails().PastMarkers(), block.IssuerID(), votePower)

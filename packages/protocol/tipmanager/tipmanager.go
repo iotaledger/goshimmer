@@ -119,7 +119,7 @@ func (t *TipManager) registerChildrenCounter(block *scheduler.Block) {
 
 func (t *TipManager) AddTipNonMonotonic(block *scheduler.Block) (added bool) {
 	if block.IsSubjectivelyInvalid() {
-		fmt.Println(">> not adding subjectively invalid tip", block.ID())
+		//fmt.Println(">> not adding subjectively invalid tip", block.ID())
 		return false
 	}
 
