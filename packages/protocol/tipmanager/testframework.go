@@ -146,7 +146,7 @@ func (t *TestFramework) setupEvents() {
 	})
 
 	t.Engine.Events.EvictionState.SlotEvicted.Hook(func(index slot.Index) {
-		t.Instance.EvictTSCCache(index)
+		t.Instance.EvictSlot(index)
 	})
 
 	t.Instance.Events.TipAdded.Hook(func(block *scheduler.Block) {

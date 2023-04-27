@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"golang.org/x/xerrors"
 
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
@@ -196,24 +197,24 @@ func (r *ReferenceProvider) addedReferencesForBlock(blockID models.BlockID, excl
 	if addedReferences, err = r.addedReferencesForConflicts(blockConflicts, excludedConflictIDs, conflictDAG); err != nil {
 		// Delete the tip if we could not pick it up.
 		if schedulerBlock, schedulerBlockExists := r.protocol.CongestionControl.Scheduler().Block(blockID); schedulerBlockExists {
-			r.protocol.TipManager.DeleteTip(schedulerBlock)
+			r.protocol.TipManager.InvalidateTip(schedulerBlock)
 		}
 		return nil, false
 	}
 
-	// We could not refer to any block to fix the opinion, so we add the tips' strong parents to the tip pool.
-	if addedReferences == nil {
-		if block, exists := r.protocol.Engine().Tangle.Booker().Block(blockID); exists {
-			block.ForEachParentByType(models.StrongParentType, func(parentBlockID models.BlockID) bool {
-				if schedulerBlock, schedulerBlockExists := r.protocol.CongestionControl.Scheduler().Block(parentBlockID); schedulerBlockExists {
-					r.protocol.TipManager.AddTipNonMonotonic(schedulerBlock)
-				}
-				return true
-			})
-		}
-		fmt.Println(">> could not fix opinion", blockID)
-		return nil, false
-	}
+	//// We could not refer to any block to fix the opinion, so we add the tips' strong parents to the tip pool.
+	//if addedReferences == nil {
+	//	if block, exists := r.protocol.Engine().Tangle.Booker().Block(blockID); exists {
+	//		block.ForEachParentByType(models.StrongParentType, func(parentBlockID models.BlockID) bool {
+	//			if schedulerBlock, schedulerBlockExists := r.protocol.CongestionControl.Scheduler().Block(parentBlockID); schedulerBlockExists {
+	//				r.protocol.TipManager.AddTipNonMonotonic(schedulerBlock)
+	//			}
+	//			return true
+	//		})
+	//	}
+	//	fmt.Println(">> could not fix opinion", blockID)
+	//	return nil, false
+	//}
 
 	// A block might introduce too many references and cannot be picked up as a strong parent.
 	if _, success = r.tryExtendReferences(models.NewParentBlockIDs(), addedReferences); !success {
@@ -235,15 +236,13 @@ func (r *ReferenceProvider) addedReferencesForConflicts(conflictIDs utxo.Transac
 			continue
 		}
 
-		if adjust, referencedBlk, referenceErr := r.adjustOpinion(conflictID, excludedConflictIDs, conflictDAG); referenceErr != nil {
+		adjust, referencedBlk, referenceErr := r.adjustOpinion(conflictID, excludedConflictIDs, conflictDAG)
+		if referenceErr != nil {
 			return nil, errors.Wrapf(referenceErr, "failed to create reference for %s", conflictID)
-		} else if adjust {
-			if referencedBlk != models.EmptyBlockID {
-				referencesToAdd.Add(models.ShallowLikeParentType, referencedBlk)
-			} else {
-				// We could not find a block that we could reference to fix this strong parent, but we don't want to delete the tip.
-				return nil, nil
-			}
+		}
+
+		if adjust {
+			referencesToAdd.Add(models.ShallowLikeParentType, referencedBlk)
 		}
 	}
 
@@ -255,6 +254,7 @@ func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, exclude
 	engineInstance := r.protocol.Engine()
 
 	likedConflictID := conflictDAG.LikedInstead(advancedset.New(conflictID))
+	// if likedConflictID is empty, then conflictID is liked and doesn't need to be corrected
 	if likedConflictID.IsEmpty() {
 		return false, models.EmptyBlockID, nil
 	}
@@ -275,6 +275,9 @@ func (r *ReferenceProvider) adjustOpinion(conflictID utxo.TransactionID, exclude
 		return false, models.EmptyBlockID, err
 	}
 
+	if attachmentID == models.EmptyBlockID {
+		return false, attachmentID, xerrors.Errorf("could not find attachment to fix conflict %s", conflictID)
+	}
 	return true, attachmentID, nil
 }
 
