@@ -550,15 +550,7 @@ func (b *Booker) determineBookingConflictIDs(block *booker.Block) (parentsPastMa
 	inheritedConflictIDs.AddAll(strongParentsConflictIDs)
 	inheritedConflictIDs.AddAll(weakPayloadConflictIDs)
 	inheritedConflictIDs.AddAll(likedConflictIDs)
-
 	inheritedConflictIDs.DeleteAll(b.MemPool.Utils().ConflictIDsInFutureCone(dislikedConflictIDs))
-
-	// block always sets Like reference its own conflict, if its payload is a transaction, and it's conflicting
-	if selfConflictID, selfDislikedConflictIDs, isTransaction := b.PayloadConflictID(block); isTransaction && !selfConflictID.IsEmpty() {
-		inheritedConflictIDs.Add(selfConflictID)
-		// if a payload is a conflicting transaction, then remove any conflicting conflicts from supported conflicts
-		inheritedConflictIDs.DeleteAll(b.MemPool.Utils().ConflictIDsInFutureCone(selfDislikedConflictIDs))
-	}
 
 	unconfirmedParentsPast := b.MemPool.ConflictDAG().UnacceptedConflicts(parentsPastMarkersConflictIDs)
 	unconfirmedInherited := b.MemPool.ConflictDAG().UnacceptedConflicts(inheritedConflictIDs)
