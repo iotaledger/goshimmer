@@ -79,9 +79,9 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) CreateConflict(id Confl
 			return xerrors.Errorf("failed to create conflict: %w", err)
 		}
 
-		conflictSets, err := c.conflictSets(resourceIDs, !initialAcceptanceState.IsRejected())
+		conflictSets, err := c.conflictSets(resourceIDs, true /*!initialAcceptanceState.IsRejected()*/)
 		if err != nil {
-			return xerrors.Errorf("failed to create conflict: %w", err)
+			return xerrors.Errorf("failed to create ConflictSet: %w", err)
 		}
 
 		if _, isNew := c.conflictsByID.GetOrCreate(id, func() *Conflict[ConflictID, ResourceID, VotePower] {
@@ -138,7 +138,7 @@ func (c *ConflictDAG[ConflictID, ResourceID, VotePower]) JoinConflictSets(confli
 			return nil, xerrors.Errorf("tried to modify evicted conflict with %s: %w", conflictID, conflictdag.ErrEntityEvicted)
 		}
 
-		conflictSets, err := c.conflictSets(resourceIDs, !currentConflict.IsRejected())
+		conflictSets, err := c.conflictSets(resourceIDs, true /*!currentConflict.IsRejected()*/)
 		if err != nil {
 			return nil, xerrors.Errorf("failed to join conflict sets: %w", err)
 		}
