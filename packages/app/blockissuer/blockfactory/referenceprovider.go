@@ -1,7 +1,6 @@
 package blockfactory
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
