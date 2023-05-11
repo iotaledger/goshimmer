@@ -35,6 +35,7 @@ func NewTipsConflictTracker(workerPool *workerpool.WorkerPool, engineInstance *e
 	}
 
 	t.setup()
+
 	return t
 }
 

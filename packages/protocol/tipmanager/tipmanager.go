@@ -13,6 +13,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/memstorage"
 	"github.com/iotaledger/hive.go/core/slot"
+	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/ds/randommap"
 	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/runtime/options"
@@ -27,22 +28,20 @@ type blockRetrieverFunc func(id models.BlockID) (block *scheduler.Block, exists 
 type TipManager struct {
 	Events *Events
 
-	engine                *engine.Engine
-	blockAcceptanceGadget blockgadget.Gadget
-
-	workers                     *workerpool.Group
+	engine                      *engine.Engine
+	blockAcceptanceGadget       blockgadget.Gadget
 	schedulerBlockRetrieverFunc blockRetrieverFunc
 
-	walkerCache *memstorage.SlotStorage[models.BlockID, types.Empty]
-
-	mutex               syncutils.RWMutexFake
-	tips                *randommap.RandomMap[models.BlockID, *scheduler.Block]
-	TipsConflictTracker *TipsConflictTracker
-
-	commitmentRecentBoundary slot.Index
+	strongChildrenCounter *memstorage.SlotStorage[models.BlockID, *advancedset.AdvancedSet[models.BlockID]]
+	walkerCache           *memstorage.SlotStorage[models.BlockID, types.Empty]
+	tips                  *randommap.RandomMap[models.BlockID, *scheduler.Block]
+	TipsConflictTracker   *TipsConflictTracker
 
 	optsTimeSinceConfirmationThreshold time.Duration
 	optsWidth                          int
+
+	workers *workerpool.Group
+	mutex   syncutils.RWMutexFake
 }
 
 // New creates a new TipManager.
@@ -55,7 +54,8 @@ func New(workers *workerpool.Group, schedulerBlockRetrieverFunc blockRetrieverFu
 
 		tips: randommap.New[models.BlockID, *scheduler.Block](),
 
-		walkerCache: memstorage.NewSlotStorage[models.BlockID, types.Empty](),
+		strongChildrenCounter: memstorage.NewSlotStorage[models.BlockID, *advancedset.AdvancedSet[models.BlockID]](),
+		walkerCache:           memstorage.NewSlotStorage[models.BlockID, types.Empty](),
 
 		optsTimeSinceConfirmationThreshold: time.Minute,
 		optsWidth:                          0,
@@ -67,8 +67,6 @@ func New(workers *workerpool.Group, schedulerBlockRetrieverFunc blockRetrieverFu
 func (t *TipManager) LinkTo(engine *engine.Engine) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
-
-	t.commitmentRecentBoundary = slot.Index(int64(t.optsTimeSinceConfirmationThreshold.Seconds()) / engine.SlotTimeProvider().Duration())
 
 	t.walkerCache = memstorage.NewSlotStorage[models.BlockID, types.Empty]()
 	t.tips = randommap.New[models.BlockID, *scheduler.Block]()
@@ -91,32 +89,61 @@ func (t *TipManager) AddTip(block *scheduler.Block) {
 		return
 	}
 
-	t.AddTipNonMonotonic(block)
+	if t.AddTipNonMonotonic(block) {
+		t.registerChildrenCounter(block)
+	}
 }
 
-func (t *TipManager) AddTipNonMonotonic(block *scheduler.Block) {
+func (t *TipManager) registerChildrenCounter(block *scheduler.Block) {
+	block.ForEachParentByType(models.StrongParentType, func(parentBlockID models.BlockID) bool {
+		if parentBlockID.Index() <= t.engine.EvictionState.LastEvictedSlot() {
+			return true
+		}
+
+		strongChildrenSet, _ := t.strongChildrenCounter.Get(parentBlockID.Index(), true).GetOrCreate(parentBlockID, func() *advancedset.AdvancedSet[models.BlockID] {
+			return advancedset.New[models.BlockID]()
+		})
+
+		if strongChildrenSet.IsEmpty() {
+			parentBlock, parentBlockExists := t.schedulerBlockRetrieverFunc(parentBlockID)
+			if parentBlockExists {
+				t.registerChildrenCounter(parentBlock)
+			}
+		}
+
+		strongChildrenSet.Add(block.ID())
+
+		return true
+	})
+}
+
+func (t *TipManager) AddTipNonMonotonic(block *scheduler.Block) (added bool) {
 	if block.IsSubjectivelyInvalid() {
-		fmt.Println(">> not adding subjectively invalid tip", block.ID())
-		return
+		//fmt.Println(">> not adding subjectively invalid tip", block.ID())
+		return false
 	}
 
 	// Do not add a tip booked on a reject branch, we won't use it as a tip and it will otherwise remove parent tips.
 	blockConflictIDs := t.engine.Tangle.Booker().BlockConflicts(block.Block)
 	if t.engine.Ledger.MemPool().ConflictDAG().AcceptanceState(blockConflictIDs).IsRejected() {
 		//fmt.Println(">> adding rejected tip", block.ID())
-		// return
+		// return false
 	}
 
 	if t.addTip(block) {
 		t.TipsConflictTracker.AddTip(block, blockConflictIDs)
+		return true
 	}
+
+	return false
 }
 
-func (t *TipManager) EvictTSCCache(index slot.Index) {
+func (t *TipManager) EvictSlot(index slot.Index) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
 	t.walkerCache.Evict(index)
+	t.strongChildrenCounter.Evict(index)
 }
 
 func (t *TipManager) deleteTip(block *scheduler.Block) (deleted bool) {
@@ -124,7 +151,8 @@ func (t *TipManager) deleteTip(block *scheduler.Block) (deleted bool) {
 		t.TipsConflictTracker.RemoveTip(block)
 		t.Events.TipRemoved.Trigger(block)
 	}
-	return
+
+	return deleted
 }
 
 func (t *TipManager) DeleteTip(block *scheduler.Block) (deleted bool) {
@@ -132,6 +160,45 @@ func (t *TipManager) DeleteTip(block *scheduler.Block) (deleted bool) {
 	defer t.mutex.Unlock()
 
 	return t.deleteTip(block)
+}
+
+func (t *TipManager) InvalidateTip(block *scheduler.Block) (invalidated bool) {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+	// fmt.Println(">> InvalidateTip", block.ID(), "accepted", t.blockAcceptanceGadget.IsBlockAccepted(block.ID()))
+	if !t.deleteTip(block) {
+		return false
+	}
+
+	return t.invalidateTip(block)
+}
+
+func (t *TipManager) invalidateTip(block *scheduler.Block) (invalidated bool) {
+	block.ForEachParentByType(models.StrongParentType, func(parentBlockID models.BlockID) bool {
+		parentSlotStorage := t.strongChildrenCounter.Get(parentBlockID.Index(), false)
+		if parentSlotStorage == nil {
+			return true
+		}
+
+		strongChildren, exists := parentSlotStorage.Get(parentBlockID)
+		if !exists {
+			return true
+		}
+
+		if strongChildren.Delete(block.ID()) && strongChildren.IsEmpty() {
+			if parentBlock, parentBlockExists := t.schedulerBlockRetrieverFunc(parentBlockID); parentBlockExists {
+				// fmt.Println(">> trying to add parent who lost strong connection to the tips", parentBlockID)
+				if !t.AddTipNonMonotonic(parentBlock) {
+					// fmt.Println(">> could not add the block, invalidating instead", parentBlockID)
+					t.invalidateTip(parentBlock)
+				}
+			}
+		}
+
+		return true
+	})
+
+	return true
 }
 
 // RemoveStrongParents removes all tips that are strong parents of the given block.
@@ -369,6 +436,7 @@ func (t *TipManager) checkBlockRecursive(block *booker.Block, minSupportedTimest
 	}
 
 	t.walkerCache.Get(block.ID().Index(), true).Set(block.ID(), types.Void)
+
 	return true
 }
 

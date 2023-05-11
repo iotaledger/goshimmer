@@ -6,7 +6,7 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
-	"github.com/iotaledger/hive.go/ds/types"
+	"github.com/iotaledger/hive.go/ds/advancedset"
 )
 
 var (
@@ -22,9 +22,8 @@ var (
 	// total time it took all conflicts to finalize. unit is milliseconds!
 	conflictConfirmationTotalTime atomic.Uint64
 
-	// all active conflicts stored in this map, to avoid duplicated event triggers for conflict confirmation.
-	activeConflicts map[utxo.TransactionID]types.Empty
-
+	// all active conflicts stored in this set, to avoid duplicated event triggers for conflict confirmation.
+	activeConflicts      *advancedset.AdvancedSet[utxo.TransactionID]
 	activeConflictsMutex sync.RWMutex
 )
 
@@ -52,22 +51,21 @@ func addActiveConflict(conflictID utxo.TransactionID) (added bool) {
 	activeConflictsMutex.Lock()
 	defer activeConflictsMutex.Unlock()
 
-	if _, exists := activeConflicts[conflictID]; !exists {
-		activeConflicts[conflictID] = types.Void
-		return true
+	if activeConflicts == nil {
+		activeConflicts = advancedset.New[utxo.TransactionID]()
 	}
 
-	return false
+	return activeConflicts.Add(conflictID)
 }
 
 func removeActiveConflict(conflictID utxo.TransactionID) (removed bool) {
 	activeConflictsMutex.Lock()
 	defer activeConflictsMutex.Unlock()
 
-	if _, exists := activeConflicts[conflictID]; exists {
-		delete(activeConflicts, conflictID)
-		return true
+	if activeConflicts == nil {
+		activeConflicts = advancedset.New[utxo.TransactionID]()
 	}
 
-	return false
+	return activeConflicts.Delete(conflictID)
+
 }
