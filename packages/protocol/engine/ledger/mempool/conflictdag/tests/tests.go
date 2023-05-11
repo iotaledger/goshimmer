@@ -11,14 +11,15 @@ import (
 
 func TestAll[ConflictID, ResourceID conflictdag.IDType, VotePower conflictdag.VotePowerType[VotePower]](t *testing.T, frameworkProvider func(*testing.T) *Framework[ConflictID, ResourceID, VotePower]) {
 	for testName, testCase := range map[string]func(*testing.T, *Framework[ConflictID, ResourceID, VotePower]){
-		"CreateConflict":        CreateConflict[ConflictID, ResourceID, VotePower],
-		"TestJoinConflictSets":  TestJoinConflictSets[ConflictID, ResourceID, VotePower],
-		"UpdateConflictParents": UpdateConflictParents[ConflictID, ResourceID, VotePower],
-		"LikedInstead":          LikedInstead[ConflictID, ResourceID, VotePower],
-		"ConflictAcceptance":    ConflictAcceptance[ConflictID, ResourceID, VotePower],
-		"CastVotes":             CastVotes[ConflictID, ResourceID, VotePower],
-		"CastVotes_VotePower":   CastVotesVotePower[ConflictID, ResourceID, VotePower],
-		"CastVotesAcceptance":   CastVotesAcceptance[ConflictID, ResourceID, VotePower],
+		"CreateConflict":               CreateConflict[ConflictID, ResourceID, VotePower],
+		"TestJoinConflictSets":         TestJoinConflictSets[ConflictID, ResourceID, VotePower],
+		"UpdateConflictParents":        UpdateConflictParents[ConflictID, ResourceID, VotePower],
+		"LikedInstead":                 LikedInstead[ConflictID, ResourceID, VotePower],
+		"CreateConflictWithoutMembers": CreateConflictWithoutMembers[ConflictID, ResourceID, VotePower],
+		"ConflictAcceptance":           ConflictAcceptance[ConflictID, ResourceID, VotePower],
+		"CastVotes":                    CastVotes[ConflictID, ResourceID, VotePower],
+		"CastVotes_VotePower":          CastVotesVotePower[ConflictID, ResourceID, VotePower],
+		"CastVotesAcceptance":          CastVotesAcceptance[ConflictID, ResourceID, VotePower],
 	} {
 		t.Run(testName, func(t *testing.T) { testCase(t, frameworkProvider(t)) })
 	}
@@ -69,6 +70,47 @@ func CreateConflict[ConflictID, ResourceID conflictdag.IDType, VotePower conflic
 	tf.Assert.Children("conflict1", "conflict3", "conflict4")
 	tf.Assert.Parents("conflict3", "conflict1")
 	tf.Assert.Parents("conflict4", "conflict1")
+}
+
+func CreateConflictWithoutMembers[ConflictID, ResourceID conflictdag.IDType, VotePower conflictdag.VotePowerType[VotePower]](t *testing.T, tf *Framework[ConflictID, ResourceID, VotePower]) {
+	tf.Validators.CreateID("nodeID1", 10)
+	tf.Validators.CreateID("nodeID2", 10)
+	tf.Validators.CreateID("nodeID3", 10)
+	tf.Validators.CreateID("nodeID4", 0)
+
+	// Non-conflicting conflicts
+	{
+		require.NoError(t, tf.CreateConflict("conflict1", []string{}, []string{"resource1"}))
+		require.NoError(t, tf.CreateConflict("conflict2", []string{}, []string{"resource2"}))
+
+		tf.Assert.ConflictSetMembers("resource1", "conflict1")
+		tf.Assert.ConflictSetMembers("resource2", "conflict2")
+
+		tf.Assert.LikedInstead([]string{"conflict1"})
+		tf.Assert.LikedInstead([]string{"conflict2"})
+
+		require.NoError(t, tf.CastVotes("nodeID1", 1, "conflict1"))
+		require.NoError(t, tf.CastVotes("nodeID2", 1, "conflict1"))
+		require.NoError(t, tf.CastVotes("nodeID3", 1, "conflict1"))
+
+		tf.Assert.LikedInstead([]string{"conflict1"})
+		tf.Assert.Accepted("conflict1")
+	}
+
+	// Regular conflict
+	{
+		require.NoError(t, tf.CreateConflict("conflict3", []string{}, []string{"resource3"}))
+		require.NoError(t, tf.CreateConflict("conflict4", []string{}, []string{"resource3"}))
+
+		tf.Assert.ConflictSetMembers("resource3", "conflict3", "conflict4")
+
+		require.NoError(t, tf.CastVotes("nodeID3", 1, "conflict3"))
+
+		tf.Assert.LikedInstead([]string{"conflict3"})
+		tf.Assert.LikedInstead([]string{"conflict4"}, "conflict3")
+	}
+
+	tf.Assert.LikedInstead([]string{"conflict1", "conflict4"}, "conflict3")
 }
 
 func LikedInstead[ConflictID, ResourceID conflictdag.IDType, VotePower conflictdag.VotePowerType[VotePower]](t *testing.T, tf *Framework[ConflictID, ResourceID, VotePower]) {
