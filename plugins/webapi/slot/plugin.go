@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/pkg/errors"
@@ -73,7 +74,9 @@ func GetCurrentSC(c echo.Context) error {
 	currentSlotCommitmentLock.RLock()
 	defer currentSlotCommitmentLock.RUnlock()
 
-	return c.JSON(http.StatusOK, jsonmodels.SlotInfoFromRecord(currentSlotCommitment))
+	start, end := startEndTimestamps(currentSlotCommitment.Index())
+
+	return c.JSON(http.StatusOK, jsonmodels.SlotInfoFromRecord(currentSlotCommitment, start, end))
 }
 
 func GetCommittedSlot(c echo.Context) error {
@@ -87,7 +90,9 @@ func GetCommittedSlot(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(errors.New("commitment not exists")))
 	}
 
-	return c.JSON(http.StatusOK, jsonmodels.SlotInfoFromRecord(cc.M.Commitment))
+	start, end := startEndTimestamps(index)
+
+	return c.JSON(http.StatusOK, jsonmodels.SlotInfoFromRecord(cc.M.Commitment, start, end))
 }
 
 func GetCommittedSlotByCommitment(c echo.Context) error {
@@ -102,7 +107,9 @@ func GetCommittedSlotByCommitment(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, jsonmodels.NewErrorResponse(errors.New("commitment not exists")))
 	}
 
-	return c.JSON(http.StatusOK, jsonmodels.SlotInfoFromRecord(cc.M.Commitment))
+	start, end := startEndTimestamps(ID.Index())
+
+	return c.JSON(http.StatusOK, jsonmodels.SlotInfoFromRecord(cc.M.Commitment, start, end))
 }
 
 func GetUTXOs(c echo.Context) error {
@@ -176,6 +183,13 @@ func getIndex(c echo.Context) (slot.Index, error) {
 		return 0, errors.Wrap(err, "can't parse Index from URL param")
 	}
 	return slot.Index(uint64(indexNumber)), nil
+}
+
+func startEndTimestamps(index slot.Index) (start, end time.Time) {
+	start = deps.Protocol.SlotTimeProvider().StartTime(index)
+	end = deps.Protocol.SlotTimeProvider().EndTime(index)
+
+	return
 }
 
 // func getVotersWeight(c echo.Context) error {

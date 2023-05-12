@@ -1,26 +1,32 @@
 package jsonmodels
 
 import (
+	"time"
+
 	"github.com/iotaledger/goshimmer/packages/core/commitment"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/ds/types"
 )
 
 type SlotInfo struct {
-	ID               string `json:"id"`
-	Index            uint64 `json:"index"`
-	RootsID          string `json:"rootsID"`
-	PrevID           string `json:"prevID"`
-	CumulativeWeight int64  `json:"cumulativeWeight"`
+	ID               string    `json:"id"`
+	Index            uint64    `json:"index"`
+	RootsID          string    `json:"rootsID"`
+	PrevID           string    `json:"prevID"`
+	CumulativeWeight int64     `json:"cumulativeWeight"`
+	StartTimestamp   time.Time `json:"startTimestamp"`
+	EndTimestamp     time.Time `json:"endTimestamp"`
 }
 
-func SlotInfoFromRecord(c *commitment.Commitment) *SlotInfo {
+func SlotInfoFromRecord(c *commitment.Commitment, start, end time.Time) *SlotInfo {
 	return &SlotInfo{
 		ID:               c.ID().Base58(),
 		Index:            uint64(c.Index()),
 		RootsID:          c.RootsID().Base58(),
 		PrevID:           c.PrevID().Base58(),
 		CumulativeWeight: c.CumulativeWeight(),
+		StartTimestamp:   start,
+		EndTimestamp:     end,
 	}
 }
 
