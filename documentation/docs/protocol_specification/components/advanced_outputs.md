@@ -322,6 +322,6 @@ Transferring NFTs is also feeless, just like any other transaction in IOTA.
 ## GoShimmer Implementation
 
 If you are interested, you can find the GoShimmer implementation of the new output types in
-[output.go](https://github.com/lucas-tortora/goshimmer/blob/develop/packages/protocol/engine/ledger/vm/devnetvm/output.go):
- - [AliasOutput](https://github.com/lucas-tortora/goshimmer/blob/develop/packages/protocol/engine/ledger/vm/devnetvm/output.go#L598) and
- - [ExtendedLockedOutput](https://github.com/lucas-tortora/goshimmer/blob/develop/packages/protocol/engine/ledger/vm/devnetvm/output.go#L1582)
+[output.go](https://github.com/iotaledger/goshimmer/blob/develop/packages/protocol/engine/ledger/vm/devnetvm/output.go):
+ - [AliasOutput](https://github.com/iotaledger/goshimmer/blob/develop/packages/protocol/engine/ledger/vm/devnetvm/output.go#L598) and
+ - [ExtendedLockedOutput](https://github.com/iotaledger/goshimmer/blob/develop/packages/protocol/engine/ledger/vm/devnetvm/output.go#L1582)
