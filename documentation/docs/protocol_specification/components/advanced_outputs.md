@@ -308,7 +308,7 @@ output until the delegation time expires.
 
 NFTs are unique tokens that have metadata attached to them. Since an AliasOutput implements a chain constraint in the
 UTXO ledger, it is perfectly suited to represent NFTs. The unique identifier of the NFT is the `aliasID` or `AliasAddress`.
-The `Immutable Data` field of the output can only be defined upon creation and can't be changed afterwards, therefore
+The `Immutable Data` field of the output can only be defined upon creation and can't be changed afterward, therefore
 it is perfect to store metadata belonging to the NFT.
 
 The ID of an IOTA NFT is also a valid address, therefore the NFT itself can receive and manage funds and other NFTs as
@@ -321,7 +321,7 @@ Transferring NFTs is also feeless, just like any other transaction in IOTA.
 
 ## GoShimmer Implementation
 
-If you are interested, you can find the GoShimmer implementation of the new ouput types in
-[output.go](https://github.com/iotaledger/goshimmer/blob/master/packages/ledgerstate/output.go):
- - [AliasOutput](https://github.com/iotaledger/goshimmer/blob/master/packages/ledgerstate/output.go#L947) and
- - [ExtendedLockedOutput](https://github.com/iotaledger/goshimmer/blob/master/packages/ledgerstate/output.go#L1840)
+If you are interested, you can find the GoShimmer implementation of the new output types in
+[output.go](https://github.com/iotaledger/goshimmer/blob/develop/packages/protocol/engine/ledger/vm/devnetvm/output.go):
+ - [AliasOutput](https://github.com/iotaledger/goshimmer/blob/develop/packages/protocol/engine/ledger/vm/devnetvm/output.go#L598) and
+ - [ExtendedLockedOutput](https://github.com/iotaledger/goshimmer/blob/develop/packages/protocol/engine/ledger/vm/devnetvm/output.go#L1582)
