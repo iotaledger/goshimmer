@@ -37,12 +37,11 @@ type TestFramework struct {
 	optsStorage       *storage.Storage
 	optsTangleOptions []options.Option[tangle.Tangle]
 
-	Tangle        *tangle.TestFramework
-	Booker        *booker.TestFramework
-	BlockDAG      *blockdag.TestFramework
-	MemPool       *mempool.TestFramework
-	VirtualVoting *booker.VirtualVotingTestFramework
-	Acceptance    *blockgadget.TestFramework
+	Tangle     *tangle.TestFramework
+	Booker     *booker.TestFramework
+	BlockDAG   *blockdag.TestFramework
+	MemPool    *mempool.TestFramework
+	Acceptance *blockgadget.TestFramework
 }
 
 func NewTestEngine(t *testing.T, workers *workerpool.Group, storage *storage.Storage,
@@ -85,7 +84,7 @@ func NewTestFramework(test *testing.T, workers *workerpool.Group, engine *Engine
 	)
 	t.MemPool = t.Tangle.MemPool
 	t.BlockDAG = t.Tangle.BlockDAG
-	t.VirtualVoting = t.Tangle.VirtualVoting
+
 	return t
 }
 

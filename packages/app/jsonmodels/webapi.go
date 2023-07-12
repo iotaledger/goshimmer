@@ -1,13 +1,10 @@
 package jsonmodels
 
 import (
-	"strconv"
-
+	"fmt"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/ds/advancedset"
@@ -71,12 +68,12 @@ type GetConflictChildrenResponse struct {
 }
 
 // NewGetConflictChildrenResponse returns a GetConflictChildrenResponse from the given details.
-func NewGetConflictChildrenResponse(conflictID utxo.TransactionID, childConflicts *advancedset.AdvancedSet[*conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]]) *GetConflictChildrenResponse {
+func NewGetConflictChildrenResponse(conflictID utxo.TransactionID, childConflictIDs *advancedset.AdvancedSet[utxo.TransactionID]) *GetConflictChildrenResponse {
 	return &GetConflictChildrenResponse{
 		ConflictID: conflictID.Base58(),
 		ChildConflicts: func() (mappedChildConflicts []*ChildConflict) {
 			mappedChildConflicts = make([]*ChildConflict, 0)
-			for it := childConflicts.Iterator(); it.HasNext(); {
+			for it := childConflictIDs.Iterator(); it.HasNext(); {
 				mappedChildConflicts = append(mappedChildConflicts, NewChildConflict(it.Next()))
 			}
 
@@ -121,17 +118,15 @@ type GetConflictVotersResponse struct {
 }
 
 // NewGetConflictVotersResponse returns a GetConflictVotersResponse from the given details.
-func NewGetConflictVotersResponse(conflictID utxo.TransactionID, voters *sybilprotection.WeightedSet) *GetConflictVotersResponse {
+func NewGetConflictVotersResponse(conflictID utxo.TransactionID, voters map[identity.ID]int64) *GetConflictVotersResponse {
+	votersStr := make([]string, 0)
+	for id, weight := range voters {
+		votersStr = append(votersStr, fmt.Sprintf("%s, %d", id, weight))
+	}
+
 	return &GetConflictVotersResponse{
 		ConflictID: conflictID.Base58(),
-		Voters: func() (votersStr []string) {
-			votersStr = make([]string, 0)
-			_ = voters.ForEachWeighted(func(id identity.ID, weight int64) error {
-				votersStr = append(votersStr, id.String()+", "+strconv.FormatInt(weight, 10))
-				return nil
-			})
-			return
-		}(),
+		Voters:     votersStr,
 	}
 }
 

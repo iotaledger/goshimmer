@@ -13,21 +13,19 @@ type TestFramework struct {
 	test     *testing.T
 	Instance Tangle
 
-	VirtualVoting *booker.VirtualVotingTestFramework
-	Booker        *booker.TestFramework
-	MemPool       *mempool.TestFramework
-	BlockDAG      *blockdag.TestFramework
-	Votes         *votes.TestFramework
+	Booker   *booker.TestFramework
+	MemPool  *mempool.TestFramework
+	BlockDAG *blockdag.TestFramework
+	Votes    *votes.TestFramework
 }
 
 func NewTestFramework(test *testing.T, tangle Tangle, bookerTF *booker.TestFramework) *TestFramework {
 	return &TestFramework{
-		test:          test,
-		Instance:      tangle,
-		Booker:        bookerTF,
-		VirtualVoting: bookerTF.VirtualVoting,
-		MemPool:       bookerTF.Ledger,
-		BlockDAG:      bookerTF.BlockDAG,
-		Votes:         bookerTF.VirtualVoting.Votes,
+		test:     test,
+		Instance: tangle,
+		Booker:   bookerTF,
+		MemPool:  bookerTF.Ledger,
+		BlockDAG: bookerTF.BlockDAG,
+		Votes:    bookerTF.Votes,
 	}
 }

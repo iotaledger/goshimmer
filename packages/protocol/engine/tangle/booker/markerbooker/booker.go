@@ -5,19 +5,19 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
+	"golang.org/x/xerrors"
 
+	"github.com/iotaledger/goshimmer/packages/core/vote"
 	"github.com/iotaledger/goshimmer/packages/core/votes/sequencetracker"
 	"github.com/iotaledger/goshimmer/packages/core/votes/slottracker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/eviction"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markerbooker/markermanager"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/booker/markerbooker/markervirtualvoting"
 	"github.com/iotaledger/goshimmer/packages/protocol/markers"
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/causalordersync"
@@ -43,9 +43,8 @@ type Booker struct {
 	blockDAG        blockdag.BlockDAG
 	evictionState   *eviction.State
 	validators      *sybilprotection.WeightedSet
-	sequenceTracker *sequencetracker.SequenceTracker[booker.BlockVotePower]
+	sequenceTracker *sequencetracker.SequenceTracker[models.BlockVotePower]
 	slotTracker     *slottracker.SlotTracker
-	virtualVoting   *markervirtualvoting.VirtualVoting
 
 	bookingOrder          *causalordersync.CausalOrder[models.BlockID, *booker.Block]
 	attachments           *attachments
@@ -111,9 +110,8 @@ func New(workers *workerpool.Group, evictionState *eviction.State, memPool mempo
 		slotTimeProviderFunc: slotTimeProviderFunc,
 	}, opts, func(b *Booker) {
 		b.markerManager = markermanager.NewMarkerManager(b.optsMarkerManager...)
-		b.sequenceTracker = sequencetracker.NewSequenceTracker[booker.BlockVotePower](validators, b.markerManager.SequenceManager.Sequence, b.optsSequenceCutoffCallback)
+		b.sequenceTracker = sequencetracker.NewSequenceTracker[models.BlockVotePower](validators, b.markerManager.SequenceManager.Sequence, b.optsSequenceCutoffCallback)
 		b.slotTracker = slottracker.NewSlotTracker(b.optsSlotCutoffCallback)
-		b.virtualVoting = markervirtualvoting.New(workers.CreateGroup("VirtualVoting"), memPool.ConflictDAG(), b.markerManager.SequenceManager, validators)
 		b.bookingOrder = causalordersync.New(
 			workers.CreatePool("BookingOrder", 2),
 			b.Block,
@@ -126,7 +124,6 @@ func New(workers *workerpool.Group, evictionState *eviction.State, memPool mempo
 
 		b.evictionState.Events.SlotEvicted.Hook(b.evict)
 
-		b.events.VirtualVoting.LinkTo(b.virtualVoting.Events())
 		b.events.SequenceEvicted.LinkTo(b.markerManager.Events.SequenceEvicted)
 		b.events.SequenceTracker.LinkTo(b.sequenceTracker.Events)
 		b.events.SlotTracker.LinkTo(b.slotTracker.Events)
@@ -177,11 +174,7 @@ func (b *Booker) Events() *booker.Events {
 	return b.events
 }
 
-func (b *Booker) VirtualVoting() booker.VirtualVoting {
-	return b.virtualVoting
-}
-
-func (b *Booker) SequenceTracker() *sequencetracker.SequenceTracker[booker.BlockVotePower] {
+func (b *Booker) SequenceTracker() *sequencetracker.SequenceTracker[models.BlockVotePower] {
 	return b.sequenceTracker
 }
 
@@ -261,15 +254,10 @@ func (b *Booker) PayloadConflictID(block *booker.Block) (conflictID utxo.Transac
 		return conflictID, conflictingConflictIDs, false
 	}
 
-	conflict, exists := b.MemPool.ConflictDAG().Conflict(transaction.ID())
-	if !exists {
+	conflictingConflictIDs, conflictExists := b.MemPool.ConflictDAG().ConflictingConflicts(transaction.ID())
+	if !conflictExists {
 		return utxo.EmptyTransactionID, conflictingConflictIDs, true
 	}
-
-	conflict.ForEachConflictingConflict(func(conflictingConflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) bool {
-		conflictingConflictIDs.Add(conflictingConflict.ID())
-		return true
-	})
 
 	return transaction.ID(), conflictingConflictIDs, true
 }
@@ -311,8 +299,8 @@ func (b *Booker) BlockFloor(marker markers.Marker) (floorMarker markers.Marker, 
 
 // MarkerVotersTotalWeight retrieves Validators supporting a given marker.
 func (b *Booker) MarkerVotersTotalWeight(marker markers.Marker) (totalWeight int64) {
-	//b.sequenceEvictionMutex.RLock()
-	//defer b.sequenceEvictionMutex.RUnlock()
+	// b.sequenceEvictionMutex.RLock()
+	// defer b.sequenceEvictionMutex.RUnlock()
 
 	_ = b.sequenceTracker.Voters(marker).ForEach(func(id identity.ID) error {
 		if weight, exists := b.validators.Get(id); exists {
@@ -327,8 +315,8 @@ func (b *Booker) MarkerVotersTotalWeight(marker markers.Marker) (totalWeight int
 
 // SlotVotersTotalWeight retrieves the total weight of the Validators voting for a given slot.
 func (b *Booker) SlotVotersTotalWeight(slotIndex slot.Index) (totalWeight int64) {
-	//b.sequenceEvictionMutex.RLock()
-	//defer b.sequenceEvictionMutex.RUnlock()
+	// b.sequenceEvictionMutex.RLock()
+	// defer b.sequenceEvictionMutex.RUnlock()
 
 	_ = b.slotTracker.Voters(slotIndex).ForEach(func(id identity.ID) error {
 		if weight, exists := b.validators.Get(id); exists {
@@ -373,14 +361,20 @@ func (b *Booker) storeNewBlock(block *booker.Block) bool {
 	return true
 }
 
-func (b *Booker) ProcessForkedMarker(marker markers.Marker, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) {
+func (b *Booker) ProcessForkedMarker(marker markers.Marker, forkedConflictID utxo.TransactionID, parentConflictIDs utxo.TransactionIDs) error {
 	b.sequenceEvictionMutex.RLock()
 	defer b.sequenceEvictionMutex.RUnlock()
 
 	// take everything in future cone because it was not conflicting before and move to new conflict.
 	for voterID, votePower := range b.sequenceTracker.VotersWithPower(marker) {
-		b.virtualVoting.ConflictTracker().AddSupportToForkedConflict(forkedConflictID, parentConflictIDs, voterID, votePower)
+		if b.MemPool.ConflictDAG().AllConflictsSupported(voterID, parentConflictIDs) {
+			if err := b.MemPool.ConflictDAG().CastVotes(vote.NewVote(voterID, votePower), advancedset.New(forkedConflictID)); err != nil {
+				return xerrors.Errorf("failed to cast vote during marker forking conflict %s on marker %s: %w", forkedConflictID, marker, err)
+			}
+		}
 	}
+
+	return nil
 }
 
 func (b *Booker) EvictSequence(sequenceID markers.SequenceID) {
@@ -459,8 +453,12 @@ func (b *Booker) book(block *booker.Block) (inheritingErr error) {
 		ConflictIDs: inheritedConflictIDs,
 	})
 
-	votePower := booker.NewBlockVotePower(block.ID(), block.IssuingTime())
-	if invalid := b.virtualVoting.Track(block, inheritedConflictIDs, votePower); !invalid {
+	votePower := models.NewBlockVotePower(block.ID(), block.IssuingTime())
+
+	if err := b.MemPool.ConflictDAG().CastVotes(vote.NewVote[models.BlockVotePower](block.IssuerID(), votePower), inheritedConflictIDs); err != nil {
+		//fmt.Println("block is subjectively invalid", block.ID(), err)
+		block.SetSubjectivelyInvalid(true)
+	} else {
 		b.sequenceTracker.TrackVotes(block.StructureDetails().PastMarkers(), block.IssuerID(), votePower)
 		b.slotTracker.TrackVotes(block.Commitment().Index(), block.IssuerID(), slottracker.SlotVotePower{Index: block.ID().Index()})
 	}
@@ -552,18 +550,10 @@ func (b *Booker) determineBookingConflictIDs(block *booker.Block) (parentsPastMa
 	inheritedConflictIDs.AddAll(strongParentsConflictIDs)
 	inheritedConflictIDs.AddAll(weakPayloadConflictIDs)
 	inheritedConflictIDs.AddAll(likedConflictIDs)
-
 	inheritedConflictIDs.DeleteAll(b.MemPool.Utils().ConflictIDsInFutureCone(dislikedConflictIDs))
 
-	// block always sets Like reference its own conflict, if its payload is a transaction, and it's conflicting
-	if selfConflictID, selfDislikedConflictIDs, isTransaction := b.PayloadConflictID(block); isTransaction && !selfConflictID.IsEmpty() {
-		inheritedConflictIDs.Add(selfConflictID)
-		// if a payload is a conflicting transaction, then remove any conflicting conflicts from supported conflicts
-		inheritedConflictIDs.DeleteAll(b.MemPool.Utils().ConflictIDsInFutureCone(selfDislikedConflictIDs))
-	}
-
-	unconfirmedParentsPast := b.MemPool.ConflictDAG().UnconfirmedConflicts(parentsPastMarkersConflictIDs)
-	unconfirmedInherited := b.MemPool.ConflictDAG().UnconfirmedConflicts(inheritedConflictIDs)
+	unconfirmedParentsPast := b.MemPool.ConflictDAG().UnacceptedConflicts(parentsPastMarkersConflictIDs)
+	unconfirmedInherited := b.MemPool.ConflictDAG().UnacceptedConflicts(inheritedConflictIDs)
 
 	return unconfirmedParentsPast, unconfirmedInherited, nil
 }
@@ -756,7 +746,7 @@ func (b *Booker) propagateToBlock(block *booker.Block, addedConflictID utxo.Tran
 	b.bookingMutex.Lock(block.ID())
 	defer b.bookingMutex.Unlock(block.ID())
 
-	updated, propagateFurther, forkErr := b.propagateForkedConflict(block, addedConflictID, removedConflictIDs)
+	updated, _, forkErr := b.propagateForkedConflict(block, addedConflictID, removedConflictIDs)
 	if forkErr != nil {
 		return false, errors.Wrapf(forkErr, "failed to propagate forked ConflictID %s to future cone of %s", addedConflictID, block.ID())
 	}
@@ -770,7 +760,13 @@ func (b *Booker) propagateToBlock(block *booker.Block, addedConflictID utxo.Tran
 		ParentConflictIDs: removedConflictIDs,
 	})
 
-	b.virtualVoting.ProcessForkedBlock(block, addedConflictID, removedConflictIDs)
+	// Do not apply votes of subjectively invalid blocks on forking. Votes of subjectively invalid blocks are also not counted
+	// when booking.
+	if !block.IsSubjectivelyInvalid() && b.MemPool.ConflictDAG().AllConflictsSupported(block.IssuerID(), removedConflictIDs) {
+		if err = b.MemPool.ConflictDAG().CastVotes(vote.NewVote(block.IssuerID(), models.NewBlockVotePower(block.ID(), block.IssuingTime())), advancedset.New(addedConflictID)); err != nil {
+			return false, xerrors.Errorf("failed to cast vote during forking conflict %s on block %s: %w", addedConflictID, block.ID(), err)
+		}
+	}
 
 	return true, nil
 }
@@ -799,7 +795,7 @@ func (b *Booker) updateBlockConflicts(block *booker.Block, addedConflict utxo.Tr
 	_, conflictIDs := b.blockBookingDetails(block)
 
 	// if a block does not already support all parent conflicts of a conflict A, then it cannot vote for a more specialize conflict of A
-	if !conflictIDs.HasAll(parentConflicts) {
+	if !conflictIDs.HasAll(b.MemPool.ConflictDAG().UnacceptedConflicts(parentConflicts)) {
 		return false
 	}
 
@@ -851,7 +847,9 @@ func (b *Booker) forkSingleMarker(currentMarker markers.Marker, newConflictID ut
 		ParentConflictIDs: removedConflictIDs,
 	})
 
-	b.ProcessForkedMarker(currentMarker, newConflictID, removedConflictIDs)
+	if err = b.ProcessForkedMarker(currentMarker, newConflictID, removedConflictIDs); err != nil {
+		return xerrors.Errorf("error while processing forked marker: %w", err)
+	}
 
 	// propagate updates to later ConflictID mappings of the same sequence.
 	b.markerManager.ForEachConflictIDMapping(currentMarker.SequenceID(), currentMarker.Index(), func(mappedMarker markers.Marker, _ utxo.TransactionIDs) {

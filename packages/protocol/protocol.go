@@ -297,11 +297,12 @@ func (p *Protocol) initTipManager() {
 		p.TipManager.AddTip(block)
 	}, event.WithWorkerPool(wp))
 	p.Events.Engine.EvictionState.SlotEvicted.Hook(func(index slot.Index) {
-		p.TipManager.EvictTSCCache(index)
+		p.TipManager.EvictSlot(index)
 	}, event.WithWorkerPool(wp))
 	p.Events.Engine.Consensus.BlockGadget.BlockAccepted.Hook(func(block *blockgadget.Block) {
 		// If we accept a block weakly that means that it might not have a strong future cone. If we remove its parents
-		// from the tippool, a portion of the tangle might loose (strong) connection to the tips.
+		// from the tippool, a portion of the tangle might lose (strong) connection to the tips.
+		// TODO: not needed when tips will be determined using a strong children counter
 		if !block.IsStronglyAccepted() {
 			return
 		}

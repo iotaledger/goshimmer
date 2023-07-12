@@ -1,5 +1,9 @@
 package confirmation
 
+import (
+	"github.com/iotaledger/goshimmer/packages/core/acceptance"
+)
+
 const (
 	// Undefined is the default confirmation state.
 	Undefined State = iota
@@ -71,5 +75,16 @@ func (s State) String() (humanReadable string) {
 		return "Confirmed"
 	default:
 		return "Undefined"
+	}
+}
+
+func StateFromAcceptanceState(acceptanceState acceptance.State) State {
+	switch {
+	case acceptanceState.IsAccepted():
+		return Accepted
+	case acceptanceState.IsRejected():
+		return Rejected
+	default:
+		return Pending
 	}
 }

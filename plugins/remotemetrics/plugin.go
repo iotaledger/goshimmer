@@ -15,8 +15,6 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol"
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
 	"github.com/iotaledger/goshimmer/plugins/remotelog"
 	"github.com/iotaledger/hive.go/app/daemon"
@@ -87,7 +85,7 @@ func run(plugin *node.Plugin) {
 
 	// create a background worker that update the metrics every second
 	if err := daemon.BackgroundWorker("Node State Logger Updater", func(ctx context.Context) {
-		measureInitialConflictCounts()
+		//measureInitialConflictCounts()
 
 		// Do not block until the Ticker is shutdown because we might want to start multiple Tickers and we can
 		// safely ignore the last execution when shutting down.
@@ -129,20 +127,20 @@ func configureConflictConfirmationMetrics(plugin *node.Plugin) {
 		return
 	}
 
-	deps.Protocol.Events.Engine.Ledger.MemPool.ConflictDAG.ConflictAccepted.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-		onConflictConfirmed(conflict.ID())
-	}, event.WithWorkerPool(plugin.WorkerPool))
-
-	deps.Protocol.Events.Engine.Ledger.MemPool.ConflictDAG.ConflictCreated.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-		activeConflictsMutex.Lock()
-		defer activeConflictsMutex.Unlock()
-
-		if !activeConflicts.Has(conflict.ID()) {
-			conflictTotalCountDB.Inc()
-			activeConflicts.Add(conflict.ID())
-			sendConflictMetrics()
-		}
-	}, event.WithWorkerPool(plugin.WorkerPool))
+	//deps.Protocol.Events.Engine.Ledger.MemPool.ConflictDAG.ConflictAccepted.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	//	onConflictConfirmed(conflict.ID())
+	//}, event.WithWorkerPool(plugin.WorkerPool))
+	//
+	//deps.Protocol.Events.Engine.Ledger.MemPool.ConflictDAG.ConflictCreated.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	//	activeConflictsMutex.Lock()
+	//	defer activeConflictsMutex.Unlock()
+	//
+	//	if !activeConflicts.Has(conflict.ID()) {
+	//		conflictTotalCountDB.Inc()
+	//		activeConflicts.Add(conflict.ID())
+	//		sendConflictMetrics()
+	//	}
+	//}, event.WithWorkerPool(plugin.WorkerPool))
 }
 
 func configureBlockFinalizedMetrics(plugin *node.Plugin) {

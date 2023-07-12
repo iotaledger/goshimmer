@@ -5,9 +5,11 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/iotaledger/goshimmer/packages/core/acceptance"
 	"github.com/iotaledger/goshimmer/packages/core/cerrors"
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
 	"github.com/iotaledger/hive.go/core/dataflow"
@@ -72,7 +74,7 @@ func (b *booker) bookTransaction(ctx context.Context, tx utxo.Transaction, txMet
 
 	b.storeOutputs(outputs, conflictIDs, consensusPledgeID, accessPledgeID)
 
-	if b.ledger.conflictDAG.ConfirmationState(conflictIDs).IsRejected() {
+	if b.ledger.conflictDAG.AcceptanceState(conflictIDs).IsRejected() {
 		b.ledger.triggerRejectedEvent(txMetadata)
 	}
 
@@ -89,21 +91,22 @@ func (b *booker) bookTransaction(ctx context.Context, tx utxo.Transaction, txMet
 
 // inheritedConflictIDs determines the ConflictIDs that a Transaction should inherit when being booked.
 func (b *booker) inheritConflictIDs(ctx context.Context, txID utxo.TransactionID, inputsMetadata *mempool.OutputsMetadata) (inheritedConflictIDs *advancedset.AdvancedSet[utxo.TransactionID]) {
-	parentConflictIDs := b.ledger.conflictDAG.UnconfirmedConflicts(inputsMetadata.ConflictIDs())
+	parentConflictIDs := b.ledger.conflictDAG.UnacceptedConflicts(inputsMetadata.ConflictIDs())
 
 	conflictingInputIDs, consumersToFork := b.determineConflictDetails(txID, inputsMetadata)
 	if conflictingInputIDs.Size() == 0 {
 		return parentConflictIDs
 	}
 
-	confirmationState := confirmation.Pending
-	for it := consumersToFork.Iterator(); it.HasNext(); {
-		if b.forkTransaction(ctx, it.Next(), conflictingInputIDs).IsAccepted() {
-			confirmationState = confirmation.Rejected
-		}
-	}
+	var anyConflictAccepted bool
+	_ = consumersToFork.ForEach(func(conflict utxo.TransactionID) (err error) {
+		anyConflictAccepted = b.forkTransaction(ctx, conflict, conflictingInputIDs).IsAccepted() || anyConflictAccepted
+		return nil
+	})
 
-	b.ledger.conflictDAG.CreateConflict(txID, parentConflictIDs, conflictingInputIDs, confirmationState)
+	if err := b.ledger.conflictDAG.CreateConflict(txID, parentConflictIDs, conflictingInputIDs, lo.Cond(anyConflictAccepted, acceptance.Rejected, acceptance.Pending)); err != nil {
+		panic(err) // TODO: handle that case when eviction is done
+	}
 
 	return advancedset.New(txID)
 }
@@ -152,12 +155,20 @@ func (b *booker) forkTransaction(ctx context.Context, txID utxo.TransactionID, o
 
 		confirmationState = txMetadata.ConfirmationState()
 		conflictingInputs := b.ledger.Utils().ResolveInputs(tx.Inputs()).Intersect(outputsSpentByConflictingTx)
-		parentConflicts := txMetadata.ConflictIDs()
+		parentConflicts := b.ledger.conflictDAG.UnacceptedConflicts(txMetadata.ConflictIDs())
 
-		if !b.ledger.conflictDAG.CreateConflict(txID, parentConflicts, conflictingInputs, confirmationState) {
-			b.ledger.conflictDAG.UpdateConflictingResources(txID, conflictingInputs)
-			b.ledger.mutex.Unlock(txID)
-			return
+		if err := b.ledger.conflictDAG.CreateConflict(txID, parentConflicts, conflictingInputs, acceptanceState(confirmationState)); err != nil {
+			defer b.ledger.mutex.Unlock(txID)
+
+			if errors.Is(err, conflictdag.ErrConflictExists) {
+				if joiningErr := b.ledger.conflictDAG.JoinConflictSets(txID, conflictingInputs); joiningErr != nil {
+					panic(joiningErr) // TODO: handle that case when eviction is done
+				}
+
+				return
+			}
+
+			panic(err) // TODO: handle that case when eviction is done
 		}
 
 		b.ledger.Events().TransactionForked.Trigger(&mempool.TransactionForkedEvent{
@@ -207,7 +218,10 @@ func (b *booker) propagateForkedConflictToFutureCone(ctx context.Context, output
 // updateConflictsAfterFork updates the ConflictIDs of a Transaction after a fork.
 func (b *booker) updateConflictsAfterFork(txMetadata *mempool.TransactionMetadata, forkedConflictID utxo.TransactionID, previousParents *advancedset.AdvancedSet[utxo.TransactionID]) (updated bool) {
 	if txMetadata.IsConflicting() {
-		b.ledger.conflictDAG.UpdateConflictParents(txMetadata.ID(), previousParents, forkedConflictID)
+		if err := b.ledger.conflictDAG.UpdateConflictParents(txMetadata.ID(), forkedConflictID, previousParents); err != nil {
+			panic(err) // TODO: handle that case when eviction is done
+		}
+
 		return false
 	}
 
@@ -218,7 +232,7 @@ func (b *booker) updateConflictsAfterFork(txMetadata *mempool.TransactionMetadat
 	newConflictIDs := txMetadata.ConflictIDs().Clone()
 	newConflictIDs.DeleteAll(previousParents)
 	newConflictIDs.Add(forkedConflictID)
-	newConflicts := b.ledger.conflictDAG.UnconfirmedConflicts(newConflictIDs)
+	newConflicts := b.ledger.conflictDAG.UnacceptedConflicts(newConflictIDs)
 
 	b.ledger.Storage().CachedOutputsMetadata(txMetadata.OutputIDs()).Consume(func(outputMetadata *mempool.OutputMetadata) {
 		outputMetadata.SetConflictIDs(newConflicts)

@@ -3,46 +3,55 @@ package sybilprotection
 import (
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/ds/advancedset"
+	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/event"
 	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 type WeightedSet struct {
+	OnTotalWeightUpdated *event.Event1[int64]
+
 	Weights             *Weights
 	weightUpdatesDetach *event.Hook[func(*WeightsBatch)]
 	members             *advancedset.AdvancedSet[identity.ID]
-	membersMutex        syncutils.RWMutexFake
 	totalWeight         int64
 	totalWeightMutex    syncutils.RWMutexFake
 }
 
-func NewWeightedSet(weights *Weights, optMembers ...identity.ID) (newWeightedSet *WeightedSet) {
-	newWeightedSet = new(WeightedSet)
-	newWeightedSet.Weights = weights
-	newWeightedSet.members = advancedset.New[identity.ID]()
+func NewWeightedSet(weights *Weights, optMembers ...identity.ID) *WeightedSet {
+	w := &WeightedSet{
+		OnTotalWeightUpdated: event.New1[int64](),
+		Weights:              weights,
+		members:              advancedset.New[identity.ID](),
+	}
+	w.weightUpdatesDetach = weights.Events.WeightsUpdated.Hook(w.applyWeightUpdates)
 
-	newWeightedSet.weightUpdatesDetach = weights.Events.WeightsUpdated.Hook(newWeightedSet.onWeightUpdated)
+	w.Weights.mutex.RLock()
+	defer w.Weights.mutex.RUnlock()
 
 	for _, member := range optMembers {
-		newWeightedSet.Add(member)
+		if w.members.Add(member) {
+			w.totalWeight += lo.Return1(w.Weights.get(member)).Value
+		}
 	}
 
-	return
+	return w
 }
 
 func (w *WeightedSet) Add(id identity.ID) (added bool) {
 	w.Weights.mutex.RLock()
 	defer w.Weights.mutex.RUnlock()
 
-	w.membersMutex.Lock()
-	defer w.membersMutex.Unlock()
-
-	w.totalWeightMutex.Lock()
-	defer w.totalWeightMutex.Unlock()
-
 	if added = w.members.Add(id); added {
 		if weight, exists := w.Weights.get(id); exists {
+			w.totalWeightMutex.Lock()
+			defer w.totalWeightMutex.Unlock()
+
 			w.totalWeight += weight.Value
+
+			if weight.Value != 0 {
+				w.OnTotalWeightUpdated.Trigger(w.totalWeight)
+			}
 		}
 	}
 
@@ -53,15 +62,16 @@ func (w *WeightedSet) Delete(id identity.ID) (removed bool) {
 	w.Weights.mutex.RLock()
 	defer w.Weights.mutex.RUnlock()
 
-	w.membersMutex.Lock()
-	defer w.membersMutex.Unlock()
-
-	w.totalWeightMutex.Lock()
-	defer w.totalWeightMutex.Unlock()
-
 	if removed = w.members.Delete(id); removed {
 		if weight, exists := w.Weights.get(id); exists {
+			w.totalWeightMutex.Lock()
+			defer w.totalWeightMutex.Unlock()
+
 			w.totalWeight -= weight.Value
+
+			if weight.Value != 0 {
+				w.OnTotalWeightUpdated.Trigger(w.totalWeight)
+			}
 		}
 	}
 
@@ -69,9 +79,6 @@ func (w *WeightedSet) Delete(id identity.ID) (removed bool) {
 }
 
 func (w *WeightedSet) Get(id identity.ID) (weight *Weight, exists bool) {
-	w.membersMutex.RLock()
-	defer w.membersMutex.RUnlock()
-
 	if !w.members.Has(id) {
 		return nil, false
 	}
@@ -84,9 +91,6 @@ func (w *WeightedSet) Get(id identity.ID) (weight *Weight, exists bool) {
 }
 
 func (w *WeightedSet) Has(id identity.ID) (has bool) {
-	w.membersMutex.RLock()
-	defer w.membersMutex.RUnlock()
-
 	return w.members.Has(id)
 }
 
@@ -123,24 +127,28 @@ func (w *WeightedSet) TotalWeight() (totalWeight int64) {
 	return w.totalWeight
 }
 
-func (w *WeightedSet) Members() *advancedset.AdvancedSet[identity.ID] {
-	w.membersMutex.RLock()
-	defer w.membersMutex.RUnlock()
-
-	return w.members
-}
-
 func (w *WeightedSet) Detach() {
 	w.weightUpdatesDetach.Unhook()
 }
 
-func (w *WeightedSet) onWeightUpdated(updates *WeightsBatch) {
+func (w *WeightedSet) String() string {
+	return w.members.String()
+}
+
+func (w *WeightedSet) applyWeightUpdates(updates *WeightsBatch) {
 	w.totalWeightMutex.Lock()
 	defer w.totalWeightMutex.Unlock()
 
+	newWeight := w.totalWeight
 	updates.ForEach(func(id identity.ID, diff int64) {
 		if w.members.Has(id) {
-			w.totalWeight += diff
+			newWeight += diff
 		}
 	})
+
+	if newWeight != w.totalWeight {
+		w.totalWeight = newWeight
+
+		w.OnTotalWeightUpdated.Trigger(newWeight)
+	}
 }

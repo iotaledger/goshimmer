@@ -2,6 +2,7 @@ package jsonmodels
 
 import (
 	"encoding/json"
+	"github.com/iotaledger/hive.go/ds/advancedset"
 	"time"
 
 	"github.com/mr-tron/base58"
@@ -9,7 +10,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/typeutils"
@@ -531,12 +531,12 @@ type ConflictWeight struct {
 }
 
 // NewConflictWeight returns a Conflict from the given ledger.Conflict.
-func NewConflictWeight(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID], confirmationState confirmation.State, aw int64) ConflictWeight {
+func NewConflictWeight(conflictID utxo.TransactionID, conflictParentsIDs *advancedset.AdvancedSet[utxo.TransactionID], conflictSets *advancedset.AdvancedSet[utxo.OutputID], confirmationState confirmation.State, aw int64) ConflictWeight {
 	return ConflictWeight{
-		ID: conflict.ID().Base58(),
+		ID: conflictID.Base58(),
 		Parents: func() []string {
 			parents := make([]string, 0)
-			for it := conflict.Parents().Iterator(); it.HasNext(); {
+			for it := conflictParentsIDs.Iterator(); it.HasNext(); {
 				parents = append(parents, it.Next().Base58())
 			}
 
@@ -544,8 +544,8 @@ func NewConflictWeight(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.O
 		}(),
 		ConflictIDs: func() []string {
 			conflictIDs := make([]string, 0)
-			for it := conflict.ConflictSets().Iterator(); it.HasNext(); {
-				conflictIDs = append(conflictIDs, it.Next().ID().Base58())
+			for it := conflictSets.Iterator(); it.HasNext(); {
+				conflictIDs = append(conflictIDs, it.Next().Base58())
 			}
 
 			return conflictIDs
@@ -563,9 +563,9 @@ type ChildConflict struct {
 }
 
 // NewChildConflict returns a ChildConflict from the given ledger.ChildConflict.
-func NewChildConflict(childConflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) *ChildConflict {
+func NewChildConflict(childConflictID utxo.TransactionID) *ChildConflict {
 	return &ChildConflict{
-		ConflictID: childConflict.ID().Base58(),
+		ConflictID: childConflictID.Base58(),
 	}
 }
 

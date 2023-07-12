@@ -8,7 +8,6 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/protocol/congestioncontrol/icca/scheduler"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
 
@@ -59,7 +58,6 @@ func configure(_ *node.Plugin) {
 func run(plugin *node.Plugin) {
 	log.Infof("Starting %s ...", PluginName)
 	registerLocalMetrics(plugin)
-	measureInitialConflictStats()
 
 	// create a background worker that update the metrics every second
 	if err := daemon.BackgroundWorker("Metrics Updater", func(ctx context.Context) {
@@ -105,29 +103,31 @@ func registerLocalMetrics(plugin *node.Plugin) {
 		increasePerComponentCounter(collector.Scheduled)
 	})
 
-	deps.Protocol.Events.Engine.Ledger.MemPool.ConflictDAG.ConflictCreated.Hook(func(event *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-		conflictID := event.ID()
-
+	deps.Protocol.Events.Engine.Ledger.MemPool.ConflictDAG.ConflictCreated.Hook(func(conflictID utxo.TransactionID) {
 		added := addActiveConflict(conflictID)
 		if added {
 			conflictTotalCountDB.Inc()
 		}
 	})
 
-	deps.Protocol.Events.Engine.Ledger.MemPool.ConflictDAG.ConflictAccepted.Hook(func(event *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
-		removed := removeActiveConflict(event.ID())
+	deps.Protocol.Events.Engine.Ledger.MemPool.ConflictDAG.ConflictAccepted.Hook(func(conflictID utxo.TransactionID) {
+		removed := removeActiveConflict(conflictID)
 		if !removed {
 			return
 		}
 
-		firstAttachment := deps.Protocol.Engine().Tangle.Booker().GetEarliestAttachment(event.ID())
-		event.ForEachConflictingConflict(func(conflictingConflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) bool {
-			conflictingID := conflictingConflict.ID()
-			if _, exists := activeConflicts[event.ID()]; exists && conflictingID != event.ID() {
+		firstAttachment := deps.Protocol.Engine().Tangle.Booker().GetEarliestAttachment(conflictID)
+		conflictingConflictIDs, exists := deps.Protocol.Engine().Ledger.MemPool().ConflictDAG().ConflictingConflicts(conflictID)
+		if !exists {
+			return
+		}
+
+		_ = conflictingConflictIDs.ForEach(func(conflictingID utxo.TransactionID) error {
+			if activeConflicts.Has(conflictID) && conflictingID != conflictID {
 				finalizedConflictCountDB.Inc()
 				removeActiveConflict(conflictingID)
 			}
-			return true
+			return nil
 		})
 
 		finalizedConflictCountDB.Inc()

@@ -13,11 +13,9 @@ import (
 	"github.com/iotaledger/goshimmer/packages/app/retainer"
 	"github.com/iotaledger/goshimmer/packages/core/confirmation"
 	"github.com/iotaledger/goshimmer/packages/core/shutdown"
-	"github.com/iotaledger/goshimmer/packages/core/votes/conflicttracker"
 	"github.com/iotaledger/goshimmer/packages/node"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/consensus/blockgadget"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool"
-	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/vm/devnetvm"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/tangle/blockdag"
@@ -149,34 +147,35 @@ func registerUTXOEvents(plugin *node.Plugin) {
 }
 
 func registerConflictEvents(plugin *node.Plugin) {
-	conflictWeightChangedFunc := func(e *conflicttracker.VoterEvent[utxo.TransactionID]) {
-		conflictConfirmationState := deps.Protocol.Engine().Ledger.MemPool().ConflictDAG().ConfirmationState(utxo.NewTransactionIDs(e.ConflictID))
-		wsBlk := &wsBlock{
-			Type: BlkTypeConflictWeightChanged,
-			Data: &conflictWeightChanged{
-				ID:                e.ConflictID.Base58(),
-				Weight:            deps.Protocol.Engine().Tangle.Booker().VirtualVoting().ConflictVotersTotalWeight(e.ConflictID),
-				ConfirmationState: conflictConfirmationState.String(),
-			},
-		}
-		broadcastWsBlock(wsBlk)
-		storeWsBlock(wsBlk)
-	}
+	// TODO: do we actually need this in the visualizer dashboard?
+	//conflictWeightChangedFunc := func(e *conflicttracker.VoterEvent[utxo.TransactionID]) {
+	//	conflictConfirmationState := deps.Protocol.Engine().Ledger.MemPool().ConflictDAG().AcceptanceState(utxo.NewTransactionIDs(e.ConflictID))
+	//	wsBlk := &wsBlock{
+	//		Type: BlkTypeConflictWeightChanged,
+	//		Data: &conflictWeightChanged{
+	//			ID:                e.ConflictID.Base58(),
+	//			Weight:            deps.Protocol.Engine().Tangle.Booker().VirtualVoting().ConflictVotersTotalWeight(e.ConflictID),
+	//			AcceptanceState: conflictConfirmationState.String(),
+	//		},
+	//	}
+	//	broadcastWsBlock(wsBlk)
+	//	storeWsBlock(wsBlk)
+	//}
 
-	deps.Protocol.Events.Engine.Ledger.MemPool.ConflictDAG.ConflictCreated.Hook(func(event *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	deps.Protocol.Events.Engine.Ledger.MemPool.ConflictDAG.ConflictCreated.Hook(func(conflictID utxo.TransactionID) {
 		wsBlk := &wsBlock{
 			Type: BlkTypeConflictVertex,
-			Data: newConflictVertex(event.ID()),
+			Data: newConflictVertex(conflictID),
 		}
 		broadcastWsBlock(wsBlk)
 		storeWsBlock(wsBlk)
 	}, event.WithWorkerPool(plugin.WorkerPool))
 
-	deps.Protocol.Events.Engine.Ledger.MemPool.ConflictDAG.ConflictAccepted.Hook(func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) {
+	deps.Protocol.Events.Engine.Ledger.MemPool.ConflictDAG.ConflictAccepted.Hook(func(conflictID utxo.TransactionID) {
 		wsBlk := &wsBlock{
 			Type: BlkTypeConflictConfirmationStateChanged,
 			Data: &conflictConfirmationStateChanged{
-				ID:                conflict.ID().Base58(),
+				ID:                conflictID.Base58(),
 				ConfirmationState: confirmation.Accepted.String(),
 				IsConfirmed:       true,
 			},
@@ -185,21 +184,20 @@ func registerConflictEvents(plugin *node.Plugin) {
 		storeWsBlock(wsBlk)
 	}, event.WithWorkerPool(plugin.WorkerPool))
 
-	deps.Protocol.Events.Engine.Ledger.MemPool.ConflictDAG.ConflictParentsUpdated.Hook(func(event *conflictdag.ConflictParentsUpdatedEvent[utxo.TransactionID, utxo.OutputID]) {
-		lo.Map(event.ParentsConflictIDs.Slice(), utxo.TransactionID.Base58)
+	deps.Protocol.Events.Engine.Ledger.MemPool.ConflictDAG.ConflictParentsUpdated.Hook(func(conflictID utxo.TransactionID, newParents utxo.TransactionIDs) {
 		wsBlk := &wsBlock{
 			Type: BlkTypeConflictParentsUpdate,
 			Data: &conflictParentUpdate{
-				ID:      event.ConflictID.Base58(),
-				Parents: lo.Map(event.ParentsConflictIDs.Slice(), utxo.TransactionID.Base58),
+				ID:      conflictID.Base58(),
+				Parents: lo.Map(newParents.Slice(), utxo.TransactionID.Base58),
 			},
 		}
 		broadcastWsBlock(wsBlk)
 		storeWsBlock(wsBlk)
 	}, event.WithWorkerPool(plugin.WorkerPool))
 
-	deps.Protocol.Events.Engine.Tangle.Booker.VirtualVoting.ConflictTracker.VoterAdded.Hook(conflictWeightChangedFunc, event.WithWorkerPool(plugin.WorkerPool))
-	deps.Protocol.Events.Engine.Tangle.Booker.VirtualVoting.ConflictTracker.VoterRemoved.Hook(conflictWeightChangedFunc, event.WithWorkerPool(plugin.WorkerPool))
+	//deps.Protocol.Events.Engine.Tangle.Booker.ConflictTracker.VoterAdded.Hook(conflictWeightChangedFunc, event.WithWorkerPool(plugin.WorkerPool))
+	//deps.Protocol.Events.Engine.Tangle.Booker.VirtualVoting.ConflictTracker.VoterRemoved.Hook(conflictWeightChangedFunc, event.WithWorkerPool(plugin.WorkerPool))
 }
 
 func setupDagsVisualizerRoutes(routeGroup *echo.Group) {
@@ -349,28 +347,30 @@ func newUTXOVertex(blkID models.BlockID, tx *devnetvm.Transaction) (ret *utxoVer
 }
 
 func newConflictVertex(conflictID utxo.TransactionID) (ret *conflictVertex) {
-	conflict, exists := deps.Protocol.Engine().Ledger.MemPool().ConflictDAG().Conflict(conflictID)
-	if !exists {
-		return
-	}
+	conflictDAG := deps.Protocol.Engine().Ledger.MemPool().ConflictDAG()
+
 	conflicts := make(map[utxo.OutputID][]utxo.TransactionID)
 	// get conflicts of a conflict
-	for it := conflict.ConflictSets().Iterator(); it.HasNext(); {
-		conflictSet := it.Next()
-		conflicts[conflictSet.ID()] = make([]utxo.TransactionID, 0)
-
-		conflicts[conflictSet.ID()] = lo.Map(conflictSet.Conflicts().Slice(), func(conflict *conflictdag.Conflict[utxo.TransactionID, utxo.OutputID]) utxo.TransactionID {
-			return conflict.ID()
-		})
+	conflictSetIDs, exists := conflictDAG.ConflictSets(conflictID)
+	if !exists {
+		return nil
 	}
-	confirmationState := deps.Protocol.Engine().Ledger.MemPool().ConflictDAG().ConfirmationState(utxo.NewTransactionIDs(conflictID))
+
+	for it := conflictSetIDs.Iterator(); it.HasNext(); {
+		conflictSetID := it.Next()
+		if conflictSetMembers, conflictSetExists := conflictDAG.ConflictSetMembers(conflictSetID); conflictSetExists {
+			conflicts[conflictSetID] = conflictSetMembers.Slice()
+		}
+	}
+
+	acceptanceState := conflictDAG.AcceptanceState(utxo.NewTransactionIDs(conflictID))
 	ret = &conflictVertex{
 		ID:                conflictID.Base58(),
-		Parents:           lo.Map(conflict.Parents().Slice(), utxo.TransactionID.Base58),
-		Conflicts:         jsonmodels.NewGetConflictConflictsResponse(conflict.ID(), conflicts),
-		IsConfirmed:       confirmationState.IsAccepted(),
-		ConfirmationState: confirmationState.String(),
-		AW:                deps.Protocol.Engine().Tangle.Booker().VirtualVoting().ConflictVotersTotalWeight(conflictID),
+		Parents:           lo.Map(lo.Return1(conflictDAG.ConflictParents(conflictID)).Slice(), utxo.TransactionID.Base58),
+		Conflicts:         jsonmodels.NewGetConflictConflictsResponse(conflictID, conflicts),
+		IsConfirmed:       acceptanceState.IsAccepted(),
+		ConfirmationState: acceptanceState.String(),
+		//AW:                deps.Protocol.Engine().Tangle.Booker().VirtualVoting().ConflictVotersTotalWeight(conflictID),
 	}
 	return
 }

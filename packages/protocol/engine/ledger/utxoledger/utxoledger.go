@@ -200,7 +200,7 @@ func (l *UTXOLedger) onTransactionAccepted(transactionEvent *mempool.Transaction
 
 // onTransactionInclusionUpdated is triggered when a transaction inclusion state is updated.
 func (l *UTXOLedger) onTransactionInclusionUpdated(inclusionUpdatedEvent *mempool.TransactionInclusionUpdatedEvent) {
-	if l.engine.Ledger.MemPool().ConflictDAG().ConfirmationState(inclusionUpdatedEvent.TransactionMetadata.ConflictIDs()).IsAccepted() {
+	if l.engine.Ledger.MemPool().ConflictDAG().AcceptanceState(inclusionUpdatedEvent.TransactionMetadata.ConflictIDs()).IsAccepted() {
 		l.stateDiffs.moveTransactionToOtherSlot(inclusionUpdatedEvent.TransactionMetadata, inclusionUpdatedEvent.PreviousInclusionSlot, inclusionUpdatedEvent.InclusionSlot)
 	}
 }

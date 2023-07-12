@@ -7,9 +7,9 @@ import (
 
 	"github.com/iotaledger/goshimmer/packages/core/votes"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag"
+	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/mempool/conflictdag/tests"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/ledger/utxo"
 	"github.com/iotaledger/goshimmer/packages/protocol/engine/sybilprotection"
-	"github.com/iotaledger/hive.go/constraints"
 	"github.com/iotaledger/hive.go/crypto/identity"
 	"github.com/iotaledger/hive.go/ds/advancedset"
 	"github.com/iotaledger/hive.go/kvstore/mapdb"
@@ -18,16 +18,16 @@ import (
 
 // region TestFramework ////////////////////////////////////////////////////////////////////////////////////////////////
 
-type TestFramework[VotePowerType constraints.Comparable[VotePowerType]] struct {
+type TestFramework[VotePower conflictdag.VotePowerType[VotePower]] struct {
 	test        *testing.T
-	Instance    *ConflictTracker[utxo.TransactionID, utxo.OutputID, VotePowerType]
+	Instance    *ConflictTracker[utxo.TransactionID, utxo.OutputID, VotePower]
 	Votes       *votes.TestFramework
-	ConflictDAG *conflictdag.TestFramework
+	ConflictDAG *tests.Framework[utxo.TransactionID, utxo.OutputID, VotePower]
 }
 
 // NewTestFramework is the constructor of the TestFramework.
-func NewTestFramework[VotePowerType constraints.Comparable[VotePowerType]](test *testing.T, votesTF *votes.TestFramework, conflictDAGTF *conflictdag.TestFramework, conflictTracker *ConflictTracker[utxo.TransactionID, utxo.OutputID, VotePowerType]) *TestFramework[VotePowerType] {
-	t := &TestFramework[VotePowerType]{
+func NewTestFramework[VotePower conflictdag.VotePowerType[VotePower]](test *testing.T, votesTF *votes.TestFramework, conflictDAGTF *tests.Framework[utxo.TransactionID, utxo.OutputID, VotePower], conflictTracker *ConflictTracker[utxo.TransactionID, utxo.OutputID, VotePower]) *TestFramework[VotePower] {
+	t := &TestFramework[VotePower]{
 		test:        test,
 		Instance:    conflictTracker,
 		Votes:       votesTF,
@@ -43,13 +43,13 @@ func NewTestFramework[VotePowerType constraints.Comparable[VotePowerType]](test 
 	return t
 }
 
-func NewDefaultFramework[VotePowerType constraints.Comparable[VotePowerType]](t *testing.T) *TestFramework[VotePowerType] {
+func NewDefaultFramework[VotePower conflictdag.VotePowerType[VotePower]](t *testing.T) *TestFramework[VotePower] {
 	votesTF := votes.NewTestFramework(t, sybilprotection.NewWeights(mapdb.NewMapDB()).NewWeightedSet())
-	conflictDAGTF := conflictdag.NewTestFramework(t, conflictdag.New[utxo.TransactionID, utxo.OutputID]())
+	conflictDAGTF := tests.NewFramework(t, conflictdag.New[utxo.TransactionID, utxo.OutputID]())
 	return NewTestFramework(t,
 		votesTF,
 		conflictDAGTF,
-		NewConflictTracker[utxo.TransactionID, utxo.OutputID, VotePowerType](conflictDAGTF.Instance, votesTF.Validators),
+		NewConflictTracker[utxo.TransactionID, utxo.OutputID, VotePower](conflictDAGTF.Instance, votesTF.Validators),
 	)
 }
 
