@@ -1,7 +1,6 @@
 package blockdag
 
 import (
-	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -17,6 +16,7 @@ import (
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/debug"
 	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
@@ -34,7 +34,7 @@ type TestFramework struct {
 	invalidBlocks       int32
 	attachedBlocks      int32
 	orphanedBlocks      models.BlockIDs
-	orphanedBlocksMutex sync.Mutex
+	orphanedBlocksMutex syncutils.Mutex
 
 	slotTimeProviderFunc func() *slot.TimeProvider
 

@@ -1,7 +1,6 @@
 package evilwallet
 
 import (
-	"sync"
 	"time"
 
 	"github.com/iotaledger/goshimmer/client"
@@ -14,6 +13,7 @@ import (
 	"github.com/iotaledger/goshimmer/packages/protocol/models"
 	"github.com/iotaledger/hive.go/core/slot"
 	"github.com/iotaledger/hive.go/crypto/identity"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 type ServersStatus []*wallet.ServerStatus
@@ -47,7 +47,7 @@ type WebClients struct {
 	// helper variable indicating which clt was recently used, useful for double, triple,... spends
 	lastUsed int
 
-	mu sync.Mutex
+	mu syncutils.Mutex
 }
 
 // NewWebClients creates Connector from provided GoShimmerAPI urls.

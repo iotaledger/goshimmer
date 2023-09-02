@@ -598,7 +598,7 @@ const (
 type AliasOutput struct {
 	// common for all outputs
 	outputID      utxo.OutputID
-	outputIDMutex syncutils.RWMutexFake
+	outputIDMutex syncutils.RWMutex
 	balances      *ColoredBalances
 
 	// aliasAddress becomes immutable after created for a lifetime. It is returned as Address()
@@ -632,7 +632,7 @@ type AliasOutput struct {
 	// governance transition
 	delegationTimelock time.Time
 
-	mutex syncutils.RWMutexFake
+	mutex syncutils.RWMutex
 	objectstorage.StorableObjectFlags
 }
 
@@ -1581,7 +1581,7 @@ var _ Output = new(AliasOutput)
 // - data payload for arbitrary metadata (size limits apply).
 type ExtendedLockedOutput struct {
 	id       utxo.OutputID
-	idMutex  syncutils.RWMutexFake
+	idMutex  syncutils.RWMutex
 	balances *ColoredBalances
 	address  Address // any address type
 

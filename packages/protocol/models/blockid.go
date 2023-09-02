@@ -176,7 +176,7 @@ var (
 	_BlockIDAliases = make(map[BlockID]string)
 
 	// _BlockIDAliasesMutex is the mutex that is used to synchronize access to the previous map.
-	_BlockIDAliasesMutex = syncutils.RWMutexFake{}
+	_BlockIDAliasesMutex = syncutils.RWMutex{}
 )
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

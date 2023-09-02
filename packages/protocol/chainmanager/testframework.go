@@ -27,7 +27,7 @@ type TestFramework struct {
 	missingCommitmentReceived int32
 	commitmentBelowRoot       int32
 
-	syncutils.RWMutexFake
+	syncutils.RWMutex
 }
 
 func NewTestFramework(test *testing.T, opts ...options.Option[TestFramework]) (testFramework *TestFramework) {

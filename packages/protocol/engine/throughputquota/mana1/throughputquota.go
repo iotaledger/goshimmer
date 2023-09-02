@@ -32,10 +32,10 @@ type ThroughputQuota struct {
 	//workers             *workerpool.Group
 	quotaByIDStorage    *kvstore.TypedStore[identity.ID, storable.SerializableInt64, *identity.ID, *storable.SerializableInt64]
 	quotaByIDCache      *shrinkingmap.ShrinkingMap[identity.ID, int64]
-	quotaByIDMutex      syncutils.RWMutexFake // TODO: replace this lock with DAG mutex so each entity is individually locked
+	quotaByIDMutex      syncutils.RWMutex // TODO: replace this lock with DAG mutex so each entity is individually locked
 	totalBalanceStorage kvstore.KVStore
 	totalBalance        int64
-	totalBalanceMutex   syncutils.RWMutexFake
+	totalBalanceMutex   syncutils.RWMutex
 
 	traits.BatchCommittable
 	module.Module

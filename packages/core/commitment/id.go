@@ -144,5 +144,5 @@ var (
 	_IDAliases = make(map[ID]string)
 
 	// _IDAliasesMutex is the mutex that is used to synchronize access to the previous map.
-	_IDAliasesMutex = syncutils.RWMutexFake{}
+	_IDAliasesMutex = syncutils.RWMutex{}
 )

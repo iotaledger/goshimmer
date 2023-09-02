@@ -36,7 +36,7 @@ type TestFramework struct {
 	transactionsByAlias map[string]*mockedvm.MockedTransaction
 
 	// transactionsByAliasMutex contains a mutex that is used to synchronize parallel access to the transactionsByAlias.
-	transactionsByAliasMutex syncutils.RWMutexFake
+	transactionsByAliasMutex syncutils.RWMutex
 
 	// outputIDsByAlias contains a dictionary that maps a human-readable alias to an OutputID.
 	outputIDsByAlias map[string]utxo.OutputID

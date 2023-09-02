@@ -43,7 +43,7 @@ type Manager struct {
 	validationLock       sync.RWMutex
 
 	syncingInProgress bool
-	syncingLock       syncutils.RWMutexFake
+	syncingLock       syncutils.RWMutex
 	slotsChannels     map[slot.Index]*slotChannels
 
 	successfulSyncSlot slot.Index
@@ -52,7 +52,7 @@ type Manager struct {
 }
 
 type slotChannels struct {
-	syncutils.RWMutexFake
+	syncutils.RWMutex
 	startChan chan *slotSyncStart
 	blockChan chan *slotSyncBlock
 	endChan   chan *slotSyncEnd

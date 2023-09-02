@@ -4,7 +4,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -31,6 +30,7 @@ import (
 	"github.com/iotaledger/hive.go/runtime/event"
 	"github.com/iotaledger/hive.go/runtime/module"
 	"github.com/iotaledger/hive.go/runtime/options"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
@@ -54,7 +54,7 @@ type Engine struct {
 	Workers *workerpool.Group
 
 	isBootstrapped      bool
-	isBootstrappedMutex sync.Mutex
+	isBootstrappedMutex syncutils.Mutex
 
 	optsBootstrappedThreshold time.Duration
 	optsEntryPointsDepth      int
@@ -62,7 +62,7 @@ type Engine struct {
 	optsTSCManagerOptions     []options.Option[tsc.Manager]
 	optsBlockRequester        []options.Option[eventticker.EventTicker[models.BlockID]]
 
-	ProcessingMutex sync.Mutex
+	ProcessingMutex syncutils.Mutex
 
 	module.Module
 }

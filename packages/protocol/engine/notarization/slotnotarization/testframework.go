@@ -29,7 +29,7 @@ type TestFramework struct {
 	blocksByID        map[string]*models.Block
 	slotEntityCounter map[slot.Index]int
 
-	syncutils.RWMutexFake
+	syncutils.RWMutex
 }
 
 func NewTestFramework(test *testing.T, slotTimeProvider *slot.TimeProvider) *TestFramework {

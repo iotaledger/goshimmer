@@ -3,7 +3,6 @@ package eviction
 import (
 	"io"
 	"math"
-	"sync"
 
 	"github.com/pkg/errors"
 
@@ -27,8 +26,8 @@ type State struct {
 	latestRootBlocks *ringbuffer.RingBuffer[models.BlockID]
 	storage          *storage.Storage
 	lastEvictedSlot  slot.Index
-	evictionMutex    syncutils.RWMutexFake
-	triggerMutex     sync.Mutex
+	evictionMutex    syncutils.RWMutex
+	triggerMutex     syncutils.Mutex
 
 	optsRootBlocksEvictionDelay slot.Index
 }

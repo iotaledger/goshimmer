@@ -16,7 +16,7 @@ type StructureDetails struct {
 	isPastMarker  bool
 	pastMarkers   *Markers
 
-	syncutils.RWMutexFake
+	syncutils.RWMutex
 }
 
 // NewStructureDetails creates an empty StructureDetails object.

@@ -27,7 +27,7 @@ type UnspentOutputs struct {
 
 	memPool               mempool.MemPool
 	consumers             map[ledger.UnspentOutputsSubscriber]types.Empty
-	consumersMutex        syncutils.RWMutexFake
+	consumersMutex        syncutils.RWMutex
 	batchConsumers        map[ledger.UnspentOutputsSubscriber]types.Empty
 	batchCreatedOutputIDs utxo.OutputIDs
 	batchSpentOutputIDs   utxo.OutputIDs

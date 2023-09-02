@@ -54,7 +54,7 @@ type TestFramework struct {
 
 	mockAcceptance       *blockgadget.MockBlockGadget
 	scheduledBlocks      *shrinkingmap.ShrinkingMap[models.BlockID, *scheduler.Block]
-	scheduledBlocksMutex syncutils.RWMutexFake
+	scheduledBlocksMutex syncutils.RWMutex
 
 	test       *testing.T
 	tipAdded   uint32

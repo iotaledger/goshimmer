@@ -18,7 +18,7 @@ type Conflict[ConflictIDType, ResourceIDType comparable] struct {
 
 	confirmationState confirmation.State
 
-	m syncutils.RWMutexFake
+	m syncutils.RWMutex
 }
 
 func NewConflict[ConflictIDType comparable, ResourceIDType comparable](id ConflictIDType, parents *advancedset.AdvancedSet[ConflictIDType], conflictSets *advancedset.AdvancedSet[*ConflictSet[ConflictIDType, ResourceIDType]], confirmationState confirmation.State) (c *Conflict[ConflictIDType, ResourceIDType]) {
@@ -143,7 +143,7 @@ type ConflictSet[ConflictIDType, ResourceIDType comparable] struct {
 	id        ResourceIDType
 	conflicts *advancedset.AdvancedSet[*Conflict[ConflictIDType, ResourceIDType]]
 
-	m syncutils.RWMutexFake
+	m syncutils.RWMutex
 }
 
 func NewConflictSet[ConflictIDType comparable, ResourceIDType comparable](id ResourceIDType) (c *ConflictSet[ConflictIDType, ResourceIDType]) {

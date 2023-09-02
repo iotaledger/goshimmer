@@ -186,7 +186,7 @@ var (
 	_outputIDAliases = make(map[OutputID]string)
 
 	// _outputIDAliasesMutex is the mutex that is used to synchronize access to the previous map.
-	_outputIDAliasesMutex = syncutils.RWMutexFake{}
+	_outputIDAliasesMutex = syncutils.RWMutex{}
 )
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

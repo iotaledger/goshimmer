@@ -53,7 +53,7 @@ type Manager struct {
 	local      *peer.Local
 	libp2pHost host.Host
 
-	acceptMutex syncutils.RWMutexFake
+	acceptMutex syncutils.RWMutex
 	acceptMap   map[libp2ppeer.ID]*AcceptMatcher
 
 	log                 *logger.Logger
@@ -62,9 +62,9 @@ type Manager struct {
 	isStopped atomic.Bool
 
 	neighbors      map[identity.ID]*Neighbor
-	neighborsMutex syncutils.RWMutexFake
+	neighborsMutex syncutils.RWMutex
 
-	registeredProtocolsMutex syncutils.RWMutexFake
+	registeredProtocolsMutex syncutils.RWMutex
 	registeredProtocols      map[protocol.ID]*ProtocolHandler
 }
 

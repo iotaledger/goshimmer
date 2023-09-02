@@ -23,7 +23,7 @@ type UTXOLedger struct {
 	memPool        mempool.MemPool
 	unspentOutputs *UnspentOutputs
 	stateDiffs     *StateDiffs
-	mutex          syncutils.RWMutexFake
+	mutex          syncutils.RWMutex
 
 	optsMemPoolProvider module.Provider[*engine.Engine, mempool.MemPool]
 

@@ -16,7 +16,7 @@ const mainPartition = "main"
 
 type MockedNetwork struct {
 	dispatchersByPartition map[string]map[identity.ID]*MockedEndpoint
-	dispatchersMutex       syncutils.RWMutexFake
+	dispatchersMutex       syncutils.RWMutex
 }
 
 func NewMockedNetwork() (mockedNetwork *MockedNetwork) {
@@ -83,7 +83,7 @@ type MockedEndpoint struct {
 	network       *MockedNetwork
 	partition     string
 	handlers      map[string]func(identity.ID, proto.Message) error
-	handlersMutex syncutils.RWMutexFake
+	handlersMutex syncutils.RWMutex
 }
 
 func NewMockedEndpoint(id identity.ID, network *MockedNetwork, partition string) (newMockedNetwork *MockedEndpoint) {

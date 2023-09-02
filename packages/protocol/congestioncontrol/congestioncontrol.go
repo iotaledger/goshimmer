@@ -13,7 +13,7 @@ type CongestionControl struct {
 	Events *Events
 
 	scheduler      *scheduler.Scheduler
-	schedulerMutex syncutils.RWMutexFake
+	schedulerMutex syncutils.RWMutex
 
 	optsSchedulerOptions []options.Option[scheduler.Scheduler]
 }

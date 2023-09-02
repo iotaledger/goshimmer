@@ -35,7 +35,7 @@ type TipManager struct {
 
 	walkerCache *memstorage.SlotStorage[models.BlockID, types.Empty]
 
-	mutex               syncutils.RWMutexFake
+	mutex               syncutils.RWMutex
 	tips                *randommap.RandomMap[models.BlockID, *scheduler.Block]
 	TipsConflictTracker *TipsConflictTracker
 

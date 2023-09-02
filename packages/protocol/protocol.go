@@ -60,7 +60,7 @@ type Protocol struct {
 	dispatcher      network.Endpoint
 	networkProtocol *network.Protocol
 
-	activeEngineMutex syncutils.RWMutexFake
+	activeEngineMutex syncutils.RWMutex
 	mainEngine        *engine.Engine
 	candidateEngine   *engine.Engine
 

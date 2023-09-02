@@ -55,10 +55,10 @@ type BlockDAG struct {
 	// deadlock can occur only when an eviction is triggered while the above scenario unfolds.
 	solidifierMutex sync.RWMutex
 
-	futureBlocksMutex syncutils.RWMutexFake
+	futureBlocksMutex syncutils.RWMutex
 
 	// evictionMutex is a mutex that is used to synchronize the eviction of elements from the BlockDAG.
-	evictionMutex syncutils.RWMutexFake
+	evictionMutex syncutils.RWMutex
 
 	slotTimeProviderFunc func() *slot.TimeProvider
 

@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"strconv"
-	"sync"
 	"text/tabwriter"
 	"time"
 
@@ -17,6 +16,7 @@ import (
 	"github.com/iotaledger/goshimmer/client/evilspammer"
 	"github.com/iotaledger/goshimmer/client/evilwallet"
 	"github.com/iotaledger/hive.go/ds/types"
+	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
 const (
@@ -201,9 +201,9 @@ type Mode struct {
 
 	activeSpammers map[int]*evilspammer.Spammer
 	spammerLog     *SpammerLog
-	spamMutex      sync.Mutex
+	spamMutex      syncutils.Mutex
 
-	stdOutMutex sync.Mutex
+	stdOutMutex syncutils.Mutex
 }
 
 func NewInteractiveMode() *Mode {
@@ -810,7 +810,7 @@ type SpammerLog struct {
 	spamStartTime []time.Time
 	spamStopTime  []time.Time
 	tabWriter     io.Writer
-	mu            sync.Mutex
+	mu            syncutils.Mutex
 }
 
 func NewSpammerLog() *SpammerLog {

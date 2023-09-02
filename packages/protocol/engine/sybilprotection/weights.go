@@ -1,8 +1,6 @@
 package sybilprotection
 
 import (
-	"sync"
-
 	"github.com/pkg/errors"
 	"github.com/zyedidia/generic/cache"
 
@@ -25,9 +23,9 @@ type Weights struct {
 
 	weights      *ads.Map[identity.ID, Weight, *identity.ID, *Weight]
 	weightsCache *cache.Cache[identity.ID, *Weight]
-	cacheMutex   sync.Mutex
+	cacheMutex   syncutils.Mutex
 	totalWeight  *Weight
-	mutex        syncutils.RWMutexFake
+	mutex        syncutils.RWMutex
 }
 
 // NewWeights creates a new Weights instance.

@@ -69,7 +69,7 @@ type Sequence struct {
 	lowestIndex        Index
 	highestIndex       Index
 
-	syncutils.RWMutexFake
+	syncutils.RWMutex
 }
 
 // NewSequence creates a new Sequence from the given details.

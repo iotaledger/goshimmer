@@ -47,7 +47,7 @@ type Node struct {
 	Protocol *protocol.Protocol
 
 	tf    *engine.TestFramework
-	mutex syncutils.RWMutexFake
+	mutex syncutils.RWMutex
 }
 
 func NewNode(t *testing.T, keyPair ed25519.KeyPair, network *network.MockedNetwork, partition string, snapshotPath string, ledgerProvider module.Provider[*engine.Engine, ledger.Ledger]) *Node {

@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
-	"sync"
 
 	"github.com/pkg/errors"
 	"github.com/zyedidia/generic/cache"
@@ -29,10 +28,10 @@ type Manager struct {
 	openDBs         *cache.Cache[slot.Index, *dbInstance]
 	bucketedBaseDir string
 	dbSizes         *shrinkingmap.ShrinkingMap[slot.Index, int64]
-	openDBsMutex    sync.Mutex
+	openDBsMutex    syncutils.Mutex
 
 	maxPruned      slot.Index
-	maxPrunedMutex syncutils.RWMutexFake
+	maxPrunedMutex syncutils.RWMutex
 
 	// The granularity of the DB instances (i.e. how many buckets/slots are stored in one DB).
 	optsGranularity int64

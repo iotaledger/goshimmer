@@ -36,7 +36,7 @@ type Manager struct {
 
 	storage         *storage.Storage
 	ledgerState     ledger.Ledger
-	commitmentMutex syncutils.RWMutexFake
+	commitmentMutex syncutils.RWMutex
 
 	acceptedTimeFunc func() time.Time
 
